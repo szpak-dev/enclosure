@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from enclosure.shared import SourceCodePackage
 
@@ -15,9 +15,12 @@ class WriteMode(StrEnum):
 class Template(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    path: str
-    content: str
-    write_mode: WriteMode = WriteMode.OVERWRITE
+    path: str = Field(description="Relative output path of the rendered file.")
+    content: str = Field(description="Template source rendered into the output file.")
+    write_mode: WriteMode = Field(
+        default=WriteMode.OVERWRITE,
+        description="Whether rendering may replace an existing file.",
+    )
 
     @field_validator("path")
     @classmethod

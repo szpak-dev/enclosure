@@ -1,12 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DetectedStack(BaseModel):
-    language: str
-    language_version: str
-    package_manager: str
+    language: str = Field(description="Detected programming-language identifier.")
+    language_version: str = Field(description="Detected programming-language version, when available.")
+    package_manager: str = Field(description="Detected package-manager identifier.")
 
 
 class DiscoveredProject(BaseModel):
-    root: str
-    stack: DetectedStack
+    root: str = Field(description="Absolute path to the project directory.")
+    stack: DetectedStack = Field(description="Technology stack detected in the project directory.")

@@ -18,7 +18,7 @@ class VariableType(StrEnum):
 class BaseVariable(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    name: str
+    name: str = Field(description="Parameter name referenced by scaffolding templates.")
 
     @field_validator("name")
     @classmethod
@@ -29,42 +29,60 @@ class BaseVariable(BaseModel):
 
 
 class StringVariable(BaseVariable):
-    type: Literal[VariableType.STRING] = VariableType.STRING
+    type: Literal[VariableType.STRING] = Field(
+        default=VariableType.STRING,
+        description="Value type required for the parameter.",
+    )
 
     def validate_value(self, value: JsonValue) -> JsonValue:
         return TypeAdapter(str).validate_python(value, strict=True)
 
 
 class IntegerVariable(BaseVariable):
-    type: Literal[VariableType.INTEGER] = VariableType.INTEGER
+    type: Literal[VariableType.INTEGER] = Field(
+        default=VariableType.INTEGER,
+        description="Value type required for the parameter.",
+    )
 
     def validate_value(self, value: JsonValue) -> JsonValue:
         return TypeAdapter(int).validate_python(value, strict=True)
 
 
 class NumberVariable(BaseVariable):
-    type: Literal[VariableType.NUMBER] = VariableType.NUMBER
+    type: Literal[VariableType.NUMBER] = Field(
+        default=VariableType.NUMBER,
+        description="Value type required for the parameter.",
+    )
 
     def validate_value(self, value: JsonValue) -> JsonValue:
         return TypeAdapter(int | float).validate_python(value, strict=True)
 
 
 class BooleanVariable(BaseVariable):
-    type: Literal[VariableType.BOOLEAN] = VariableType.BOOLEAN
+    type: Literal[VariableType.BOOLEAN] = Field(
+        default=VariableType.BOOLEAN,
+        description="Value type required for the parameter.",
+    )
 
     def validate_value(self, value: JsonValue) -> JsonValue:
         return TypeAdapter(bool).validate_python(value, strict=True)
 
 
 class ArrayVariable(BaseVariable):
-    type: Literal[VariableType.ARRAY] = VariableType.ARRAY
+    type: Literal[VariableType.ARRAY] = Field(
+        default=VariableType.ARRAY,
+        description="Value type required for the parameter.",
+    )
 
     def validate_value(self, value: JsonValue) -> JsonValue:
         return TypeAdapter(list[JsonValue]).validate_python(value, strict=True)
 
 
 class ObjectVariable(BaseVariable):
-    type: Literal[VariableType.OBJECT] = VariableType.OBJECT
+    type: Literal[VariableType.OBJECT] = Field(
+        default=VariableType.OBJECT,
+        description="Value type required for the parameter.",
+    )
 
     def validate_value(self, value: JsonValue) -> JsonValue:
         return TypeAdapter(dict[str, JsonValue]).validate_python(value, strict=True)
