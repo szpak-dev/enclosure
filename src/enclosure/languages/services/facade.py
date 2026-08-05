@@ -6,6 +6,7 @@ from wireup import injectable
 from enclosure.shared import DiagramsService
 from enclosure.shared.source_code.extraction import SourceExtractionService
 
+from ..errors import LanguageDoesNotExist
 from .base import Language, PackageManager
 from .errors import LanguagesError
 
@@ -20,8 +21,14 @@ class LanguagesService:
     def find_all(self) -> list[Language]:
         return sorted(self.languages, key=lambda language: language.id)
 
+    def get(self, language_id: str) -> Language:
+        for language in self.languages:
+            if language.id == language_id:
+                return language
+        raise LanguageDoesNotExist(language_id)
+
     def get_extensions(self, language: str) -> list[str]:
-        return list(self._get(language).source_extensions)
+        return list(self.get(language).source_extensions)
 
     def get_ids(self) -> list[str]:
         return [language.id for language in self.languages]
@@ -43,7 +50,7 @@ class LanguagesService:
         raise LanguagesError("Package manager could not be recognized.")
 
     def validate_source(self, language: str, path: str, content: str) -> None:
-        supported_language = self._get(language)
+        supported_language = self.get(language)
         extensions = supported_language.source_extensions
 
         if not path.endswith(tuple(extensions)):
@@ -55,9 +62,3 @@ class LanguagesService:
 
         if supported_language.requires_extraction:
             self.extraction.validate(supported_language.id, path, content)
-
-    def _get(self, language: str) -> Language:
-        for supported_language in self.languages:
-            if supported_language.id == language:
-                return supported_language
-        raise LanguagesError(f"Unsupported language ID: {language!r}")

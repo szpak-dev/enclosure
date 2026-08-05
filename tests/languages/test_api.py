@@ -43,3 +43,22 @@ def test_lists_supported_languages() -> None:
             "source_extensions": [".yml", ".yaml"],
         },
     ]
+
+
+def test_gets_supported_language() -> None:
+    response = Client().get("/api/languages/python")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": "python",
+        "name": "Python",
+        "aliases": ["py"],
+        "source_extensions": [".py"],
+    }
+
+
+def test_missing_language_returns_not_found() -> None:
+    response = Client().get("/api/languages/missing")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Resource not found."}

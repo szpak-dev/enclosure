@@ -26,3 +26,26 @@ def test_siren_discovers_and_lists_languages() -> None:
         "typescript",
         "yaml",
     ]
+
+
+def test_siren_gets_language_details() -> None:
+    response = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE).get("/siren/languages/python")
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == SIREN_MEDIA_TYPE
+    assert response.json()["class"] == ["language"]
+    assert response.json()["properties"] == {
+        "id": "python",
+        "name": "Python",
+        "aliases": ["py"],
+        "source_extensions": [".py"],
+    }
+
+
+def test_siren_projects_missing_language_as_not_found() -> None:
+    response = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE).get("/siren/languages/missing")
+
+    assert response.status_code == 404
+    assert response["Content-Type"] == SIREN_MEDIA_TYPE
+    assert response.json()["class"] == ["error"]
+    assert response.json()["properties"] == {"detail": "Resource not found.", "status": 404}
