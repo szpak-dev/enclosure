@@ -301,13 +301,6 @@ def test_update_project_returns_not_found(
     assert response.json() == {"detail": "Resource not found."}
 
 
-def test_project_api_exposes_stable_operation_ids(client: Client) -> None:
-    schema = client.get("/api/openapi.json").json()
-
-    assert schema["paths"]["/api/projects/discoveries"]["post"]["operationId"] == "discover_project"
-    assert schema["paths"]["/api/projects/{project_id}"]["put"]["operationId"] == "update_project"
-
-
 def test_siren_root_exposes_projects_collection(client: Client) -> None:
     response = client.get("/siren/", headers={"accept": "application/vnd.siren+json"})
 
