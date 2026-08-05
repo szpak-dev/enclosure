@@ -21,6 +21,18 @@ class RegisterProject(Schema):
     record_ids: list[str] = Field(description="Identifiers of records that provide project context.")
 
 
+class GenerateProjectSource(Schema):
+    destination: str = Field(
+        description="Destination directory relative to the registered project root.",
+        min_length=1,
+    )
+    parameters: dict[str, JsonValue] = Field(description="Values for the associated scaffolding variables.")
+
+
+class GeneratedProjectSource(Schema):
+    files: tuple[str, ...] = Field(description="Written file paths relative to the registered project root.")
+
+
 class Project(Schema):
     id: ProjectId
     root: str = Field(description="Absolute path to the project directory.")

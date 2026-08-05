@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 
 from django.db.models import QuerySet
+from pydantic import JsonValue
 from wireup import injectable
 
 from ..errors import ProjectsError
 from ..models import Project
 from .adapters import RecordsAdapter, ScaffoldingsAdapter
+from .generation import GenerationResult, GenerationService
 from .reports import ReportsService
 from .reports.adapters import ArchitectureAdapter
 from .repository import ProjectRepository
@@ -16,6 +18,7 @@ from .stack import DiscoveredProject, StackDetector
 @dataclass(frozen=True)
 class ProjectsService:
     architecture: ArchitectureAdapter
+    generation: GenerationService
     records: RecordsAdapter
     scaffoldings: ScaffoldingsAdapter
     stack: StackDetector
@@ -31,6 +34,14 @@ class ProjectsService:
 
     def get_project(self, project_id: str) -> Project:
         return self.repository.get(project_id)
+
+    def generate_source(
+        self,
+        project_id: str,
+        destination: str,
+        parameters: dict[str, JsonValue],
+    ) -> GenerationResult:
+        return self.generation.generate(project_id, destination, parameters)
 
     def register_project(
         self,

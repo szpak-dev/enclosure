@@ -276,6 +276,93 @@ def test_updates_registered_project(
 
 
 @pytest.mark.django_db
+def test_generates_project_source_from_associated_scaffolding(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    created = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    target = tmp_path / "generated" / "src" / "package" / "__init__.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("existing", encoding="utf-8")
+
+    response = client.post(
+        f"/api/projects/{created['id']}/source-generations",
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"files": ["generated/src/package/__init__.py"]}
+    assert target.read_text(encoding="utf-8") == ""
+
+
+@pytest.mark.django_db
+def test_generation_respects_create_if_missing(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    scaffolding = client.get(f"/api/scaffoldings/{dependencies['scaffolding_id']}").json()
+    scaffolding["spec"]["templates"][0]["write_mode"] = "create_if_missing"
+    updated = client.put(
+        f"/api/scaffoldings/{dependencies['scaffolding_id']}",
+        data=scaffolding,
+        content_type="application/json",
+    )
+    assert updated.status_code == 200
+    created = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    target = tmp_path / "generated" / "src" / "package" / "__init__.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("existing", encoding="utf-8")
+
+    response = client.post(
+        f"/api/projects/{created['id']}/source-generations",
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Destination already contains: generated/src/package/__init__.py"}
+    assert target.read_text(encoding="utf-8") == "existing"
+
+
+@pytest.mark.django_db
+def test_generation_rejects_destination_outside_project_root(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    created = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+
+    response = client.post(
+        f"/api/projects/{created['id']}/source-generations",
+        data={"destination": f"../{outside.name}", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Generation destination escapes the project root."}
+    assert not outside.exists()
+
+
+@pytest.mark.django_db
 def test_get_project_returns_not_found(client: Client) -> None:
     response = client.get("/api/projects/missing")
 

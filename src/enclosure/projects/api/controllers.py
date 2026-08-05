@@ -48,6 +48,25 @@ class ProjectsController(ControllerBase):
         )
         return Status(201, project)
 
+    @route.post(
+        "/{project_id}/source-generations",
+        response=schemas.GeneratedProjectSource,
+        operation_id="generate_project_source",
+        summary="Generate project source",
+        description="Render the project's associated scaffolding into a project-relative destination.",
+    )
+    def generate_source(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.GenerateProjectSource,
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).generate_source(
+            project_id,
+            body.destination,
+            body.parameters,
+        )
+
     @route.get(
         "/{project_id}",
         response=schemas.Project,
