@@ -85,6 +85,7 @@ TEMPLATES = [
         },
     }
 ]
+ASGI_APPLICATION = "enclosure.core.asgi.application"
 WSGI_APPLICATION = "enclosure.core.wsgi.application"
 database = dj_database_url.config(default=os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"))
 if database_host := os.getenv("DATABASE_HOST"):
