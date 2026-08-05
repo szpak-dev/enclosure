@@ -21,6 +21,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', shortuuid.django_fields.ShortUUIDField(alphabet=None, editable=False, length=22, max_length=22, prefix='', primary_key=True, serialize=False)),
                 ('title', models.CharField(max_length=255, unique=True)),
+                ('content_schema', models.JSONField()),
+                ('schema_version', models.PositiveIntegerField(default=1)),
             ],
             options={
                 'abstract': False,
@@ -54,9 +56,9 @@ class Migration(migrations.Migration):
                 ('id', shortuuid.django_fields.ShortUUIDField(alphabet=None, editable=False, length=22, max_length=22, prefix='', primary_key=True, serialize=False)),
                 ('title', models.CharField(max_length=255)),
                 ('content', models.JSONField()),
+                ('schema_version', models.PositiveIntegerField()),
                 ('embedding', pgvector.django.vector.VectorField(blank=True, dimensions=384, null=True)),
                 ('category', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='records', to='records.category')),
-                ('schema_revision', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='records', to='records.categoryschemarevision')),
                 ('tags', models.ManyToManyField(related_name='records', to='records.tag')),
             ],
             options={

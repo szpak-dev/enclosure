@@ -17,10 +17,14 @@ class CategoryRepository(DjangoRepository):
     @transaction.atomic
     def save(self, title: str, content_schema: dict) -> Category:
         try:
-            category = super().save(title=title)
+            category = super().save(
+                title=title,
+                content_schema=content_schema,
+                schema_version=1,
+            )
             CategorySchemaRevision.objects.create(
                 category=category,
-                version=1,
+                version=category.schema_version,
                 content_schema=content_schema,
             )
         except IntegrityError as error:
@@ -39,20 +43,24 @@ class CategoryRepository(DjangoRepository):
     @transaction.atomic
     def update_content_schema(self, id: str, content_schema: dict) -> CategorySchemaRevision:
         category = self.model.objects.select_for_update().get(pk=id)
-        current_revision = self.current_revision(id)
         if category.records.exists():
-            return CategorySchemaRevision.objects.create(
+            category.schema_version += 1
+            revision = CategorySchemaRevision.objects.create(
                 category=category,
-                version=current_revision.version + 1,
+                version=category.schema_version,
                 content_schema=content_schema,
             )
+        else:
+            revision = self.get_revision(id, category.schema_version)
+            revision.content_schema = content_schema
+            revision.save(update_fields=("content_schema",))
 
-        current_revision.content_schema = content_schema
-        current_revision.save(update_fields=("content_schema",))
-        return current_revision
+        category.content_schema = content_schema
+        category.save(update_fields=("content_schema", "schema_version"))
+        return revision
 
-    def current_revision(self, category_id: str) -> CategorySchemaRevision:
-        return CategorySchemaRevision.objects.filter(category_id=category_id).latest("version")
+    def get_revision(self, category_id: str, version: int) -> CategorySchemaRevision:
+        return CategorySchemaRevision.objects.get(category_id=category_id, version=version)
 
     def delete(self, id: str) -> None:
         try:

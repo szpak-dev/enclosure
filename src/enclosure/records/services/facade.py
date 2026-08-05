@@ -75,11 +75,11 @@ class RecordsService:
         category_id = data.get("category_id", existing.category_id if existing else None)
         content = data.get("content", existing.content if existing else None)
         tag_ids = data.get("tag_ids", [tag.id for tag in existing.tags.all()] if existing else None)
-        Category.objects.select_for_update().get(pk=category_id)
+        category = Category.objects.select_for_update().get(pk=category_id)
         if existing is not None and category_id == existing.category_id:
-            revision = existing.schema_revision
+            schema_version = existing.schema_version
         else:
-            revision = self.categories.current_revision(category_id)
-        self.categories.validate_content(revision, content)
+            schema_version = category.schema_version
+        self.categories.validate_content(category_id, schema_version, content)
         self.tags.require_all(tag_ids)
-        return {**data, "schema_revision_id": revision.id}
+        return {**data, "schema_version": schema_version}

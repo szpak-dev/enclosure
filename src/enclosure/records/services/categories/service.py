@@ -37,10 +37,8 @@ class CategoryService:
     def delete(self, id: str) -> None:
         self.repository.delete(id)
 
-    def current_revision(self, category_id: str) -> CategorySchemaRevision:
-        return self.repository.current_revision(category_id)
-
-    def validate_content(self, revision: CategorySchemaRevision, content: object) -> None:
+    def validate_content(self, category_id: str, version: int, content: object) -> None:
+        revision = self.repository.get_revision(category_id, version)
         try:
             self.schemas.load(revision.content_schema).require_valid(content)
         except DomainError as error:

@@ -54,7 +54,7 @@ class RecordService:
             "title": record.title,
             "content": record.content,
             "category_id": record.category_id,
-            "schema_revision_id": record.schema_revision_id,
+            "schema_version": record.schema_version,
             "tag_ids": [tag.id for tag in record.tags.all()],
             "resources": [
                 {
@@ -70,7 +70,7 @@ class RecordService:
     def _prepare(data: Mapping[str, Any]) -> tuple[dict, list[str], list[dict]]:
         record_data = {
             key: data[key]
-            for key in ("id", "title", "content", "category_id", "schema_revision_id")
+            for key in ("id", "title", "content", "category_id", "schema_version")
             if key in data
         }
         tag_ids = list(data["tag_ids"])
