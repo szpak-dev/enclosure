@@ -30,6 +30,7 @@ def build_applications() -> tuple[ASGIApp, ASGIApp]:
     mcp_application = mcp_server.streamable_http_app(
         streamable_http_path="/mcp",
         json_response=True,
+        stateless_http=True,
     )
     return django_application, mcp_application
 

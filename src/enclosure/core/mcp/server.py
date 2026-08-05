@@ -23,7 +23,7 @@ def create_server(
     @asynccontextmanager
     async def lifespan(_: Server[SirenExecutor]) -> AsyncIterator[SirenExecutor]:
         transport = ASGITransport(app=application)
-        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with AsyncClient(transport=transport, base_url="http://localhost") as client:
             yield SirenExecutor(adapter, client)
 
     async def list_tools(

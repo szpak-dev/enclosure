@@ -5,8 +5,20 @@ Django API scaffold with JSON logs, dotenv settings, health checks, and auto-dis
 ```sh
 uv sync
 uv run python manage.py migrate
-uv run python manage.py runserver
+make dev
 ```
+
+`make dev` keeps the standard Django development server. To run the complete
+local ASGI stack with automatic reload, use:
+
+```sh
+make mcp
+```
+
+This serves the Siren browser at `/`, REST at `/api`, Siren at `/siren`, and
+the MCP Streamable HTTP endpoint at `/mcp`, all on `127.0.0.1:8000`. Local
+static files are served automatically when Django debug mode is enabled; no
+development `collectstatic` step is required.
 
 ## Siren browser
 

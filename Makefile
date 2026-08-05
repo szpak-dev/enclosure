@@ -1,6 +1,10 @@
 dev:
 	uv run manage.py runserver
 
+mcp:
+	uv run manage.py check
+	uv run uvicorn enclosure.core.asgi:application --app-dir src --host 127.0.0.1 --port 8000 --reload
+
 modwire:
 	@uv run modwire --language python --summary
 
