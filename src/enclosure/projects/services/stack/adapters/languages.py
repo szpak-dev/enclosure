@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 from wireup import injectable
 
-from enclosure.shared import FilesPackage, LanguagesService
+from enclosure.languages.services import LanguagesService
+from enclosure.shared import FilesPackage
 
 from ..model import DetectedStack
 

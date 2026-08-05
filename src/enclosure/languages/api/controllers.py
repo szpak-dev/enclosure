@@ -9,10 +9,10 @@ from . import schemas
 class LanguagesController(ControllerBase):
     @route.get(
         "",
-        response=schemas.Status,
-        operation_id="get_languages_status",
-        summary="Get languages status",
-        description="Return the generated app status.",
+        response=list[schemas.Language],
+        operation_id="find_languages",
+        summary="List languages",
+        description="Return languages supported for source processing and scaffolding.",
     )
-    def get(self, request):
-        return {"status": DjangoRequest.resolve(request, LanguagesService).get_status()}
+    def find_all(self, request):
+        return DjangoRequest.resolve(request, LanguagesService).find_all()
