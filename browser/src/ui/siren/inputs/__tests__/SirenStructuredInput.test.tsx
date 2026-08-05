@@ -129,10 +129,10 @@ describe("SirenStructuredInput", () => {
     };
     const exampleAction = Object.assign(new Action(), {
       fields: [field("content_schema", "object", contentSchema)],
-      href: "/record-categories/example",
-      method: "PATCH",
-      name: "update_record_category",
-      title: "Update record category",
+      href: "/record-categories/example/content-schema",
+      method: "PUT",
+      name: "update_record_category_content_schema",
+      title: "Update record category content schema",
       type: "application/json",
       [STRUCTURED_FORM_EXTENSION]: {
         controls: [
@@ -179,7 +179,9 @@ describe("SirenStructuredInput", () => {
       content.includes("https://example.com/schema"),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Update record category" }),
+      screen.getByRole("button", {
+        name: "Update record category content schema",
+      }),
     );
 
     await waitFor(() =>
