@@ -6,7 +6,12 @@ from typing import Any
 from mcp.types import Tool
 from modwire_siren import SirenAdapter, SirenOperationInput
 
+from enclosure.core.errors import DomainError
+
 _PATH_PARAMETER = re.compile(r"\{([^}/]+)}")
+
+
+class SirenToolsetError(DomainError): ...
 
 
 @dataclass(frozen=True)
@@ -38,7 +43,7 @@ class SirenToolset:
             else {"type": "object", "properties": {}}
         )
         if schema.get("type") != "object":
-            raise ValueError("MCP tool input schemas must have an object root")
+            raise SirenToolsetError("MCP tool input schemas must have an object root")
 
         properties = dict(schema.get("properties", {}))
         required = list(schema.get("required", []))
@@ -57,7 +62,7 @@ class SirenToolset:
 
         for name in _PATH_PARAMETER.findall(path):
             if name in properties:
-                raise ValueError(f"Path parameter conflicts with operation input: {name}")
+                raise SirenToolsetError(f"Path parameter conflicts with operation input: {name}")
             properties[name] = {
                 "type": "string",
                 "description": f"Path parameter for {path}.",
