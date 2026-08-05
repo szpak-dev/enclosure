@@ -28,7 +28,7 @@ from .schemas import (
 @api_controller("/plans/runs", tags=["plans"])
 class ExecuteStageOperationController(ControllerBase):
     @route.post(
-        "/{run_id}/operations/{operation_id}",
+        "/{run_id}/operations/{operation_id}/executions",
         response={204: None},
         operation_id="execute_plan_run_operation",
         summary="Execute a plan operation",

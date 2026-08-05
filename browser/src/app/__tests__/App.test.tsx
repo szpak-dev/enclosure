@@ -316,7 +316,7 @@ it("renders a command representation from an advertised action", async () => {
     actions: [
       {
         fields: [{ name: "format", title: "Format", type: "text" }],
-        href: "/example-resources/one/render",
+        href: "/example-resources/one/renderings",
         method: "POST",
         name: "render-example",
         title: "Render example",

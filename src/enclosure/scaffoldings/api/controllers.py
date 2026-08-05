@@ -57,7 +57,7 @@ class ScaffoldingController(ControllerBase):
         return DjangoRequest.resolve(request, ScaffoldingService).update(scaffolding_id, body.model_dump(mode="json"))
 
     @route.post(
-        "/{scaffolding_id}/render",
+        "/{scaffolding_id}/renderings",
         response=schemas.Rendering,
         operation_id="render_scaffolding",
         summary="Render a scaffolding",

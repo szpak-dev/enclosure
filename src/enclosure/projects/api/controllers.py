@@ -82,7 +82,7 @@ class ProjectsController(ControllerBase):
         )
 
     @route.get(
-        "/{project_id}/health",
+        "/{project_id}/health-violations",
         response=schemas.HealthReport,
         operation_id="check_project_health",
         summary="Check project health",

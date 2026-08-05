@@ -17,14 +17,14 @@ def test_siren_projects_an_empty_tag_collection() -> None:
 @pytest.mark.django_db
 def test_siren_searches_records() -> None:
     response = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE).post(
-        "/siren/records/search",
+        "/siren/records/search-results",
         data={"query": "missing", "limit": 5},
         content_type="application/json",
     )
 
     assert response.status_code == 200
     assert response["Content-Type"] == SIREN_MEDIA_TYPE
-    assert response.json()["class"] == ["collection", "record"]
+    assert response.json()["class"] == ["collection", "search-result"]
     assert response.json().get("entities", []) == []
 
 

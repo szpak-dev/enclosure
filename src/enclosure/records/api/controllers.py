@@ -92,7 +92,7 @@ class RecordsController(ControllerBase):
         return DjangoRequest.resolve(request, RecordsService).find_all_records()
 
     @route.post(
-        "/search",
+        "/search-results",
         response=list[schemas.Record],
         operation_id="search_records",
         summary="Search records",

@@ -405,7 +405,7 @@ def test_health_contains_only_gating_reports(
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
 
-    response = client.get(f"/api/projects/{created.json()['id']}/health")
+    response = client.get(f"/api/projects/{created.json()['id']}/health-violations")
 
     assert response.status_code == 200
     assert response.json()["healthy"] is True
@@ -429,7 +429,7 @@ def test_health_fails_when_architecture_has_a_shape_violation(
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
 
-    response = client.get(f"/api/projects/{created.json()['id']}/health")
+    response = client.get(f"/api/projects/{created.json()['id']}/health-violations")
 
     assert response.status_code == 200
     assert response.json()["healthy"] is False
@@ -455,7 +455,7 @@ def test_insights_contains_only_non_gating_reports(
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("report", ["health", "insights"])
+@pytest.mark.parametrize("report", ["health-violations", "insights"])
 def test_reports_return_not_found_for_missing_project(client: Client, report: str) -> None:
     response = client.get(f"/api/projects/missing/{report}")
 
