@@ -32,7 +32,9 @@ class RecordRepository(DjangoRepository):
         return records.distinct()
 
     def find_all(self) -> QuerySet[Record]:
-        return self.model.objects.select_related("category").prefetch_related("tags", "resources")
+        return self.model.objects.select_related("category", "schema_revision").prefetch_related(
+            "tags", "resources"
+        )
 
     @transaction.atomic
     def save(

@@ -17,7 +17,7 @@ class TagsController(ControllerBase):
         summary="Create a record tag",
         description="Create a tag for classifying records.",
     )
-    def create(self, request, body: schemas.TagInput):
+    def create(self, request, body: schemas.WriteTag):
         tag = DjangoRequest.resolve(request, RecordsService).create_tag(body.model_dump(mode="json"))
         return Status(201, tag)
 
@@ -52,7 +52,7 @@ class TagsController(ControllerBase):
         self,
         request,
         tag_id: Annotated[str, Path(description="Record tag identifier.")],
-        body: schemas.TagInput,
+        body: schemas.WriteTag,
     ):
         return DjangoRequest.resolve(request, RecordsService).update_tag(tag_id, body.model_dump(mode="json"))
 
@@ -77,7 +77,7 @@ class RecordsController(ControllerBase):
         summary="Create a record",
         description="Store a categorized, tagged record and its source resources.",
     )
-    def create(self, request, body: schemas.RecordInput):
+    def create(self, request, body: schemas.WriteRecord):
         record = DjangoRequest.resolve(request, RecordsService).create_record(body.model_dump(mode="json"))
         return Status(201, record)
 
@@ -98,7 +98,7 @@ class RecordsController(ControllerBase):
         summary="Search records",
         description="Find records by semantic similarity to a natural-language query.",
     )
-    def search(self, request, body: schemas.SearchInput):
+    def search(self, request, body: schemas.SearchRecords):
         return DjangoRequest.resolve(request, RecordsService).search_records(body.query, body.limit)
 
     @route.post(
@@ -108,7 +108,7 @@ class RecordsController(ControllerBase):
         summary="Create a record category",
         description="Create a category whose JSON Schema validates record content.",
     )
-    def create_category(self, request, body: schemas.CategoryInput):
+    def create_category(self, request, body: schemas.CreateCategory):
         category = DjangoRequest.resolve(request, RecordsService).create_category(body.model_dump(mode="json"))
         return Status(201, category)
 
@@ -141,17 +141,35 @@ class RecordsController(ControllerBase):
         response=schemas.Category,
         operation_id="update_record_category",
         summary="Update a record category",
-        description="Replace a record category's title and content schema.",
+        description="Replace a record category's title.",
     )
     def update_category(
         self,
         request,
         category_id: Annotated[str, Path(description="Record category identifier.")],
-        body: schemas.CategoryInput,
+        body: schemas.UpdateCategory,
     ):
         return DjangoRequest.resolve(request, RecordsService).update_category(
             category_id,
             body.model_dump(mode="json"),
+        )
+
+    @route.put(
+        "/categories/{category_id}/content-schema",
+        response=schemas.CategorySchemaRevision,
+        operation_id="update_record_category_content_schema",
+        summary="Update a record category content schema",
+        description="Replace an unreferenced schema or publish its next immutable version.",
+    )
+    def update_category_content_schema(
+        self,
+        request,
+        category_id: Annotated[str, Path(description="Record category identifier.")],
+        body: schemas.UpdateCategoryContentSchema,
+    ):
+        return DjangoRequest.resolve(request, RecordsService).update_category_content_schema(
+            category_id,
+            body.content_schema,
         )
 
     @route.delete(
@@ -190,7 +208,7 @@ class RecordsController(ControllerBase):
         self,
         request,
         record_id: Annotated[str, Path(description="Record identifier.")],
-        body: schemas.RecordInput,
+        body: schemas.WriteRecord,
     ):
         return DjangoRequest.resolve(request, RecordsService).update_record(record_id, body.model_dump(mode="json"))
 
