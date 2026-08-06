@@ -35,46 +35,29 @@ npm run build
 
 The built files live in the Django browser adapter's static directory. The production image runs `collectstatic`, and WhiteNoise serves the manifest-versioned assets.
 
-## Isolated scaffolding API
+## Machine-wide MCP server
 
-The container runtime reuses the existing PostgreSQL state; it does not create
-or own a database service or volume. It reuses the host `DATABASE_URL` already
-in the ignored `.env` file. Compose overrides only its network address to
-`postgres:5432` because the API joins the external
-`modwire-records_default` Docker network. The host configuration remains on
-`localhost:5433`; credentials have one source of truth.
+This repository owns the Compose definition for the machine-wide Enclosure
+server. Compose builds `enclosure:mcp`, runs it as `enclosure-mcp`, and restarts
+it automatically with Docker. The existing `resumed-db` PostgreSQL container
+continues to own the database and its data; Enclosure only joins its external
+`resumed-api_default` network.
 
-Released runtime images are pulled from GHCR. The default is `latest`; pin the
-service to one immutable release with `ENCLOSURE_RUNTIME_VERSION`, for example:
+The host Projects directory is mounted read/write at the same absolute path in
+the container. This preserves discovered project paths and allows Enclosure to
+generate files in any project. Set `ENCLOSURE_PROJECTS_DIR` in `.env` if the
+Projects directory is somewhere other than `/Users/gorky/Projects`.
 
-```sh
-ENCLOSURE_RUNTIME_VERSION=0.2.1 make runtime-up
-```
-
-The packages are private. Authenticate GitHub CLI once with `read:packages`;
-runtime commands then use its token through a temporary Docker configuration
-that is deleted immediately after the pull:
-
-```sh
-gh auth refresh -h github.com -s read:packages
-```
-
-Each GitHub release publishes `linux/amd64` and `linux/arm64` variants of
-`ghcr.io/szpak-dev/enclosure-runtime`. Docker selects the matching image on
-Intel Linux, Intel macOS, or Apple Silicon macOS hosts. Local image builds are
-an explicit development mode and never occur during normal installation:
-
-```sh
-make runtime-build-up
-```
-
-Validate and start only the API:
+Validate, build, and start the server:
 
 ```sh
 make runtime-config
 make runtime-up
-curl --fail http://127.0.0.1:8100/health/
+curl --fail http://127.0.0.1:8666/health/
 ```
+
+The Streamable HTTP MCP endpoint is available to every local project at
+`http://127.0.0.1:8666/mcp`.
 
 Container startup never applies migrations. Before a migration, create a
 PostgreSQL backup and capture the exact Django migration plan:
@@ -93,13 +76,13 @@ MODWIRE_DATABASE_MIGRATION_PLAN=.dev/database-safety/migration-plan-TIMESTAMP.tx
 make runtime-db-migrate
 ```
 
-`make runtime-down` removes the API container only. The external PostgreSQL
-container, network, and `modwire-records_postgres_data` volume are untouched.
+`make runtime-down` removes only `enclosure-mcp`. The external `resumed-db`
+container, its network, and its bind-mounted PostgreSQL data are untouched.
 
 For non-container development, keep using the host `DATABASE_URL` (currently
-the host-side PostgreSQL port) with the original `uv run` commands above. Its
+port 5432) with the original `uv run` commands above. Its
 default HTTP port remains `8000`, separate from the container runtime on
-`8100`.
+`8666`.
 
 ## API
 
