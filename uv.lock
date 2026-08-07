@@ -398,12 +398,11 @@ dependencies = [
     { name = "gunicorn" },
     { name = "httpx" },
     { name = "mcp" },
+    { name = "mermaiden" },
     { name = "modwire-architecture" },
     { name = "modwire-cli" },
     { name = "modwire-extraction" },
     { name = "modwire-hex" },
-    { name = "modwire-mermaid" },
-    { name = "modwire-siren" },
     { name = "pgvector" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -411,6 +410,7 @@ dependencies = [
     { name = "pygments" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "sirenity" },
     { name = "structlog" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
@@ -441,12 +441,11 @@ requires-dist = [
     { name = "gunicorn" },
     { name = "httpx" },
     { name = "mcp", specifier = ">=2,<3" },
+    { name = "mermaiden" },
     { name = "modwire-architecture", specifier = ">=7.0.0,<8" },
     { name = "modwire-cli", specifier = ">=2.0.0" },
     { name = "modwire-extraction", specifier = "==2.1.1" },
     { name = "modwire-hex" },
-    { name = "modwire-mermaid", specifier = ">=1.0.1,<2" },
-    { name = "modwire-siren", specifier = "==4.0.0" },
     { name = "pgvector" },
     { name = "psycopg", extras = ["binary"] },
     { name = "pydantic" },
@@ -454,6 +453,7 @@ requires-dist = [
     { name = "pygments" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "sirenity" },
     { name = "structlog" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
@@ -818,6 +818,20 @@ wheels = [
 ]
 
 [[package]]
+name = "mermaiden"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "pydantic" },
+    { name = "wireup" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d5/cb/0130019dba8d06715683ab6fa3f86e019c07d24b8eba236a92eba1aaa124/mermaiden-3.0.0.tar.gz", hash = "sha256:ef1090ff3b106b170c74d11250ff47cc0d41691697f1e3d1ebd8301d1dc283f3", size = 76661, upload-time = "2026-08-07T12:24:43.009Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/35/50acf8928c84a17e4709cb2f5cf7071cf5777f45ae0ada553daf9ae8b60e/mermaiden-3.0.0-py3-none-any.whl", hash = "sha256:22db076edf0479d09f27073d45ded63a9ad03ca0f8fa33a05f71e5d0de9872da", size = 187265, upload-time = "2026-08-07T12:24:41.447Z" },
+]
+
+[[package]]
 name = "modwire-architecture"
 version = "7.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -872,35 +886,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/85/33/e172d21bab326d2f47d8c78aca4025541c655d2d42a6cab6a089e49aff1a/modwire_hex-0.1.0.tar.gz", hash = "sha256:d4e33a8f557916aa69dd8cef6da70fd1b4991cf680d6670cd816435917510b90", size = 5740, upload-time = "2026-07-19T05:50:01.886Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/0d/81a1ec56d941ce65f934d6c7ee66c72012a0f4ddcc5a4497f3f046da0330/modwire_hex-0.1.0-py3-none-any.whl", hash = "sha256:fb39787c2ca606a6f4dc3d9488370a3b3405787e848424417c5c3cbdebb84e74", size = 9386, upload-time = "2026-07-19T05:50:00.722Z" },
-]
-
-[[package]]
-name = "modwire-mermaid"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinja2" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/9a/499218753365c0159eaadf41337c7c9e8dfa226a03b0050b5fa511f54080/modwire_mermaid-1.0.1.tar.gz", hash = "sha256:40536d85414150a73f5cf935ad2ba10eeed074c1826e708e8aadb16eeaec4cfb", size = 31766, upload-time = "2026-07-11T16:31:52.43Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/06/89/aa42b1c20c3c22899d7ab08b817a7958dc13f759cf473a2728c988e9b6ac/modwire_mermaid-1.0.1-py3-none-any.whl", hash = "sha256:cf76bb9b3fb363d0b39af287b1a04baa53545fea1217dcf5da6fb274c3d288ab", size = 42798, upload-time = "2026-07-11T16:31:51.171Z" },
-]
-
-[[package]]
-name = "modwire-siren"
-version = "4.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "gherkin-official" },
-    { name = "jsonschema", extra = ["format-nongpl"] },
-    { name = "openapi-spec-validator" },
-    { name = "pydantic" },
-    { name = "wireup" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/ae/37044d3858b7b74546fe6f3a660db7a197b2da08a4699379ddbb70840f4f/modwire_siren-4.0.0.tar.gz", hash = "sha256:db9f1153ccf597b5a0b15d396e979d306e084047bc4ea66e012411b0ca21246e", size = 113093, upload-time = "2026-08-05T13:56:54.98Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/c6/d76e5f2593e38df1ce00afc24ca36a3150b98fc8f8940fb22c73588f5ca4/modwire_siren-4.0.0-py3-none-any.whl", hash = "sha256:f35ffb7c4bd70ccd6dbaadc298890780899b18e4b5aa87e12f98714ce5f480fd", size = 139138, upload-time = "2026-08-05T13:56:53.725Z" },
 ]
 
 [[package]]
@@ -1479,6 +1464,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8c/e2/bcf761f3bff95856203f9559baf3741c416071dd200c0fc19fad7f078f86/shortuuid-1.0.13.tar.gz", hash = "sha256:3bb9cf07f606260584b1df46399c0b87dd84773e7b25912b7e391e30797c5e72", size = 9662, upload-time = "2024-03-11T20:11:06.879Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/44/21d6bf170bf40b41396480d8d49ad640bca3f2b02139cd52aa1e272830a5/shortuuid-1.0.13-py3-none-any.whl", hash = "sha256:a482a497300b49b4953e15108a7913244e1bb0d41f9d332f5e9925dba33a3c5a", size = 10529, upload-time = "2024-03-11T20:11:04.807Z" },
+]
+
+[[package]]
+name = "sirenity"
+version = "5.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gherkin-official" },
+    { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "openapi-spec-validator" },
+    { name = "pydantic" },
+    { name = "wireup" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/38/78a1943f24ba7eded0c56d5fc1d50eb0f56466101784a7659dbdb73453ce/sirenity-5.0.0.tar.gz", hash = "sha256:47ecc4e13c54076a080d11556eac558b365cc9a873d13a305db1d35f8d99c2f5", size = 112869, upload-time = "2026-08-07T12:47:34.587Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/68/a22e0c7c5d9b838958ce24608725819b8fa8088b32e26fc35ecffa2bf92f/sirenity-5.0.0-py3-none-any.whl", hash = "sha256:b9f457a47d2e9715cb9700c946269ffb43737932066fe9892ccb7b4368279a56", size = 136895, upload-time = "2026-08-07T12:47:33.18Z" },
 ]
 
 [[package]]

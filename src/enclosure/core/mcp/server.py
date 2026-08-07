@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
 from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams
-from modwire_siren import SirenAdapter
+from sirenity import SirenAdapter
 from starlette.types import ASGIApp
 
 from .executor import SirenExecutor

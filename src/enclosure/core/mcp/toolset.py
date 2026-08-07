@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mcp.types import Tool
-from modwire_siren import SirenAdapter, SirenOperationInput
+from sirenity import SirenAdapter, SirenOperationInput
 
 from enclosure.core.errors import DomainError
 

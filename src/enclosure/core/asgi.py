@@ -3,7 +3,7 @@ import os
 from django.conf import settings
 from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
 from django.core.asgi import get_asgi_application
-from modwire_siren import siren_adapter
+from sirenity import siren_adapter
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "enclosure.core.settings")

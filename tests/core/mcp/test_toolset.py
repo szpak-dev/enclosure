@@ -1,4 +1,4 @@
-from modwire_siren import SirenAdapter, siren_adapter
+from sirenity import SirenAdapter, siren_adapter
 
 from enclosure.core.api import api
 from enclosure.core.mcp.toolset import SirenToolset

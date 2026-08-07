@@ -4,7 +4,7 @@ from typing import cast
 
 from mcp.server.context import ServerRequestContext
 from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams
-from modwire_siren import siren_adapter
+from sirenity import siren_adapter
 
 from enclosure.core.api import api
 from enclosure.core.asgi import application

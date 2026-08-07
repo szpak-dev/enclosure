@@ -7,7 +7,7 @@ from typing import Any
 
 from httpx import AsyncClient
 from mcp.types import CallToolResult, TextContent
-from modwire_siren import SirenAdapter
+from sirenity import SirenAdapter
 
 from enclosure.core.errors import DomainError
 

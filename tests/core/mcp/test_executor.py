@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from httpx import ASGITransport, AsyncClient, MockTransport, Request, Response
-from modwire_siren import SirenAdapter, siren_adapter
+from sirenity import SirenAdapter, siren_adapter
 
 from enclosure.core.api import api
 from enclosure.core.asgi import application
