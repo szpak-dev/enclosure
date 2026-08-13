@@ -59,6 +59,10 @@ class MermaidenService:
     def snapshot(self, diagram: DiagramModel) -> dict[str, object]:
         return self._application.snapshot(diagram).to_dict()
 
+    @staticmethod
+    def element_ids(diagram: DiagramModel) -> set[str]:
+        return {element.id for element in diagram.walk_elements()}
+
     def render(self, diagram: DiagramModel) -> str:
         try:
             return self._application.render(diagram)

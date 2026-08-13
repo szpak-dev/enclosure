@@ -52,24 +52,26 @@ class DiagramEditingService:
         operation: str,
         arguments: Mapping[str, object],
     ) -> Diagram:
+        stored = self.require_revision(id, expected_revision)
+        diagram = self.mermaiden.restore(stored.snapshot)
+        self.mermaiden.apply(diagram, operation, arguments)
+        return self.update(
+            stored,
+            {"snapshot": self.mermaiden.snapshot(diagram), "source": self.mermaiden.render(diagram)},
+        )
+
+    def require_revision(self, id: str, expected_revision: int) -> Diagram:
         expected_revision = self.validation.expected_revision(expected_revision)
         stored = self.get(id)
         if stored.revision != expected_revision:
             self._stale(id, expected_revision, stored.revision)
+        return stored
 
-        diagram = self.mermaiden.restore(stored.snapshot)
-        self.mermaiden.apply(diagram, operation, arguments)
-        updated = self.repository.update_diagram(
-            id,
-            expected_revision,
-            {
-                "snapshot": self.mermaiden.snapshot(diagram),
-                "source": self.mermaiden.render(diagram),
-            },
-        )
+    def update(self, stored: Diagram, data: Mapping[str, object]) -> Diagram:
+        updated = self.repository.update_diagram(stored.id, stored.revision, data)
         if updated is None:
-            current = self.get(id)
-            self._stale(id, expected_revision, current.revision)
+            current = self.get(stored.id)
+            self._stale(stored.id, stored.revision, current.revision)
         return updated
 
     def delete(self, id: str) -> None:
