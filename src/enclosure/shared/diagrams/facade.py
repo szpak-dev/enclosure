@@ -6,6 +6,10 @@ from wireup import injectable
 
 from .errors import DiagramsError
 
+# Legacy Records resource-validation boundary. Keep this service unchanged while
+# the first-class diagrams Django app is developed; that app owns its own
+# Mermaiden integration.
+
 
 @injectable
 @dataclass(frozen=True)
