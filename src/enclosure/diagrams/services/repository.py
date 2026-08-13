@@ -47,8 +47,10 @@ class DiagramsRepository(DjangoRepository[Diagram]):
         return diagrams
 
     @transaction.atomic
-    def update_diagram(self, id: str, data: Mapping[str, Any]) -> Diagram:
+    def update_diagram(self, id: str, expected_revision: int, data: Mapping[str, Any]) -> Diagram | None:
         diagram = self.model.objects.select_for_update().get(pk=id)
+        if diagram.revision != expected_revision:
+            return None
         for attribute, value in data.items():
             setattr(diagram, attribute, value)
         diagram.revision += 1
