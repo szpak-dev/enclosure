@@ -400,7 +400,6 @@ dependencies = [
     { name = "mcp" },
     { name = "mermaiden" },
     { name = "modwire-architecture" },
-    { name = "modwire-cli" },
     { name = "modwire-extraction" },
     { name = "modwire-hex" },
     { name = "pgvector" },
@@ -443,7 +442,6 @@ requires-dist = [
     { name = "mcp", specifier = ">=2,<3" },
     { name = "mermaiden", specifier = "==3.1.0" },
     { name = "modwire-architecture", specifier = ">=7.0.0,<8" },
-    { name = "modwire-cli", specifier = ">=2.0.0" },
     { name = "modwire-extraction", specifier = "==2.1.1" },
     { name = "modwire-hex" },
     { name = "pgvector" },
@@ -843,22 +841,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/91/70/c8d5e3899acc0acee702392900445583a32da6c7f5b54dbf68f7a7b301b5/modwire_architecture-7.0.0.tar.gz", hash = "sha256:15f31fbd8a214d039a0d8e99408f0548a27c9805f60f13c1f82317d989883fd7", size = 80919, upload-time = "2026-07-25T10:29:41.75Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/30/ab8356df47713c168b9254260e8d8f8f91e49205a518c11c638aaa494c21/modwire_architecture-7.0.0-py3-none-any.whl", hash = "sha256:dc24deccb9ff48f5e887be6dfefbd09dd35dae8c30cc0877e15399a8f1a7c72e", size = 51225, upload-time = "2026-07-25T10:29:40.466Z" },
-]
-
-[[package]]
-name = "modwire-cli"
-version = "2.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "modwire-architecture" },
-    { name = "modwire-extraction" },
-    { name = "pydantic-yaml" },
-    { name = "rich" },
-    { name = "wireup" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/53/ce/ccf19824e2d8d802825e69940f78767e8148664198f9b805aa0d124169f3/modwire_cli-2.0.0.tar.gz", hash = "sha256:93aae45a23263d16b17d155b8a2ccba731f8be90ef6af8b7a609c0529fcdeea7", size = 53865, upload-time = "2026-07-25T10:47:10.989Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/b5/c45293eccbdd90ea754778994eca1d40b5f44ebe3b7c819f8c29747b4573/modwire_cli-2.0.0-py3-none-any.whl", hash = "sha256:2f4d739adfaa6831ad07f1a782059fe5f5e71b456052ee32e2708a1b96b9422b", size = 24521, upload-time = "2026-07-25T10:47:09.794Z" },
 ]
 
 [[package]]
