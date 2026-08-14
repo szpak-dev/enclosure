@@ -72,12 +72,12 @@ class ApplyDiagramCommand(StrictSchema):
 
 
 class NavigateInteraction(StrictSchema):
-    action: Literal["navigate"]
+    action: Literal["navigate"] = Field(description="Navigate to an application-relative destination.")
     target: str = Field(description="Application-relative destination opened when the element is activated.")
 
 
 class ShowDetailsInteraction(StrictSchema):
-    action: Literal["show_details"]
+    action: Literal["show_details"] = Field(description="Show structured details for the activated element.")
     payload: dict[str, JsonValue] = Field(description="Details shown when the element is activated.")
 
 
