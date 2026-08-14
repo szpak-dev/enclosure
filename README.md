@@ -24,13 +24,10 @@ development `collectstatic` step is required.
 
 The TypeScript Siren browser is available at `GET /`. It starts from `/siren/`, follows advertised links, and renders forms for advertised actions.
 
-After changing its source, build the static files before starting Django or building the image:
+After changing its source, rebuild the static files deterministically from the repository root before starting Django or building the image:
 
 ```sh
-cd browser
-npm ci
-npm run typecheck
-npm run build
+make browser-build
 ```
 
 The built files live in the Django browser adapter's static directory. The production image runs `collectstatic`, and WhiteNoise serves the manifest-versioned assets.

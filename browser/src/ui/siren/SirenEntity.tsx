@@ -13,9 +13,7 @@ export type SirenEntityProps = {
 };
 
 export function SirenEntity({ entity, onFollow, onSubmit }: SirenEntityProps) {
-  const EntityComponent = entity.class
-    .map((className) => sirenRegistry.entities.get(className))
-    .find(Boolean);
+  const EntityComponent = sirenRegistry.entities.resolve(entity.class);
 
   if (EntityComponent) {
     return (
