@@ -1,10 +1,10 @@
 import type { ComponentType } from "react";
 import type { SirenActionFormProps } from "./SirenActionForm";
-import type { SirenEntityProps } from "./SirenEntity";
+import { SirenEntityRendererRegistry } from "./SirenEntityRendererRegistry";
 import type { SirenFieldProps } from "./SirenField";
 
 export const sirenRegistry = {
   actions: new Map<string, ComponentType<SirenActionFormProps>>(),
-  entities: new Map<string, ComponentType<SirenEntityProps>>(),
+  entities: new SirenEntityRendererRegistry(),
   fields: new Map<string, ComponentType<SirenFieldProps>>(),
 };
