@@ -91,7 +91,9 @@ def test_siren_discovers_and_creates_scaffoldings(
     assert updated.json()["properties"]["name"] == "Updated package"
 
     action = next(action for action in details.json()["actions"] if action["name"] == "render_scaffolding")
-    assert action["href"] == f"http://testserver/siren/scaffoldings/{created.json()['properties']['id']}/render"
+    assert action["href"] == (
+        f"http://testserver/siren/scaffoldings/{created.json()['properties']['id']}/renderings"
+    )
     assert action["method"] == "POST"
     rendering = client.post(
         action["href"].removeprefix("http://testserver"),

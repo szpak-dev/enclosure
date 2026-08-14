@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 
-from pydantic import BaseModel, ConfigDict, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from enclosure.shared import SourceCodePackage
 
@@ -12,9 +12,12 @@ from .variables import Variable
 class ScaffoldingSpec(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    language: str
-    variables: tuple[Variable, ...] = ()
-    templates: tuple[Template, ...]
+    language: str = Field(description="Language identifier for the rendered source code.")
+    variables: tuple[Variable, ...] = Field(
+        default=(),
+        description="Parameters accepted when rendering the scaffolding.",
+    )
+    templates: tuple[Template, ...] = Field(description="Source file templates rendered by the scaffolding.")
 
     @model_validator(mode="after")
     def validate_unique_members(self) -> "ScaffoldingSpec":

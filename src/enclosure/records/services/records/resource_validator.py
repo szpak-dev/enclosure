@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 from wireup import injectable
 
-from enclosure.shared import DomainError, LanguagesService
+from enclosure.languages.services import LanguagesService
+from enclosure.shared import DomainError
 
 from ...errors import RecordsError
 

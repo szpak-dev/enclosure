@@ -1,81 +1,55 @@
-import json
-from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any
 
-from modwire_mermaid import ModwireMermaid, ModwireMermaidFactory
-from modwire_mermaid.architecture.diagram import ModwireArchitectureDiagram
-from modwire_mermaid.class_diagram.diagram import ModwireClassDiagram
-from modwire_mermaid.contracts import ModwireBaseDiagram, ModwireDiagramError
-from modwire_mermaid.event_modeling.diagram import ModwireEventModel
-from modwire_mermaid.file_tree.diagram import ModwireFileTree
-from modwire_mermaid.flowchart.diagram import ModwireFlowchart
-from modwire_mermaid.mindmap.diagram import ModwireMindmap
-from modwire_mermaid.sequence.diagram import ModwireSequenceDiagram
-from modwire_mermaid.state.diagram import ModwireStateDiagram
-from modwire_mermaid.swimlane.diagram import ModwireSwimlaneDiagram
-from modwire_mermaid.timeline.diagram import ModwireTimeline
-from modwire_mermaid.user_journey.diagram import ModwireUserJourney
-from pydantic import ValidationError
+from mermaiden.application import Application
 from wireup import injectable
 
 from .errors import DiagramsError
 
-Diagram = ModwireBaseDiagram
-DiagramType = type[Diagram]
+# Legacy Records resource-validation boundary. Keep this service unchanged while
+# the first-class diagrams Django app is developed; that app owns its own
+# Mermaiden integration.
 
 
 @injectable
 @dataclass(frozen=True)
 class DiagramsService:
-    _types: ClassVar[dict[str, DiagramType]] = {
-        "architecture": ModwireArchitectureDiagram,
-        "class_diagram": ModwireClassDiagram,
-        "event_modeling": ModwireEventModel,
-        "file_tree": ModwireFileTree,
-        "flowchart": ModwireFlowchart,
-        "mindmap": ModwireMindmap,
-        "sequence": ModwireSequenceDiagram,
-        "state": ModwireStateDiagram,
-        "swimlane": ModwireSwimlaneDiagram,
-        "timeline": ModwireTimeline,
-        "user_journey": ModwireUserJourney,
-    }
-
-    _compiler: ModwireMermaid = field(init=False, repr=False)
+    _application: Application = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_compiler", ModwireMermaidFactory.standard())
+        object.__setattr__(self, "_application", Application.create())
 
     def get_ids(self) -> list[str]:
-        return sorted(self._types)
+        return [diagram.id for diagram in self._application.available_diagrams()]
 
     def get_schema(self, diagram_id: str) -> dict[str, Any]:
-        return self._get_type(diagram_id).model_json_schema()
-
-    def validate(self, diagram_id: str, document: Mapping[str, Any]) -> Diagram:
-        try:
-            return self._get_type(diagram_id).model_validate_json(json.dumps(document))
-        except (ModwireDiagramError, TypeError, ValidationError) as error:
-            raise DiagramsError(str(error)) from error
+        for diagram in self._application.available_diagrams():
+            if diagram.id != diagram_id:
+                continue
+            for configuration in self._application.mermaid_diagram_configs():
+                if configuration.config_key == diagram.config_key:
+                    return configuration.schema
+            raise DiagramsError(f"No configuration schema is available for diagram ID: {diagram_id!r}")
+        raise DiagramsError(f"Unsupported diagram ID: {diagram_id!r}")
 
     def recognize(self, content: str) -> None:
-        for diagram_type in self._types.values():
-            try:
-                diagram_type.model_validate_json(content)
-            except (ModwireDiagramError, TypeError, ValidationError):
-                continue
+        syntax = self._syntax(content)
+        if syntax in self.get_ids():
             return
-        raise DiagramsError("Unsupported diagram content.")
+        raise DiagramsError(f"Unsupported diagram syntax: {syntax!r}")
 
-    def compile(self, diagram_id: str, document: Mapping[str, Any]) -> str:
-        try:
-            return self._compiler.compile(self.validate(diagram_id, document))
-        except ModwireDiagramError as error:
-            raise DiagramsError(str(error)) from error
+    @staticmethod
+    def _syntax(content: str) -> str:
+        lines = content.splitlines()
+        first = next((index for index, line in enumerate(lines) if line.strip()), None)
+        if first is not None and lines[first].strip() == "---":
+            closing = next((index for index in range(first + 1, len(lines)) if lines[index].strip() == "---"), None)
+            if closing is None:
+                raise DiagramsError("Diagram frontmatter is not closed.")
+            lines = lines[closing + 1 :]
 
-    def _get_type(self, diagram_id: str) -> DiagramType:
-        try:
-            return self._types[diagram_id]
-        except KeyError as error:
-            raise DiagramsError(f"Unsupported diagram ID: {diagram_id!r}") from error
+        for line in lines:
+            syntax = line.strip()
+            if syntax and syntax != "---":
+                return syntax.split(maxsplit=1)[0]
+        raise DiagramsError("Diagram content is empty.")

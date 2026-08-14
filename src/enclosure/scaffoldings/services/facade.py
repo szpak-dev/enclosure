@@ -7,6 +7,7 @@ from wireup import injectable
 from enclosure.shared import SourceCodePackage, SourceCodeRenderer
 
 from ..models import Scaffolding
+from .renderings import RenderedFile, RenderingService
 from .repository import ScaffoldingRepository
 from .spec.service import ScaffoldingSpecService
 
@@ -16,6 +17,7 @@ from .spec.service import ScaffoldingSpecService
 class ScaffoldingService:
     repository: ScaffoldingRepository
     renderer: SourceCodeRenderer
+    renderings: RenderingService
     spec_service: ScaffoldingSpecService
 
     def create(self, data: dict) -> Scaffolding:
@@ -38,3 +40,6 @@ class ScaffoldingService:
     def render(self, id: str, parameters: Mapping[str, JsonValue]) -> SourceCodePackage:
         prepared = self.spec_service.prepare(self.get(id).spec, parameters)
         return self.renderer.render(prepared.source, prepared.parameters)
+
+    def render_files(self, id: str, parameters: Mapping[str, JsonValue]) -> tuple[RenderedFile, ...]:
+        return self.renderings.render(self.get(id).spec, parameters)

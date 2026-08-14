@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     "pgvector.django",
     "modwire_hex.django.apps.ModwireConfig",
     "enclosure.browser.adapters.http.apps.BrowserHttpConfig",
+    "enclosure.diagrams.apps.DiagramsConfig",
+    "enclosure.languages.apps.LanguagesConfig",
     "enclosure.scaffoldings.apps.ScaffoldingsDjangoConfig",
     "enclosure.records.apps.RecordsConfig",
     "enclosure.projects.apps.ProjectsConfig",
@@ -48,7 +50,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.http.ConditionalGetMiddleware",
-    "modwire_siren.SirenMiddleware",
+    "sirenity.SirenMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -65,7 +67,7 @@ MODWIRE_SIREN = {
     "OPENAPI": "enclosure.core.api.api",
     "SOURCE_PATH": "/api",
     "PUBLIC_PATH": "/siren",
-    "PROFILES": ["modwire_siren.SirenStructuredFormProfile"],
+    "PROFILES": ["sirenity.SirenStructuredFormProfile"],
 }
 MODWIRE_SIREN_ROOT = "/siren/"
 ROOT_URLCONF = "enclosure.core.urls"
@@ -84,6 +86,7 @@ TEMPLATES = [
         },
     }
 ]
+ASGI_APPLICATION = "enclosure.core.asgi.application"
 WSGI_APPLICATION = "enclosure.core.wsgi.application"
 database = dj_database_url.config(default=os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"))
 if database_host := os.getenv("DATABASE_HOST"):

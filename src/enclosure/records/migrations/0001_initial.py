@@ -22,9 +22,22 @@ class Migration(migrations.Migration):
                 ('id', shortuuid.django_fields.ShortUUIDField(alphabet=None, editable=False, length=22, max_length=22, prefix='', primary_key=True, serialize=False)),
                 ('title', models.CharField(max_length=255, unique=True)),
                 ('content_schema', models.JSONField()),
+                ('schema_version', models.PositiveIntegerField(default=1)),
             ],
             options={
                 'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='CategorySchemaRevision',
+            fields=[
+                ('id', shortuuid.django_fields.ShortUUIDField(alphabet=None, editable=False, length=22, max_length=22, prefix='', primary_key=True, serialize=False)),
+                ('version', models.PositiveIntegerField()),
+                ('content_schema', models.JSONField()),
+                ('category', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='schema_revisions', to='records.category')),
+            ],
+            options={
+                'constraints': [models.UniqueConstraint(fields=('category', 'version'), name='records_category_schema_revision_version_unique')],
             },
         ),
         migrations.CreateModel(
@@ -43,6 +56,7 @@ class Migration(migrations.Migration):
                 ('id', shortuuid.django_fields.ShortUUIDField(alphabet=None, editable=False, length=22, max_length=22, prefix='', primary_key=True, serialize=False)),
                 ('title', models.CharField(max_length=255)),
                 ('content', models.JSONField()),
+                ('schema_version', models.PositiveIntegerField()),
                 ('embedding', pgvector.django.vector.VectorField(blank=True, dimensions=384, null=True)),
                 ('category', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='records', to='records.category')),
                 ('tags', models.ManyToManyField(related_name='records', to='records.tag')),

@@ -13,12 +13,13 @@ dependencies = [
     "django-model-utils",
     "django-ninja-extra",
     "gunicorn",
+    "httpx",
+    "mcp>=2,<3",
     "modwire-architecture>=7.0.0,<8",
-    "modwire-cli>=2.0.0",
     "modwire-extraction==2.1.1",
     "modwire-hex",
-    "modwire-mermaid>=1.0.1,<2",
-    "modwire-siren==4.0.0",
+    "mermaiden==3.1.0",
+    "sirenity",
     "pgvector",
     "psycopg[binary]",
     "pydantic",
@@ -27,6 +28,8 @@ dependencies = [
     "python-dotenv",
     "pyyaml",
     "structlog",
+    "uvicorn",
+    "uvicorn-worker",
     "wireup",
     "whitenoise",
     "django-extensions>=4.1",
@@ -47,6 +50,7 @@ package = false
 cache-dir = ".dev/uv-cache"
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 DJANGO_SETTINGS_MODULE = "enclosure.core.settings"
 cache_dir = ".dev/pytest-cache"
 pythonpath = ["src", "."]

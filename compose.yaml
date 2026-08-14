@@ -1,0 +1,33 @@
+name: enclosure
+
+services:
+  mcp:
+    build:
+      context: .
+    image: enclosure:mcp
+    container_name: enclosure-mcp
+    environment:
+      ALLOWED_HOSTS: localhost,127.0.0.1,enclosure-mcp
+      DATABASE_HOST: resumed-db
+      DATABASE_PORT: "5432"
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DEBUG: "0"
+      RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
+      RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+    ports:
+      - "127.0.0.1:${ENCLOSURE_MCP_PORT:-8666}:8000"
+    volumes:
+      - type: bind
+        source: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
+        target: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
+        bind:
+          create_host_path: false
+    networks:
+      - database
+    restart: always
+
+networks:
+  database:
+    external: true
+    name: resumed-api_default

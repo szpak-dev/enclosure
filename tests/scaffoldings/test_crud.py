@@ -38,7 +38,7 @@ def test_scaffolding_crud() -> None:
     assert fetched.json()["spec"] == payload["spec"]
 
     rendering = client.post(
-        f"/api/scaffoldings/{scaffolding_id}/render",
+        f"/api/scaffoldings/{scaffolding_id}/renderings",
         data={"parameters": {}},
         content_type="application/json",
     )
@@ -104,7 +104,7 @@ def test_render_rejects_invalid_parameter_types_with_scaffolding_error() -> None
     assert created.status_code == 201
 
     response = Client().post(
-        f"/api/scaffoldings/{created.json()['id']}/render",
+        f"/api/scaffoldings/{created.json()['id']}/renderings",
         data={"parameters": {"count": "one"}},
         content_type="application/json",
     )
