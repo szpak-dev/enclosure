@@ -50,6 +50,7 @@ package = false
 cache-dir = ".dev/uv-cache"
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 DJANGO_SETTINGS_MODULE = "enclosure.core.settings"
 cache_dir = ".dev/pytest-cache"
 pythonpath = ["src", "."]
