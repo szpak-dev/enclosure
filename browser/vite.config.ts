@@ -33,8 +33,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        entryFileNames: "browser.js",
         assetFileNames: "browser.[ext]",
+        codeSplitting: false,
+        entryFileNames: "browser.js",
       },
     },
   },
