@@ -1,5 +1,5 @@
 import { MantineProvider, Text } from "@mantine/core";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Entity } from "@siren-js/client";
 import { type ReactElement } from "react";
 import { afterEach, expect, it, vi } from "vitest";
@@ -23,10 +23,18 @@ function entity(classes: string[]): Entity {
   } as unknown as Entity;
 }
 
-function renderEntity(value: Entity): void {
+function renderEntity(
+  value: Entity,
+  onLoad: SirenEntityProps["onLoad"] = vi.fn(),
+): void {
   render(
     <MantineProvider>
-      <SirenEntity entity={value} onFollow={vi.fn()} onSubmit={vi.fn()} />
+      <SirenEntity
+        entity={value}
+        onFollow={vi.fn()}
+        onLoad={onLoad}
+        onSubmit={vi.fn()}
+      />
     </MantineProvider>,
   );
 }
@@ -45,6 +53,24 @@ it("renders an entity with the first registered resource renderer", () => {
   expect(
     screen.queryByRole("heading", { name: "Generic resource" }),
   ).not.toBeInTheDocument();
+});
+
+it("provides the resource loader to a specialized renderer", () => {
+  const onLoad = vi.fn().mockResolvedValue(entity(["related"]));
+  function SpecializedEntity({ onLoad }: SirenEntityProps): ReactElement {
+    return (
+      <button onClick={() => void onLoad("/related")}>Load related</button>
+    );
+  }
+  unregister.push(
+    sirenRegistry.entities.register("specialized", SpecializedEntity),
+  );
+
+  renderEntity(entity(["specialized"]), onLoad);
+  fireEvent.click(screen.getByRole("button", { name: "Load related" }));
+
+  expect(onLoad).toHaveBeenCalledOnce();
+  expect(onLoad).toHaveBeenCalledWith("/related");
 });
 
 it("falls back to the generic resource view for unknown classes", () => {

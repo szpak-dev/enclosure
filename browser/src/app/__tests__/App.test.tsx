@@ -5,8 +5,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { SirenEntityProps } from "../../ui/siren/SirenEntity";
+import { sirenRegistry } from "../../ui/siren/SirenRegistry";
 import { App } from "../App";
 
 const sirenClient = vi.hoisted(() => ({
@@ -94,6 +96,52 @@ it("loads the root once alongside a deep-linked resource", async () => {
       ([target]) => target === "/example-siren/",
     ),
   ).toHaveLength(1);
+});
+
+it("loads a related resource without changing the current browser entity", async () => {
+  const relatedEntity = {
+    actions: [],
+    class: ["related"],
+    entities: [],
+    links: [],
+    properties: {},
+    title: "Related resource",
+  };
+  sirenClient.get.mockImplementation(async (target: string) =>
+    target === "/related"
+      ? relatedEntity
+      : { ...rootEntity, class: [...rootEntity.class, "background-loader"] },
+  );
+  function BackgroundLoader({ onLoad }: SirenEntityProps) {
+    const [loaded, setLoaded] = useState(false);
+    return (
+      <div>
+        <button
+          onClick={() => void onLoad("/related").then(() => setLoaded(true))}
+        >
+          Load related
+        </button>
+        {loaded ? <span>Related resource loaded</span> : null}
+      </div>
+    );
+  }
+  const unregister = sirenRegistry.entities.register(
+    "background-loader",
+    BackgroundLoader,
+  );
+
+  try {
+    render(<App rootTarget="/example-siren/" />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Load related" }),
+    );
+
+    expect(await screen.findByText("Related resource loaded")).toBeVisible();
+    expect(window.location.hash).toBe("");
+    expect(sirenClient.get).toHaveBeenCalledWith("/related");
+  } finally {
+    unregister();
+  }
 });
 
 it("shows a root failure and retries without reloading the page", async () => {

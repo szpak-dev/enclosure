@@ -51,7 +51,12 @@ const diagram = {
 function renderEntity() {
   return render(
     <MantineProvider>
-      <SirenEntity entity={diagram} onFollow={vi.fn()} onSubmit={vi.fn()} />
+      <SirenEntity
+        entity={diagram}
+        onFollow={vi.fn()}
+        onLoad={vi.fn()}
+        onSubmit={vi.fn()}
+      />
     </MantineProvider>,
   );
 }

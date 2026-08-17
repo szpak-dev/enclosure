@@ -6,6 +6,7 @@ export type SirenPageProps = {
   entity: Entity | null;
   isLoading: boolean;
   onFollow: (target: Target) => void;
+  onLoad: (target: Target) => Promise<Entity>;
   onSubmit: (action: Action, values: Record<string, unknown>) => void;
 };
 
@@ -13,6 +14,7 @@ export function SirenPage({
   entity,
   isLoading,
   onFollow,
+  onLoad,
   onSubmit,
 }: SirenPageProps) {
   if (isLoading)
@@ -23,6 +25,11 @@ export function SirenPage({
     );
   if (!entity) return <Text>No resource selected.</Text>;
   return (
-    <SirenEntity entity={entity} onFollow={onFollow} onSubmit={onSubmit} />
+    <SirenEntity
+      entity={entity}
+      onFollow={onFollow}
+      onLoad={onLoad}
+      onSubmit={onSubmit}
+    />
   );
 }

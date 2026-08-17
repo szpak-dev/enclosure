@@ -9,10 +9,16 @@ import { entityLabel } from "./SirenLabels";
 export type SirenEntityProps = {
   entity: Entity;
   onFollow: (target: Target) => void;
+  onLoad: (target: Target) => Promise<Entity>;
   onSubmit: (action: Action, values: Record<string, unknown>) => void;
 };
 
-export function SirenEntity({ entity, onFollow, onSubmit }: SirenEntityProps) {
+export function SirenEntity({
+  entity,
+  onFollow,
+  onLoad,
+  onSubmit,
+}: SirenEntityProps) {
   if (entity.class.includes("collection")) {
     return (
       <SirenCollection
@@ -30,6 +36,7 @@ export function SirenEntity({ entity, onFollow, onSubmit }: SirenEntityProps) {
       <EntityComponent
         entity={entity}
         onFollow={onFollow}
+        onLoad={onLoad}
         onSubmit={onSubmit}
       />
     );
