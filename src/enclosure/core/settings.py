@@ -65,6 +65,7 @@ MODWIRE = {
 }
 MODWIRE_SIREN = {
     "OPENAPI": "enclosure.core.api.api",
+    "POLICY": "enclosure.core.siren.EnclosureSirenPolicy",
     "SOURCE_PATH": "/api",
     "PUBLIC_PATH": "/siren",
     "PROFILES": ["sirenity.SirenStructuredFormProfile"],

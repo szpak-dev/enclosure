@@ -49,8 +49,14 @@ class DiagramsService:
     def get_diagram(self, id: str) -> Diagram:
         return self.editing.get(id)
 
-    def find_all_diagrams(self, diagram_set_id: str | None = None) -> QuerySet[Diagram]:
-        return self.editing.find_all(diagram_set_id)
+    def get_diagram_in_set(self, diagram_set_id: str, id: str) -> Diagram:
+        return self.editing.get_in_set(diagram_set_id, id)
+
+    def find_all_diagrams(self) -> QuerySet[Diagram]:
+        return self.editing.find_all()
+
+    def find_diagrams_in_set(self, diagram_set_id: str) -> QuerySet[Diagram]:
+        return self.editing.find_in_set(diagram_set_id)
 
     def apply_command(
         self,

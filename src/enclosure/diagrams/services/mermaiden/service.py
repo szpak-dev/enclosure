@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from mermaiden.application import Application, DiagramCommand, UnknownCommand
 from mermaiden.core import ChangeRejected, OperationError
 from mermaiden.diagrams.domain import DiagramModel
-from mermaiden.runtime.snapshot import SnapshotError
 from wireup import injectable
 
 from ...errors import DiagramsError
@@ -40,10 +39,7 @@ class MermaidenService:
             raise DiagramsError(str(error)) from error
 
     def restore(self, snapshot: Mapping[str, object]) -> DiagramModel:
-        try:
-            return self._application.restore(snapshot)
-        except (KeyError, SnapshotError, TypeError, ValueError) as error:
-            raise DiagramsError(str(error)) from error
+        return self._application.restore(snapshot)
 
     def apply(
         self,
@@ -64,7 +60,4 @@ class MermaidenService:
         return {element.id for element in diagram.walk_elements()}
 
     def render(self, diagram: DiagramModel) -> str:
-        try:
-            return self._application.render(diagram)
-        except (ChangeRejected, OperationError, ValueError) as error:
-            raise DiagramsError(str(error)) from error
+        return self._application.render(diagram)

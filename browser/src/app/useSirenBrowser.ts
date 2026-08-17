@@ -51,19 +51,24 @@ export function useSirenBrowser(client: SirenClient, rootTarget: Target) {
     [client, rootTarget],
   );
 
+  const load = useCallback(
+    (nextTarget: Target) => client.get(nextTarget),
+    [client],
+  );
+
   const loadResource = useCallback(
     async (nextTarget: Target) => {
       setResourceError(null);
       setIsResourceLoading(true);
       try {
-        setEntity(await client.get(nextTarget));
+        setEntity(await load(nextTarget));
       } catch (reason) {
         setResourceError(error(reason, "Unable to load the Siren resource."));
       } finally {
         setIsResourceLoading(false);
       }
     },
-    [client],
+    [load],
   );
 
   useEffect(() => {
@@ -127,6 +132,7 @@ export function useSirenBrowser(client: SirenClient, rootTarget: Target) {
     error: targetIsRoot ? rootError : resourceError,
     follow,
     isLoading: targetIsRoot ? isRootLoading : isResourceLoading,
+    load,
     retry,
     retryRoot: () => void loadRoot(true),
     root,

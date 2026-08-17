@@ -48,6 +48,7 @@ function Browser({ rootTarget }: AppProps): ReactElement {
               entity={state.entity}
               isLoading={state.isLoading}
               onFollow={state.follow}
+              onLoad={state.load}
               onSubmit={state.submit}
             />
           )}

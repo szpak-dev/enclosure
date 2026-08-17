@@ -6,7 +6,7 @@ import { SirenProperties } from "../siren/SirenProperties";
 import { SirenValue } from "../siren/SirenValue";
 import { DiagramRenderer } from "./DiagramRenderer";
 
-type DiagramProperties = Entity["properties"] & {
+export type DiagramProperties = Entity["properties"] & {
   id: string;
   revision: number;
   snapshot: unknown;
