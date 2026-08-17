@@ -30,6 +30,10 @@ After changing its source, rebuild the static files deterministically from the r
 make browser-build
 ```
 
+Restarting Django does not rebuild or invalidate the browser bundle. After the
+build finishes, hard-refresh the open page (`Cmd+Shift+R` on macOS or
+`Ctrl+Shift+R` elsewhere) to replace a cached `browser.js`.
+
 The built files live in the Django browser adapter's static directory. The production image runs `collectstatic`, and WhiteNoise serves the manifest-versioned assets.
 
 ## Machine-wide MCP server

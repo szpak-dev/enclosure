@@ -13,11 +13,9 @@ export type SirenEntityProps = {
 };
 
 export function SirenEntity({ entity, onFollow, onSubmit }: SirenEntityProps) {
-  const EntityComponent = sirenRegistry.entities.resolve(entity.class);
-
-  if (EntityComponent) {
+  if (entity.class.includes("collection")) {
     return (
-      <EntityComponent
+      <SirenCollection
         entity={entity}
         onFollow={onFollow}
         onSubmit={onSubmit}
@@ -25,9 +23,11 @@ export function SirenEntity({ entity, onFollow, onSubmit }: SirenEntityProps) {
     );
   }
 
-  if (entity.class.includes("collection")) {
+  const EntityComponent = sirenRegistry.entities.resolve(entity.class);
+
+  if (EntityComponent) {
     return (
-      <SirenCollection
+      <EntityComponent
         entity={entity}
         onFollow={onFollow}
         onSubmit={onSubmit}
