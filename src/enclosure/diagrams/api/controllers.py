@@ -136,6 +136,38 @@ class DiagramSetsController(ControllerBase):
         )
         return Status(201, diagram)
 
+    @route.get(
+        "/{diagram_set_id}/diagrams",
+        response=list[schemas.DiagramSummary],
+        operation_id="find_diagram_set_diagrams",
+        summary="List diagrams in a diagram set",
+        description="Return summaries for the diagrams belonging to one diagram set.",
+    )
+    def find_diagrams(
+        self,
+        request,
+        diagram_set_id: Annotated[str, Path(description="Diagram set identifier.")],
+    ):
+        return DjangoRequest.resolve(request, DiagramsService).find_diagrams_in_set(diagram_set_id)
+
+    @route.get(
+        "/{diagram_set_id}/diagrams/{diagram_id}",
+        response=schemas.Diagram,
+        operation_id="get_diagram_set_diagram",
+        summary="Get a diagram from a diagram set",
+        description="Return a diagram only when it belongs to the selected diagram set.",
+    )
+    def get_diagram(
+        self,
+        request,
+        diagram_set_id: Annotated[str, Path(description="Diagram set identifier.")],
+        diagram_id: Annotated[str, Path(description="Diagram identifier.")],
+    ):
+        return DjangoRequest.resolve(request, DiagramsService).get_diagram_in_set(
+            diagram_set_id,
+            diagram_id,
+        )
+
 
 @api_controller("/diagrams", tags=["Diagrams"])
 class DiagramsController(ControllerBase):

@@ -17,11 +17,11 @@ class DiagramInteractionService:
     validation: DiagramValidationService
 
     def update(self, id: str, expected_revision: int, value: object) -> Diagram:
-        stored = self.editing.require_revision(id, expected_revision)
+        stored = self.editing.get(id)
         interactions = self.validation.interactions(value)
         diagram = self.mermaiden.restore(stored.snapshot)
         missing = set(interactions) - self.mermaiden.element_ids(diagram)
         if missing:
             names = ", ".join(sorted(missing))
             raise DiagramsError(f"Interaction targets do not exist in diagram {id!r}: {names}.")
-        return self.editing.update(stored, {"interactions": interactions})
+        return self.editing.update(id, expected_revision, {"interactions": interactions})

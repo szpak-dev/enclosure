@@ -124,4 +124,4 @@ class DiagramSetSummary(Schema):
 
 
 class DiagramSet(DiagramSetSummary):
-    diagrams: list[DiagramSummary] = Field(description="Diagrams belonging to this set.")
+    pass
