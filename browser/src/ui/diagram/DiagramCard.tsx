@@ -9,6 +9,7 @@ import {
   Title,
 } from "@mantine/core";
 import type { EmbeddedEntity, Entity, Target } from "@siren-js/client";
+import { DiagramPreview } from "./DiagramPreview";
 
 export type DiagramSummaryProperties = Entity["properties"] & {
   id: string;
@@ -22,9 +23,10 @@ export type DiagramSummary = EmbeddedEntity<DiagramSummaryProperties>;
 export type DiagramCardProps = {
   diagram: DiagramSummary;
   onFollow: (target: Target) => void;
+  onLoad: (target: Target) => Promise<Entity>;
 };
 
-export function DiagramCard({ diagram, onFollow }: DiagramCardProps) {
+export function DiagramCard({ diagram, onFollow, onLoad }: DiagramCardProps) {
   const target = diagram.links.find((link) => link.rel.includes("self"));
 
   return (
@@ -38,17 +40,24 @@ export function DiagramCard({ diagram, onFollow }: DiagramCardProps) {
           Revision {diagram.properties.revision}
         </Text>
         {target ? (
-          <Button
-            component="a"
-            href={`#${target.href}`}
-            onClick={(event) => {
-              event.preventDefault();
-              onFollow(target);
-            }}
-            variant="light"
-          >
-            Open diagram
-          </Button>
+          <>
+            <DiagramPreview
+              onLoad={onLoad}
+              target={target}
+              title={diagram.properties.title}
+            />
+            <Button
+              component="a"
+              href={`#${target.href}`}
+              onClick={(event) => {
+                event.preventDefault();
+                onFollow(target);
+              }}
+              variant="light"
+            >
+              Open diagram
+            </Button>
+          </>
         ) : (
           <Alert color="red" role="alert" title="Diagram link unavailable">
             This diagram summary has no self relationship.

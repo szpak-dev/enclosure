@@ -10,7 +10,61 @@ import type { Entity, Target } from "@siren-js/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { DiagramSetEntity } from "../DiagramSetEntity";
 
-afterEach(cleanup);
+vi.mock("../DiagramRenderer", () => ({
+  DiagramRenderer: ({ diagramId }: { diagramId: string }) => (
+    <div aria-label={`Rendered ${diagramId}`} role="img" />
+  ),
+}));
+
+const intersectionObservers: IntersectionObserverMock[] = [];
+
+class IntersectionObserverMock implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = "200px";
+  readonly thresholds = [0];
+  private target!: Element;
+
+  constructor(private readonly callback: IntersectionObserverCallback) {
+    intersectionObservers.push(this);
+  }
+
+  disconnect(): void {}
+
+  intersect(): void {
+    const bounds = this.target.getBoundingClientRect();
+    this.callback(
+      [
+        {
+          boundingClientRect: bounds,
+          intersectionRatio: 1,
+          intersectionRect: bounds,
+          isIntersecting: true,
+          rootBounds: null,
+          target: this.target,
+          time: 0,
+        },
+      ],
+      this,
+    );
+  }
+
+  observe(target: Element): void {
+    this.target = target;
+  }
+
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+
+  unobserve(): void {}
+}
+
+globalThis.IntersectionObserver = IntersectionObserverMock;
+
+afterEach(() => {
+  cleanup();
+  intersectionObservers.length = 0;
+});
 
 const collectionTarget = {
   class: [],
@@ -64,6 +118,17 @@ function collection() {
   } as unknown as Entity;
 }
 
+function fullDiagram(index: number) {
+  return {
+    ...diagram(index),
+    properties: {
+      ...diagram(index).properties,
+      snapshot: {},
+      source: "flowchart LR\nA-->B",
+    },
+  } as unknown as Entity;
+}
+
 function renderGallery(onLoad = vi.fn().mockResolvedValue(collection())) {
   const onFollow = vi.fn();
   render(
@@ -86,6 +151,28 @@ it("discovers and displays all 27 diagram summaries", async () => {
   expect(screen.getAllByRole("article")).toHaveLength(28);
   expect(onLoad).toHaveBeenCalledOnce();
   expect(onLoad).toHaveBeenCalledWith(collectionTarget);
+});
+
+it("loads and renders only a diagram whose card becomes visible", async () => {
+  const onLoad = vi
+    .fn()
+    .mockResolvedValueOnce(collection())
+    .mockResolvedValueOnce(fullDiagram(1));
+  renderGallery(onLoad);
+
+  expect(await screen.findByText("Showing 27 of 27 diagrams")).toBeVisible();
+  expect(onLoad).toHaveBeenCalledOnce();
+  expect(intersectionObservers).toHaveLength(27);
+
+  intersectionObservers[0].intersect();
+
+  expect(
+    await screen.findByRole("img", { name: "Rendered diagram-1" }),
+  ).toBeVisible();
+  expect(onLoad).toHaveBeenCalledTimes(2);
+  expect(onLoad).toHaveBeenLastCalledWith(
+    expect.objectContaining({ href: "/siren/diagrams/diagram-1" }),
+  );
 });
 
 it("filters diagrams by title and kind", async () => {

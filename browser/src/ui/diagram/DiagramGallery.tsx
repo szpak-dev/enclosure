@@ -70,7 +70,11 @@ export function DiagramGallery({
         {isLoading ? (
           <Text role="status">Loading diagrams…</Text>
         ) : collection ? (
-          <DiagramCollection collection={collection} onFollow={onFollow} />
+          <DiagramCollection
+            collection={collection}
+            onFollow={onFollow}
+            onLoad={onLoad}
+          />
         ) : null}
 
         <SirenActions

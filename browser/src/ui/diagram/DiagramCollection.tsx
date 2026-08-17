@@ -14,11 +14,13 @@ import { DiagramCard, type DiagramSummary } from "./DiagramCard";
 export type DiagramCollectionProps = {
   collection: Entity;
   onFollow: (target: Target) => void;
+  onLoad: (target: Target) => Promise<Entity>;
 };
 
 export function DiagramCollection({
   collection,
   onFollow,
+  onLoad,
 }: DiagramCollectionProps) {
   const [kind, setKind] = useState("all");
   const [layout, setLayout] = useState("grid");
@@ -79,6 +81,7 @@ export function DiagramCollection({
               diagram={diagram}
               key={diagram.properties.id}
               onFollow={onFollow}
+              onLoad={onLoad}
             />
           ))}
         </SimpleGrid>
