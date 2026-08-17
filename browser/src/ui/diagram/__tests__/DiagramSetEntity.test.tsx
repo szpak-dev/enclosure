@@ -10,10 +10,15 @@ import type { Entity, Target } from "@siren-js/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { DiagramSetEntity } from "../DiagramSetEntity";
 
+const failingDiagramIds = vi.hoisted(() => new Set<string>());
+
 vi.mock("../DiagramRenderer", () => ({
-  DiagramRenderer: ({ diagramId }: { diagramId: string }) => (
-    <div aria-label={`Rendered ${diagramId}`} role="img" />
-  ),
+  DiagramRenderer: ({ diagramId }: { diagramId: string }) => {
+    if (failingDiagramIds.has(diagramId)) {
+      throw new Error(`Rendering failed for ${diagramId}`);
+    }
+    return <div aria-label={`Rendered ${diagramId}`} role="img" />;
+  },
 }));
 
 const intersectionObservers: IntersectionObserverMock[] = [];
@@ -63,6 +68,7 @@ globalThis.IntersectionObserver = IntersectionObserverMock;
 
 afterEach(() => {
   cleanup();
+  failingDiagramIds.clear();
   intersectionObservers.length = 0;
 });
 
@@ -172,6 +178,29 @@ it("loads and renders only a diagram whose card becomes visible", async () => {
   expect(onLoad).toHaveBeenCalledTimes(2);
   expect(onLoad).toHaveBeenLastCalledWith(
     expect.objectContaining({ href: "/siren/diagrams/diagram-1" }),
+  );
+});
+
+it("contains a rendering failure within its diagram card", async () => {
+  const onLoad = vi
+    .fn()
+    .mockResolvedValueOnce(collection())
+    .mockResolvedValueOnce(fullDiagram(1))
+    .mockResolvedValueOnce(fullDiagram(2));
+  failingDiagramIds.add("diagram-1");
+  renderGallery(onLoad);
+
+  await screen.findByText("Showing 27 of 27 diagrams");
+  intersectionObservers[0].intersect();
+  intersectionObservers[1].intersect();
+
+  expect(
+    await screen.findByText("Rendering failed for diagram-1"),
+  ).toBeVisible();
+  expect(screen.getByRole("img", { name: "Rendered diagram-2" })).toBeVisible();
+  expect(screen.getByText("Showing 27 of 27 diagrams")).toBeVisible();
+  expect(screen.getAllByRole("link", { name: "Open diagram" })).toHaveLength(
+    27,
   );
 });
 

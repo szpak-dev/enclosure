@@ -10,6 +10,7 @@ import {
 } from "@mantine/core";
 import type { EmbeddedEntity, Entity, Target } from "@siren-js/client";
 import { DiagramPreview } from "./DiagramPreview";
+import { DiagramPreviewErrorBoundary } from "./DiagramPreviewErrorBoundary";
 
 export type DiagramSummaryProperties = Entity["properties"] & {
   id: string;
@@ -41,11 +42,13 @@ export function DiagramCard({ diagram, onFollow, onLoad }: DiagramCardProps) {
         </Text>
         {target ? (
           <>
-            <DiagramPreview
-              onLoad={onLoad}
-              target={target}
-              title={diagram.properties.title}
-            />
+            <DiagramPreviewErrorBoundary>
+              <DiagramPreview
+                onLoad={onLoad}
+                target={target}
+                title={diagram.properties.title}
+              />
+            </DiagramPreviewErrorBoundary>
             <Button
               component="a"
               href={`#${target.href}`}
