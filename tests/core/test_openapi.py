@@ -45,3 +45,10 @@ def test_api_operations_and_fields_are_documented() -> None:
     assert all(operation.get("summary") and operation.get("description") for operation in operations)
     assert all(parameter.get("description") for parameter in parameters)
     assert all(field.get("description") for field in fields)
+
+
+def test_diagram_interactions_are_not_advertised() -> None:
+    schema = Client().get("/api/openapi.json").json()
+
+    assert "/api/diagrams/{diagram_id}/interactions" not in schema["paths"]
+    assert "update_diagram_interactions" not in set(find_operation_ids(schema))

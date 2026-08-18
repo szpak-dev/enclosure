@@ -16,7 +16,6 @@ class Diagram(ShortUUIDModel):
     kind = models.CharField(max_length=64)
     snapshot = models.JSONField(default=dict)
     source = models.TextField()
-    interactions = models.JSONField(default=dict)
     revision = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
