@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated
 
 from ninja import Schema
 from pydantic import ConfigDict, Field, JsonValue
@@ -71,32 +71,6 @@ class ApplyDiagramCommand(StrictSchema):
     arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
 
 
-class NavigateInteraction(StrictSchema):
-    action: Literal["navigate"] = Field(description="Navigate to an application-relative destination.")
-    target: str = Field(description="Application-relative destination opened when the element is activated.")
-
-
-class ShowDetailsInteraction(StrictSchema):
-    action: Literal["show_details"] = Field(description="Show structured details for the activated element.")
-    payload: dict[str, JsonValue] = Field(description="Details shown when the element is activated.")
-
-
-Interaction = Annotated[
-    NavigateInteraction | ShowDetailsInteraction,
-    Field(discriminator="action"),
-]
-
-
-class UpdateDiagramInteractions(StrictSchema):
-    expected_revision: int = Field(
-        description="Diagram revision on which the interaction update is based.",
-        ge=1,
-    )
-    interactions: dict[str, Interaction] = Field(
-        description="Declarative browser interactions keyed by diagram element identifier."
-    )
-
-
 class DiagramSummary(Schema):
     id: DiagramId
     diagram_set_id: DiagramSetId
@@ -110,9 +84,6 @@ class DiagramSummary(Schema):
 class Diagram(DiagramSummary):
     snapshot: dict[str, JsonValue] = Field(description="Canonical versioned Mermaiden snapshot.")
     source: str = Field(description="Mermaid source generated from the canonical snapshot.")
-    interactions: dict[str, Interaction] = Field(
-        description="Declarative browser interactions keyed by diagram element identifier."
-    )
 
 
 class DiagramSetSummary(Schema):

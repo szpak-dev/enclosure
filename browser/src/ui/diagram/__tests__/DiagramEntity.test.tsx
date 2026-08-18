@@ -37,7 +37,6 @@ const diagram = {
     created_at: "2026-08-14T10:00:00Z",
     diagram_set_id: "set-one",
     id: "diagram-one",
-    interactions: {},
     kind: "flowchart",
     revision: 3,
     snapshot: { kind: "flowchart", version: 1 },

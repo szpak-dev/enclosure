@@ -8,7 +8,6 @@ from ..models import Diagram, DiagramSet
 from .catalog import DiagramCatalogService
 from .diagram_sets import DiagramSetService
 from .editing import DiagramEditingService
-from .interactions import DiagramInteractionService
 
 
 @injectable
@@ -17,7 +16,6 @@ class DiagramsService:
     catalog: DiagramCatalogService
     diagram_sets: DiagramSetService
     editing: DiagramEditingService
-    interactions: DiagramInteractionService
 
     def find_kinds(self) -> tuple[dict[str, str], ...]:
         return self.catalog.find_kinds()
@@ -66,9 +64,6 @@ class DiagramsService:
         arguments: Mapping[str, object],
     ) -> Diagram:
         return self.editing.apply(id, expected_revision, operation, arguments)
-
-    def update_interactions(self, id: str, expected_revision: int, value: object) -> Diagram:
-        return self.interactions.update(id, expected_revision, value)
 
     def delete_diagram(self, id: str) -> None:
         self.editing.delete(id)

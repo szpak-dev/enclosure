@@ -62,31 +62,6 @@ def test_invalid_command_arguments_return_domain_error() -> None:
 
 
 @pytest.mark.django_db
-def test_invalid_interaction_target_returns_domain_error() -> None:
-    client = Client()
-    diagram = create_diagram(client)
-
-    response = client.put(
-        f"/api/diagrams/{diagram['id']}/interactions",
-        data={
-            "expected_revision": 1,
-            "interactions": {
-                "missing": {
-                    "action": "show_details",
-                    "payload": {"message": "Missing target"},
-                },
-            },
-        },
-        content_type="application/json",
-    )
-
-    assert response.status_code == 422
-    assert response.json() == {
-        "detail": f"Interaction targets do not exist in diagram {diagram['id']!r}: missing."
-    }
-
-
-@pytest.mark.django_db
 def test_stale_revision_returns_domain_error() -> None:
     client = Client()
     diagram = create_diagram(client)

@@ -186,7 +186,7 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram",
         summary="Get a diagram",
-        description="Return a diagram's canonical snapshot, generated source, and browser interactions.",
+        description="Return a diagram's canonical snapshot and generated Mermaid source.",
     )
     def get(self, request, diagram_id: Annotated[str, Path(description="Diagram identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).get_diagram(diagram_id)
@@ -220,23 +220,4 @@ class DiagramsController(ControllerBase):
             body.expected_revision,
             body.operation,
             body.arguments,
-        )
-
-    @route.put(
-        "/{diagram_id}/interactions",
-        response=schemas.Diagram,
-        operation_id="update_diagram_interactions",
-        summary="Update diagram interactions",
-        description="Replace the diagram's declarative browser interactions.",
-    )
-    def update_interactions(
-        self,
-        request,
-        diagram_id: Annotated[str, Path(description="Diagram identifier.")],
-        body: schemas.UpdateDiagramInteractions,
-    ):
-        return DjangoRequest.resolve(request, DiagramsService).update_interactions(
-            diagram_id,
-            body.expected_revision,
-            body.model_dump(mode="json")["interactions"],
         )
