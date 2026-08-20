@@ -11,11 +11,13 @@ class BrowserTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         page = response.content.decode()
-        self.assertRegex(page, r'href="/static/browser/browser(?:\.[0-9a-f]{12})?\.css"')
-        self.assertRegex(page, r'src="/static/browser/browser(?:\.[0-9a-f]{12})?\.js"')
+        self.assertRegex(
+            page, r'href="/static/browser/browser(?:\.[0-9a-f]{12})?\.css"')
+        self.assertRegex(
+            page, r'src="/static/browser/browser(?:\.[0-9a-f]{12})?\.js"')
         self.assertIn('data-siren-root="/siren/"', page)
 
-    @override_settings(MODWIRE_SIREN_ROOT="/example-siren/")
+    @override_settings(SIRENITY_ROOT="/example-siren/")
     def test_exposes_the_configured_siren_root(self) -> None:
         response = self.client.get("/")
 
@@ -24,7 +26,8 @@ class BrowserTests(TestCase):
     def test_local_siren_adapter_supports_the_browser_navigation_smoke_path(self) -> None:
         category = self.client.post(
             "/api/records/categories",
-            data={"title": "Browser smoke category", "content_schema": {"type": "object"}},
+            data={"title": "Browser smoke category",
+                  "content_schema": {"type": "object"}},
             content_type="application/json",
         ).json()
         tag = self.client.post(
@@ -44,7 +47,8 @@ class BrowserTests(TestCase):
             content_type="application/json",
         ).json()
 
-        root = self.client.get("/siren/", headers={"accept": SIREN_ACCEPT}).json()
+        root = self.client.get(
+            "/siren/", headers={"accept": SIREN_ACCEPT}).json()
         collection_link = next(
             link
             for link in root["links"]
@@ -54,8 +58,10 @@ class BrowserTests(TestCase):
             urlsplit(collection_link["href"]).path,
             headers={"accept": SIREN_ACCEPT},
         ).json()
-        item = next(entity for entity in collection["entities"] if entity["properties"]["id"] == record["id"])
-        self_link = next(link for link in item["links"] if link["rel"] == ["self"])
+        item = next(
+            entity for entity in collection["entities"] if entity["properties"]["id"] == record["id"])
+        self_link = next(
+            link for link in item["links"] if link["rel"] == ["self"])
         entity = self.client.get(
             urlsplit(self_link["href"]).path,
             headers={"accept": SIREN_ACCEPT},

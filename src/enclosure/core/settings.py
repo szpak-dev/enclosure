@@ -1,22 +1,23 @@
+from corsheaders.defaults import default_headers, default_methods
+import structlog
+import dj_database_url
+from pathlib import Path
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-import os
-from pathlib import Path
-
-import dj_database_url
-import structlog
-from corsheaders.defaults import default_headers, default_methods
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR = PACKAGE_DIR.parent.parent
 APPS_DIR = PACKAGE_DIR / "apps"
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "0") == "1"
-ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
+ALLOWED_HOSTS = [h for h in os.getenv(
+    "ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]", "::1", "testserver"}
-LOCAL_DEVELOPMENT = DEBUG or bool(ALLOWED_HOSTS) and all(host in LOCAL_HOSTS for host in ALLOWED_HOSTS)
+LOCAL_DEVELOPMENT = DEBUG or bool(ALLOWED_HOSTS) and all(
+    host in LOCAL_HOSTS for host in ALLOWED_HOSTS)
 RELEASE_VERSION = os.getenv("ENCLOSURE_RUNTIME_VERSION", "0.0.0+dev")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
@@ -63,14 +64,14 @@ MODWIRE = {
     "APPLICATION": "enclosure.autowiring.application",
     "NINJA": {"title": "Enclosure API", "version": RELEASE_VERSION},
 }
-MODWIRE_SIREN = {
+SIRENITY = {
     "OPENAPI": "enclosure.core.api.api",
     "POLICY": "enclosure.core.siren.EnclosureSirenPolicy",
     "SOURCE_PATH": "/api",
     "PUBLIC_PATH": "/siren",
     "PROFILES": ["sirenity.SirenStructuredFormProfile"],
 }
-MODWIRE_SIREN_ROOT = "/siren/"
+SIRENITY_ROOT = "/siren/"
 ROOT_URLCONF = "enclosure.core.urls"
 TEMPLATES = [
     {
@@ -89,7 +90,8 @@ TEMPLATES = [
 ]
 ASGI_APPLICATION = "enclosure.core.asgi.application"
 WSGI_APPLICATION = "enclosure.core.wsgi.application"
-database = dj_database_url.config(default=os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"))
+database = dj_database_url.config(default=os.getenv(
+    "DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}"))
 if database_host := os.getenv("DATABASE_HOST"):
     database["HOST"] = database_host
 if database_port := os.getenv("DATABASE_PORT"):
@@ -108,8 +110,10 @@ STORAGES = {
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 RECORDS_EMBEDDING_DIMENSIONS = 384
-RECORDS_EMBEDDINGS_ENABLED = os.getenv("RECORDS_EMBEDDINGS_ENABLED", "1") == "1"
-RECORDS_EMBEDDING_PROVIDER = os.getenv("RECORDS_EMBEDDING_PROVIDER", "deterministic")
+RECORDS_EMBEDDINGS_ENABLED = os.getenv(
+    "RECORDS_EMBEDDINGS_ENABLED", "1") == "1"
+RECORDS_EMBEDDING_PROVIDER = os.getenv(
+    "RECORDS_EMBEDDING_PROVIDER", "deterministic")
 
 LOGGING = {
     "version": 1,
