@@ -1,44 +1,74 @@
+import asyncio
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
-from httpx import ASGITransport, AsyncClient
+from httpx import Client, WSGITransport
 from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
-from mcp.types import CallToolRequestParams, CallToolResult, ListToolsResult, PaginatedRequestParams
-from sirenity import SirenAdapter
-from starlette.types import ASGIApp
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsResult,
+    PaginatedRequestParams,
+    TextContent,
+    Tool,
+)
+from sirenity import SirenConfiguration, SirenMcpInvocation, siren_mcp
 
 from .executor import SirenExecutor
-from .toolset import SirenToolset
 
 
 def create_server(
-    adapter: SirenAdapter,
-    application: ASGIApp,
+    configuration: SirenConfiguration,
+    application: Any,
     *,
     version: str,
-) -> Server[SirenExecutor]:
-    tools = SirenToolset(adapter).tools()
+) -> Server[Any]:
+    tools = [
+        Tool(
+            name=tool.name,
+            title=tool.title,
+            description=tool.description,
+            input_schema=dict(tool.input_schema),
+        )
+        for tool in configuration.catalogue().snapshot()
+    ]
 
     @asynccontextmanager
-    async def lifespan(_: Server[SirenExecutor]) -> AsyncIterator[SirenExecutor]:
-        transport = ASGITransport(app=application)
-        async with AsyncClient(transport=transport, base_url="http://localhost") as client:
-            yield SirenExecutor(adapter, client)
+    async def lifespan(_: Server[Any]) -> AsyncIterator[Any]:
+        with Client(
+            transport=WSGITransport(app=application),
+            base_url="http://localhost",
+        ) as client:
+            yield siren_mcp(
+                configuration,
+                executor=SirenExecutor(configuration.adapter(), client),
+            )
 
     async def list_tools(
-        _: ServerRequestContext[SirenExecutor],
+        _: ServerRequestContext[Any],
         __: PaginatedRequestParams | None,
     ) -> ListToolsResult:
         return ListToolsResult(tools=tools)
 
     async def call_tool(
-        context: ServerRequestContext[SirenExecutor],
+        context: ServerRequestContext[Any],
         params: CallToolRequestParams,
     ) -> CallToolResult:
-        return await context.lifespan_context.execute(
-            params.name,
-            params.arguments or {},
+        result = await asyncio.to_thread(
+            context.lifespan_context.invoke,
+            SirenMcpInvocation(
+                operation_id=params.name,
+                arguments=params.arguments or {},
+            ),
+        )
+        document = dict(result.structured_content)
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(document))],
+            structured_content=document,
+            is_error=result.is_error,
         )
 
     return Server(

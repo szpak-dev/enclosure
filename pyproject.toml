@@ -19,7 +19,7 @@ dependencies = [
     "modwire-extraction==2.1.1",
     "modwire-hex",
     "mermaiden==3.1.0",
-    "sirenity==6.0.0",
+    "sirenity",
     "pgvector",
     "psycopg[binary]",
     "pydantic",
@@ -48,6 +48,9 @@ dev = [
 [tool.uv]
 package = false
 cache-dir = ".dev/uv-cache"
+
+[tool.uv.sources]
+sirenity = { path = "../sirenity", editable = true }
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"

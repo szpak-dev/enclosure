@@ -3,28 +3,31 @@ import os
 from django.conf import settings
 from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
 from django.core.asgi import get_asgi_application
-from sirenity import siren_adapter
+from django.core.wsgi import get_wsgi_application
+from sirenity import siren_configuration
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "enclosure.core.settings")
+
 
 def build_applications() -> tuple[ASGIApp, ASGIApp]:
     django_application = get_asgi_application()
     if settings.DEBUG:
         django_application = ASGIStaticFilesHandler(django_application)
 
-    from .api import api
     from .mcp.server import create_server
 
-    siren_configuration = settings.MODWIRE_SIREN
-    adapter = siren_adapter(
-        api.get_openapi_schema(path_prefix=siren_configuration["SOURCE_PATH"]),
-        source_path=siren_configuration["SOURCE_PATH"],
-        public_path=siren_configuration["PUBLIC_PATH"],
+    declaration = settings.SIRENITY
+    configuration = siren_configuration(
+        openapi=declaration["OPENAPI"],
+        source_path=declaration["SOURCE_PATH"],
+        public_path=declaration["PUBLIC_PATH"],
+        policy=declaration["POLICY"],
+        profiles=tuple(declaration["PROFILES"]),
     )
     mcp_server = create_server(
-        adapter,
-        django_application,
+        configuration,
+        get_wsgi_application(),
         version=settings.RELEASE_VERSION,
     )
     mcp_application = mcp_server.streamable_http_app(

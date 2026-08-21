@@ -451,7 +451,7 @@ requires-dist = [
     { name = "pygments" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "sirenity", specifier = "==6.0.0" },
+    { name = "sirenity", editable = "../sirenity" },
     { name = "structlog" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
@@ -1450,8 +1450,7 @@ wheels = [
 
 [[package]]
 name = "sirenity"
-version = "6.0.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../sirenity" }
 dependencies = [
     { name = "gherkin-official" },
     { name = "jsonschema", extra = ["format-nongpl"] },
@@ -1459,9 +1458,39 @@ dependencies = [
     { name = "pydantic" },
     { name = "wireup" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/27/73/2fa492788885e3ccda25d68fc115f0ae8af422484a7dd85859258ed98aa0/sirenity-6.0.0.tar.gz", hash = "sha256:39cf3dee067cf790533ab360f06f4f708561ba2df0d23dcbdb84cc8032e68a8d", size = 114104, upload-time = "2026-08-17T12:08:39.404Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/ad/111a6e9988b20287643327406dca4e86f4fab4b278d64e073074c6f5262d/sirenity-6.0.0-py3-none-any.whl", hash = "sha256:03136bbd590eb65e09bf20d6635a0e33b7679e866980b27d0ed854795b8c1ad9", size = 137559, upload-time = "2026-08-17T12:08:38.049Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "build", marker = "extra == 'dev'", specifier = ">=1.3" },
+    { name = "django", marker = "extra == 'dev'", specifier = ">=5.1,<6.1" },
+    { name = "django-ninja-extra", marker = "extra == 'dev'", specifier = ">=0.30,<1" },
+    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115,<1" },
+    { name = "gherkin-official", specifier = ">=29" },
+    { name = "jsonschema", extras = ["format-nongpl"], specifier = ">=4.26" },
+    { name = "modwire-cli", marker = "extra == 'dev'", specifier = ">=2.0.0" },
+    { name = "openapi-spec-validator", specifier = ">=0.9,<1" },
+    { name = "packaging", marker = "extra == 'dev'", specifier = ">=25" },
+    { name = "pydantic", specifier = ">=2.12" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9" },
+    { name = "pytest-bdd", marker = "extra == 'dev'", specifier = ">=8.1,<9" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14" },
+    { name = "twine", marker = "extra == 'dev'", specifier = ">=7" },
+    { name = "wireup", specifier = ">=2.12.0" },
+]
+provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "build", specifier = ">=1.3" },
+    { name = "django", specifier = ">=5.1,<6.1" },
+    { name = "django-ninja-extra", specifier = ">=0.30,<1" },
+    { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "modwire-cli", specifier = ">=2.0.0" },
+    { name = "packaging", specifier = ">=25" },
+    { name = "pytest", specifier = ">=9" },
+    { name = "pytest-bdd", specifier = ">=8.1,<9" },
+    { name = "ruff", specifier = ">=0.14" },
+    { name = "twine", specifier = ">=7" },
 ]
 
 [[package]]
