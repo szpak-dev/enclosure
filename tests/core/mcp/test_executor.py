@@ -1,21 +1,14 @@
 import json
 
-import pytest
 from httpx import Client, MockTransport, Request, Response
-from sirenity import SirenMcpOperation, siren_configuration
+from sirenity import SirenMcpOperation
 
-from enclosure.core.mcp.executor import SirenExecutionError, SirenExecutor
+from enclosure.core.mcp.executor import SirenExecutor
 
 
 def build_executor(transport: MockTransport) -> tuple[SirenExecutor, Client]:
-    configuration = siren_configuration(
-        openapi="enclosure.core.api.api",
-        source_path="/api",
-        public_path="/siren",
-        policy="sirenity.SirenAllowAllPolicy",
-    )
     client = Client(transport=transport, base_url="http://testserver")
-    return SirenExecutor(configuration.adapter(), client), client
+    return SirenExecutor(client), client
 
 
 def test_executes_a_normalized_operation_against_the_json_application() -> None:
@@ -42,6 +35,8 @@ def test_executes_a_normalized_operation_against_the_json_application() -> None:
         result = executor.execute(
             SirenMcpOperation(
                 operation_id="apply_diagram_command",
+                method="POST",
+                dispatch_path="/api/diagrams/example-one/commands",
                 path_values={"diagram_id": "example-one"},
                 body={
                     "expected_revision": 1,
@@ -74,6 +69,8 @@ def test_preserves_application_errors_for_sirenity_projection() -> None:
         result = executor.execute(
             SirenMcpOperation(
                 operation_id="get_language",
+                method="GET",
+                dispatch_path="/api/languages/missing-example",
                 path_values={"language_id": "missing-example"},
             )
         )
@@ -82,7 +79,21 @@ def test_preserves_application_errors_for_sirenity_projection() -> None:
     assert result.result == {"detail": "Example resource not found."}
 
 
-def test_rejects_unknown_normalized_operations() -> None:
-    executor, client = build_executor(MockTransport(lambda _: Response(204)))
-    with client, pytest.raises(SirenExecutionError, match="Unknown Siren operation"):
-        executor.execute(SirenMcpOperation(operation_id="missing_operation"))
+def test_dispatches_the_public_operation_target_without_adapter_route_lookup() -> None:
+    def respond(request: Request) -> Response:
+        assert request.method == "DELETE"
+        assert request.url.path == "/api/example-resources/example-one"
+        return Response(204)
+
+    executor, client = build_executor(MockTransport(respond))
+    with client:
+        result = executor.execute(
+            SirenMcpOperation(
+                operation_id="operation_not_known_to_enclosure",
+                method="DELETE",
+                dispatch_path="/api/example-resources/example-one",
+            )
+        )
+
+    assert result.status == 204
+    assert result.result is None

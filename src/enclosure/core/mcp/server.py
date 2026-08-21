@@ -44,7 +44,7 @@ def create_server(
         ) as client:
             yield siren_mcp(
                 configuration,
-                executor=SirenExecutor(configuration.adapter(), client),
+                executor=SirenExecutor(client),
             )
 
     async def list_tools(
