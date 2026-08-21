@@ -28,8 +28,13 @@ class RecordService:
     def find_all(self) -> QuerySet[Record]:
         return self.repository.find_all()
 
-    def search(self, query: str, limit: int = 10) -> list[Record]:
-        return self.repository.search(self.embeddings.embed_query(query), limit)
+    def search(
+        self,
+        query: str,
+        limit: int = 10,
+        record_ids: tuple[str, ...] | None = None,
+    ) -> list[Record]:
+        return self.repository.search(self.embeddings.embed_query(query), limit, record_ids)
 
     def update(self, id: str, data: dict) -> Record:
         return self._save({**self._snapshot(self.get(id)), **data, "id": id})

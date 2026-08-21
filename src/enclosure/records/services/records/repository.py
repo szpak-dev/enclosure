@@ -59,12 +59,16 @@ class RecordRepository(DjangoRepository):
     def delete(self, id: str) -> None:
         self.get(id).delete()
 
-    def search(self, embedding: list[float], limit: int) -> list[Record]:
-        return list(
-            self.find_all()
-            .exclude(embedding__isnull=True)
-            .order_by(CosineDistance("embedding", embedding))[:limit]
-        )
+    def search(
+        self,
+        embedding: list[float],
+        limit: int,
+        record_ids: tuple[str, ...] | None = None,
+    ) -> list[Record]:
+        records = self.find_all().exclude(embedding__isnull=True)
+        if record_ids is not None:
+            records = records.filter(id__in=record_ids)
+        return list(records.order_by(CosineDistance("embedding", embedding))[:limit])
 
     def _sync_resources(self, record: Record, resources: Iterable[Mapping[str, Any]]) -> None:
         existing_resources = {resource.path: resource for resource in record.resources.all()}

@@ -1,13 +1,9 @@
-Treat Enclosure projects and linked guidance records as execution policy. Use local enclosure-mcp tool.
+At the first task in a workspace, call get_workspace_context(root, task) once.
+Treat returned guidance as policy. Do not inspect the API root, list all projects,
+or search all records unless workspace context is unavailable.
 
-At the start of every chat, inspect Enclosure's advertised actions, find the registered project matching the
-workspace, and retrieve relevant guidance. State the applicable constraints before acting; report
-if no project matches or Enclosure is unavailable.
+Check project health after structural source, public API, DI, or architecture-rule
+changes. A test-only change does not require health unless it changes architectural coverage.
 
-Check project health after structural,
-public-API, dependency-injection, or test changes.
-
-After a tool failure, verify current state before a fallback. Do not change the user-visible outcome without explicit
-direction.
-
-Run `uv` commands in host mode; sandboxed `uv` can panic while reading macOS system configuration.
+After an ambiguous mutating-tool failure, verify state before retrying.
+Read-only failures may use the documented fallback directly.

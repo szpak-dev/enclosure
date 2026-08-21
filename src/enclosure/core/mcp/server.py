@@ -1,5 +1,4 @@
 import asyncio
-import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -65,8 +64,11 @@ def create_server(
             ),
         )
         document = dict(result.structured_content)
+        summary = document.get("detail") if result.is_error else document.get("title")
+        if not isinstance(summary, str):
+            summary = "Enclosure result"
         return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps(document))],
+            content=[TextContent(type="text", text=summary)],
             structured_content=document,
             is_error=result.is_error,
         )

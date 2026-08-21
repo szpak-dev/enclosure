@@ -48,8 +48,10 @@ def test_lists_the_sirenity_catalogue() -> None:
     tools = {tool.name: tool for tool in result.tools}
 
     assert "find_languages" in tools
+    assert "get_workspace_context" in tools
     assert tools["get_language"].title == "Get a language"
     assert tools["get_language"].input_schema["required"] == ["language_id"]
+    assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
 
 
 def test_executes_a_tool_through_the_sirenity_bridge() -> None:
@@ -76,6 +78,7 @@ def test_executes_a_tool_through_the_sirenity_bridge() -> None:
 
     assert result.is_error is False
     assert result.structured_content["properties"]["id"] == "python"
+    assert result.content[0].text == result.structured_content["title"]
 
 
 def test_reports_invalid_tool_arguments_without_dispatching() -> None:
