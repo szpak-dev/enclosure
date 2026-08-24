@@ -453,7 +453,7 @@ requires-dist = [
     { name = "pygments" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "sirenity", specifier = "==7.0.0" },
+    { name = "sirenity", specifier = "==7.0.2" },
     { name = "structlog" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
@@ -1452,7 +1452,7 @@ wheels = [
 
 [[package]]
 name = "sirenity"
-version = "7.0.0"
+version = "7.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "gherkin-official" },
@@ -1461,9 +1461,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "wireup" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c0/a7/8c096225b830b5094df0f6c0f17116ba7539925f913c0795d14faa9fdb8b/sirenity-7.0.0.tar.gz", hash = "sha256:57da11e037acc7143c8b162397936ccd3577b8ebcd4f845c54361eba67500fc0", size = 115327, upload-time = "2026-08-21T13:09:10.256Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/ee/d75d6b3a0d92f1d8734b1d4af2c2f746e1ab65c5d9e288b0789bdff0631e/sirenity-7.0.2.tar.gz", hash = "sha256:20c4971e13c38436f9108a4969e5779eceeefdcd5a86bf6504f426b65c7c60bc", size = 117929, upload-time = "2026-08-24T11:40:40.022Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/4d/ab44420d31131d744b713bdd90cf1bd99618f0cd86b14e79ed0882ff8312/sirenity-7.0.0-py3-none-any.whl", hash = "sha256:32a50ac4d31ef9d828a73b3372137f3dd6278434dcdcf02ae48d6975d787f645", size = 149986, upload-time = "2026-08-21T13:09:08.82Z" },
+    { url = "https://files.pythonhosted.org/packages/62/27/04f493af922834ad6439ef7e814aad80a8f6b325c4d3b7b692e3305e7a87/sirenity-7.0.2-py3-none-any.whl", hash = "sha256:49818da6148c0f19e2b737ea97d59e52cb286d84309d59f4d091caf4ec1dda0f", size = 151707, upload-time = "2026-08-24T11:40:37.605Z" },
 ]
 
 [[package]]
