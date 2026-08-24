@@ -81,6 +81,33 @@ def test_executes_a_tool_through_the_sirenity_bridge() -> None:
     assert result.content[0].text == result.structured_content["title"]
 
 
+def test_reports_projected_application_errors() -> None:
+    async def call_tool() -> CallToolResult:
+        server = build_server()
+        handler = server.get_request_handler("tools/call")
+        assert handler is not None
+        async with server.lifespan(server) as bridge:
+            context = cast(
+                ServerRequestContext[Any],
+                SimpleNamespace(lifespan_context=bridge),
+            )
+            result = await handler.handler(
+                context,
+                CallToolRequestParams(
+                    name="get_language",
+                    arguments={"language_id": "missing-example"},
+                ),
+            )
+        assert isinstance(result, CallToolResult)
+        return result
+
+    result = asyncio.run(call_tool())
+
+    assert result.is_error is True
+    assert result.structured_content["class"] == ["error"]
+    assert result.structured_content["properties"]["status"] == 404
+
+
 def test_reports_invalid_tool_arguments_without_dispatching() -> None:
     async def call_tool() -> CallToolResult:
         server = build_server()
