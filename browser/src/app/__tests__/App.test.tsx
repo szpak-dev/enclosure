@@ -7,8 +7,13 @@ import {
 } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
+import { DiagramEntity } from "../../ui/diagram/DiagramEntity";
 import type { SirenEntityProps } from "../../ui/siren/SirenEntity";
 import { sirenRegistry } from "../../ui/siren/SirenRegistry";
+import {
+  JSON_CONTROL,
+  STRUCTURED_FORM_EXTENSION,
+} from "../../ui/siren/SirenActionForm";
 import { App } from "../App";
 
 const sirenClient = vi.hoisted(() => ({
@@ -21,6 +26,10 @@ vi.mock("../../client/SirenClient", () => ({
     execute = sirenClient.execute;
     get = sirenClient.get;
   },
+}));
+
+vi.mock("../../ui/diagram/DiagramRenderer", () => ({
+  DiagramRenderer: () => <div>Example diagram</div>,
 }));
 
 const rootEntity = {
@@ -182,17 +191,17 @@ it("retries failed navigation without replacing a deep-linked resource", async (
 
   render(<App rootTarget="/example-siren/" />);
 
-  expect(
-    await screen.findByRole("heading", { name: "Current example resource" }),
-  ).toBeInTheDocument();
-  expect(screen.getByRole("alert")).toHaveTextContent("Navigation unavailable");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Navigation unavailable",
+  );
+  expect(window.location.hash).toBe("#/example-resources");
   fireEvent.click(screen.getByRole("button", { name: "Retry navigation" }));
 
   expect(
-    await screen.findByRole("link", { name: "Example resources" }),
+    await screen.findByRole("heading", { name: "Current example resource" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: "Current example resource" }),
+    screen.getByRole("link", { name: "Example resources" }),
   ).toBeInTheDocument();
   expect(window.location.hash).toBe("#/example-resources");
 });
@@ -317,6 +326,137 @@ it("navigates from the root through a collection to an updated entity", async ()
     { title: "Updated example" },
   );
   expect(window.location.hash).toBe("#/example-resources/one");
+});
+
+it("updates the diagram source, snapshot, and revision after a successful command", async () => {
+  window.history.replaceState(null, "", "/#/example-diagram");
+  const commandAction = {
+    fields: [
+      {
+        name: "expected_revision",
+        title: "Expected revision",
+        type: "number",
+      },
+      { name: "operation", title: "Operation", type: "text" },
+    ],
+    href: "/advertised-command-target",
+    method: "POST",
+    name: "execute_advertised_command",
+    title: "Apply command",
+    type: "application/json",
+    [STRUCTURED_FORM_EXTENSION]: {
+      controls: [
+        {
+          control: JSON_CONTROL,
+          location: "body",
+          mediaType: "application/json",
+          name: "arguments",
+          required: true,
+          schema: { additionalProperties: {}, type: "object" },
+        },
+      ],
+      version: "1",
+    },
+  };
+  const initialDiagram = {
+    actions: [commandAction],
+    class: ["diagram"],
+    entities: [],
+    links: [],
+    properties: {
+      id: "example-diagram",
+      kind: "example-kind",
+      revision: 3,
+      snapshot: { status: "initial" },
+      source: "initial example source",
+      title: "Example diagram",
+    },
+    title: "Example diagram",
+  };
+  const updatedDiagram = {
+    ...initialDiagram,
+    properties: {
+      ...initialDiagram.properties,
+      revision: 4,
+      snapshot: { status: "updated" },
+      source: "updated example source",
+    },
+  };
+  const advertisedRoot = {
+    ...rootEntity,
+    links: [
+      rootEntity.links[0],
+      {
+        href: "/advertised-catalogue",
+        rel: ["collection"],
+        title: "Advertised catalogue",
+      },
+    ],
+  };
+  const advertisedCatalogue = {
+    actions: [],
+    class: ["collection"],
+    entities: [
+      {
+        class: ["item"],
+        links: [{ href: "/advertised-kind", rel: ["self"] }],
+        properties: { id: "example-kind" },
+        rel: ["item"],
+        title: "Example kind",
+      },
+    ],
+    links: [],
+    properties: {},
+    title: "Advertised catalogue",
+  };
+  const advertisedKind = {
+    actions: [],
+    class: ["kind"],
+    entities: [],
+    links: [],
+    properties: {
+      commands: {
+        add_example: {
+          additionalProperties: false,
+          properties: {
+            id: { minLength: 1, title: "Id", type: "string" },
+          },
+          required: ["id"],
+          type: "object",
+        },
+      },
+    },
+    title: "Example kind",
+  };
+  sirenClient.get.mockImplementation(async (target) => {
+    const targetHref =
+      typeof target === "string" ? target : target.href.toString();
+    if (targetHref === "/example-siren/") return advertisedRoot;
+    if (targetHref === "/example-diagram") return initialDiagram;
+    if (targetHref === "/advertised-catalogue") return advertisedCatalogue;
+    if (targetHref === "/advertised-kind") return advertisedKind;
+    throw new Error(`Unexpected target: ${targetHref}`);
+  });
+  sirenClient.execute.mockResolvedValue(updatedDiagram);
+  const unregister = sirenRegistry.entities.register("diagram", DiagramEntity);
+
+  try {
+    render(<App rootTarget="/example-siren/" />);
+    fireEvent.change(await screen.findByRole("textbox", { name: "Id" }), {
+      target: { value: "example-one" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply command" }));
+
+    await waitFor(() => expect(sirenClient.execute).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("tab", { name: "Source" }));
+    expect(screen.getByText("updated example source")).toBeVisible();
+    fireEvent.click(screen.getByRole("tab", { name: "Snapshot" }));
+    expect(screen.getByText("updated")).toBeVisible();
+    fireEvent.click(screen.getByRole("tab", { name: "Metadata" }));
+    expect(screen.getByText("4")).toBeVisible();
+  } finally {
+    unregister();
+  }
 });
 
 it("creates an entity from an advertised root action", async () => {

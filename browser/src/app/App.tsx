@@ -49,7 +49,9 @@ function Browser({ rootTarget }: AppProps): ReactElement {
               isLoading={state.isLoading}
               onFollow={state.follow}
               onLoad={state.load}
+              onRefresh={state.retry}
               onSubmit={state.submit}
+              root={state.root}
             />
           )}
         </Stack>

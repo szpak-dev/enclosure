@@ -4,18 +4,33 @@ import type { SirenEntityProps } from "../siren/SirenEntity";
 import { SirenActions } from "../siren/SirenActions";
 import { SirenProperties } from "../siren/SirenProperties";
 import { SirenValue } from "../siren/SirenValue";
+import {
+  DiagramCommandForm,
+  isDiagramCommandAction,
+} from "./DiagramCommandForm";
 import { DiagramRenderer } from "./DiagramRenderer";
 
 export type DiagramProperties = Entity["properties"] & {
   id: string;
+  kind: string;
   revision: number;
   snapshot: unknown;
   source: string;
   title: string;
 };
 
-export function DiagramEntity({ entity, onSubmit }: SirenEntityProps) {
+export function DiagramEntity({
+  entity,
+  onLoad,
+  onRefresh,
+  onSubmit,
+  root,
+}: SirenEntityProps) {
   const properties = entity.properties as DiagramProperties;
+  const commandAction = entity.actions.find(isDiagramCommandAction);
+  const remainingActions = entity.actions.filter(
+    (action) => action !== commandAction,
+  );
 
   return (
     <Paper component="article" aria-label={properties.title} p="md" shadow="xs">
@@ -52,8 +67,19 @@ export function DiagramEntity({ entity, onSubmit }: SirenEntityProps) {
             <SirenProperties entity={entity} exclude={["snapshot", "source"]} />
           </Tabs.Panel>
         </Tabs>
+        {commandAction ? (
+          <DiagramCommandForm
+            action={commandAction}
+            kind={properties.kind}
+            onLoad={onLoad}
+            onRefresh={onRefresh}
+            onSubmit={onSubmit}
+            revision={properties.revision}
+            root={root}
+          />
+        ) : null}
         <SirenActions
-          actions={entity.actions}
+          actions={remainingActions}
           onSubmit={onSubmit}
           values={entity.properties}
         />

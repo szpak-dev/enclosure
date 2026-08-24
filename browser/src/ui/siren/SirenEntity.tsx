@@ -10,14 +10,18 @@ export type SirenEntityProps = {
   entity: Entity;
   onFollow: (target: Target) => void;
   onLoad: (target: Target) => Promise<Entity>;
+  onRefresh: () => void;
   onSubmit: (action: Action, values: Record<string, unknown>) => void;
+  root: Entity;
 };
 
 export function SirenEntity({
   entity,
   onFollow,
   onLoad,
+  onRefresh,
   onSubmit,
+  root,
 }: SirenEntityProps) {
   if (entity.class.includes("collection")) {
     return (
@@ -37,7 +41,9 @@ export function SirenEntity({
         entity={entity}
         onFollow={onFollow}
         onLoad={onLoad}
+        onRefresh={onRefresh}
         onSubmit={onSubmit}
+        root={root}
       />
     );
   }

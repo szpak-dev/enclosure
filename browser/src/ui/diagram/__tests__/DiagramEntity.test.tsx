@@ -47,6 +47,15 @@ const diagram = {
   title: "Diagram",
 } as unknown as Entity;
 
+const root = {
+  actions: [],
+  class: ["api", "entry-point"],
+  entities: [],
+  links: [],
+  properties: {},
+  title: "API",
+} as unknown as Entity;
+
 function renderEntity() {
   return render(
     <MantineProvider>
@@ -54,7 +63,9 @@ function renderEntity() {
         entity={diagram}
         onFollow={vi.fn()}
         onLoad={vi.fn()}
+        onRefresh={vi.fn()}
         onSubmit={vi.fn()}
+        root={root}
       />
     </MantineProvider>,
   );

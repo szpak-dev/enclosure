@@ -143,7 +143,9 @@ function renderGallery(onLoad = vi.fn().mockResolvedValue(collection())) {
         entity={diagramSet}
         onFollow={onFollow}
         onLoad={onLoad}
+        onRefresh={vi.fn()}
         onSubmit={vi.fn()}
+        root={diagramSet}
       />
     </MantineProvider>,
   );
@@ -263,7 +265,9 @@ it("reports a missing collection relationship", () => {
         entity={{ ...diagramSet, links: [] } as unknown as Entity}
         onFollow={vi.fn()}
         onLoad={vi.fn()}
+        onRefresh={vi.fn()}
         onSubmit={vi.fn()}
+        root={diagramSet}
       />
     </MantineProvider>,
   );

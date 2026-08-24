@@ -7,7 +7,9 @@ export type SirenPageProps = {
   isLoading: boolean;
   onFollow: (target: Target) => void;
   onLoad: (target: Target) => Promise<Entity>;
+  onRefresh: () => void;
   onSubmit: (action: Action, values: Record<string, unknown>) => void;
+  root: Entity | null;
 };
 
 export function SirenPage({
@@ -15,9 +17,11 @@ export function SirenPage({
   isLoading,
   onFollow,
   onLoad,
+  onRefresh,
   onSubmit,
+  root,
 }: SirenPageProps) {
-  if (isLoading)
+  if (isLoading || !root)
     return (
       <Center>
         <Loader aria-label="Loading resource" />
@@ -29,7 +33,9 @@ export function SirenPage({
       entity={entity}
       onFollow={onFollow}
       onLoad={onLoad}
+      onRefresh={onRefresh}
       onSubmit={onSubmit}
+      root={root}
     />
   );
 }
