@@ -12,6 +12,26 @@ class DiscoverProject(Schema):
     root: str = Field(description="Absolute path to the project directory.")
 
 
+class GetWorkspaceContext(Schema):
+    root: str = Field(description="Absolute path to the registered project directory.")
+    task: str = Field(description="Current task used to select relevant project guidance.")
+
+
+class WorkspaceGuidance(Schema):
+    id: str = Field(description="Guidance record identifier.")
+    title: str = Field(description="Guidance title.")
+    summary: str = Field(description="Compact statement of the guidance purpose.")
+    applies_when: list[str] = Field(description="Situations in which the guidance applies.")
+    guidance: list[str] = Field(description="Constraints applicable to the task.")
+    checks: list[str] = Field(description="Checks required before handoff.")
+
+
+class WorkspaceContext(Schema):
+    project_id: ProjectId
+    root: str = Field(description="Registered project root.")
+    guidance: list[WorkspaceGuidance] = Field(description="Relevant linked guidance, ordered by task relevance.")
+
+
 class RegisterProject(Schema):
     discovery: DiscoveredProject = Field(description="Detected project root and technology stack.")
     architecture_root: str = Field(description="Absolute path analyzed by the architecture rules.")

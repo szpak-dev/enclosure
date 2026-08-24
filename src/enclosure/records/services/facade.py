@@ -60,8 +60,13 @@ class RecordsService:
     def find_all_records(self) -> QuerySet[Record]:
         return self.records.find_all()
 
-    def search_records(self, query: str, limit: int = 10) -> list[Record]:
-        return self.records.search(query, limit)
+    def search_records(
+        self,
+        query: str,
+        limit: int = 10,
+        record_ids: tuple[str, ...] | None = None,
+    ) -> list[Record]:
+        return self.records.search(query, limit, record_ids)
 
     @transaction.atomic
     def update_record(self, id: str, data: dict) -> Record:

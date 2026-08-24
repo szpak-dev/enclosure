@@ -7,5 +7,5 @@ class BrowserIndexView(TemplateView):
 
     def get_context_data(self, **kwargs: object) -> dict[str, object]:
         context = super().get_context_data(**kwargs)
-        context["siren_root"] = getattr(settings, "MODWIRE_SIREN_ROOT", "/siren/")
+        context["siren_root"] = getattr(settings, "SIRENITY_ROOT", "/siren/")
         return context

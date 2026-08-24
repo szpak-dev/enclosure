@@ -33,7 +33,9 @@ function renderEntity(
         entity={value}
         onFollow={vi.fn()}
         onLoad={onLoad}
+        onRefresh={vi.fn()}
         onSubmit={vi.fn()}
+        root={entity(["api", "entry-point"])}
       />
     </MantineProvider>,
   );

@@ -11,6 +11,16 @@ from . import schemas
 @api_controller("/projects", tags=["Projects"])
 class ProjectsController(ControllerBase):
     @route.post(
+        "/workspace-contexts",
+        response=schemas.WorkspaceContext,
+        operation_id="get_workspace_context",
+        summary="Get workspace context",
+        description="Resolve a registered workspace and return compact task-relevant linked guidance.",
+    )
+    def workspace_context(self, request, body: schemas.GetWorkspaceContext):
+        return DjangoRequest.resolve(request, ProjectsService).get_workspace_context(body.root, body.task)
+
+    @route.post(
         "/discoveries",
         response=schemas.DiscoveredProject,
         operation_id="discover_project",

@@ -248,6 +248,42 @@ def test_lists_and_fetches_registered_projects(
 
 
 @pytest.mark.django_db
+def test_gets_compact_workspace_context_from_linked_records(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    created = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+
+    response = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "project_id": created["id"],
+        "root": str(tmp_path),
+        "guidance": [
+            {
+                "id": dependencies["record_id"],
+                "title": "Project context",
+                "summary": "Project context",
+                "applies_when": [],
+                "guidance": [],
+                "checks": [],
+            }
+        ],
+    }
+
+
+@pytest.mark.django_db
 def test_updates_registered_project(
     client: Client,
     dependencies: dict[str, str],

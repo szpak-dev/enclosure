@@ -35,6 +35,17 @@ class ProjectsService:
     def get_project(self, project_id: str) -> Project:
         return self.repository.get(project_id)
 
+    def get_workspace_context(self, root: str, task: str) -> dict[str, object]:
+        project = self.repository.get_by_root(root)
+        return {
+            "project_id": project.id,
+            "root": project.root,
+            "guidance": self.records.find_guidance(
+                self.repository.find_record_ids(project.id),
+                task,
+            ),
+        }
+
     def generate_source(
         self,
         project_id: str,

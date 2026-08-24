@@ -15,6 +15,15 @@ from ..models import Project, ProjectRecord
 class ProjectRepository(DjangoRepository):
     model: type[Project] = field(default=Project, init=False)
 
+    def get_by_root(self, root: str) -> Project:
+        return self.find_all().get(root=root)
+
+    @staticmethod
+    def find_record_ids(project_id: str) -> tuple[str, ...]:
+        return tuple(
+            ProjectRecord.objects.filter(project_id=project_id).values_list("record_id", flat=True)
+        )
+
     def register(self, data: Mapping[str, Any], record_ids: Iterable[str]) -> Project:
         try:
             with transaction.atomic():

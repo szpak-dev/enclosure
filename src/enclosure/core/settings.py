@@ -1,13 +1,13 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-
 import os
 from pathlib import Path
 
 import dj_database_url
 import structlog
 from corsheaders.defaults import default_headers, default_methods
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 BASE_DIR = PACKAGE_DIR.parent.parent
@@ -63,14 +63,14 @@ MODWIRE = {
     "APPLICATION": "enclosure.autowiring.application",
     "NINJA": {"title": "Enclosure API", "version": RELEASE_VERSION},
 }
-MODWIRE_SIREN = {
+SIRENITY = {
     "OPENAPI": "enclosure.core.api.api",
-    "POLICY": "enclosure.core.siren.EnclosureSirenPolicy",
+    "POLICY": "sirenity.SirenAllowAllPolicy",
     "SOURCE_PATH": "/api",
     "PUBLIC_PATH": "/siren",
     "PROFILES": ["sirenity.SirenStructuredFormProfile"],
 }
-MODWIRE_SIREN_ROOT = "/siren/"
+SIRENITY_ROOT = "/siren/"
 ROOT_URLCONF = "enclosure.core.urls"
 TEMPLATES = [
     {
