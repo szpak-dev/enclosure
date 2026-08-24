@@ -20,7 +20,7 @@ dependencies = [
     "modwire-extraction==2.1.1",
     "modwire-hex",
     "mermaiden==3.1.0",
-    "sirenity==7.0.2",
+    "sirenity==7.0.3",
     "pgvector",
     "psycopg[binary]",
     "pydantic",
