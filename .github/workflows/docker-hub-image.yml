@@ -37,6 +37,7 @@ on:
 permissions:
   contents: read
   attestations: write
+  artifact-metadata: write
   id-token: write
 
 jobs:
