@@ -50,10 +50,12 @@ the container. This preserves discovered project paths and allows Enclosure to
 generate files in any project. Set `ENCLOSURE_PROJECTS_DIR` in `.env` if the
 Projects directory is somewhere other than `/Users/gorky/Projects`.
 
-Set `ENCLOSURE_IMAGE` in `.env` to a published release tag. Use an exact
-SemVer tag in production (for example
-`docker.io/YOUR_DOCKERHUB_USERNAME/enclosure:1.2.3`); `latest` is only the
-most recent stable release.
+Set `ENCLOSURE_IMAGE` in `.env` to
+`docker.io/9orky/enclosure:latest` to follow the most recent stable release.
+`make runtime-up` retains the prior image locally as `:previous`, so the
+previous release remains available while older Enclosure tags and dangling
+images are pruned. Set an exact SemVer tag instead (for example
+`docker.io/9orky/enclosure:1.2.3`) when a deployment must remain pinned.
 
 Validate, pull, and start the server:
 
@@ -66,22 +68,12 @@ curl --fail http://127.0.0.1:8666/health/
 The Streamable HTTP MCP endpoint is available to every local project at
 `http://127.0.0.1:8666/mcp`.
 
-Container startup never applies migrations. Before a migration, create a
-PostgreSQL backup and capture the exact Django migration plan:
-
-```sh
-make runtime-db-prepare
-```
-
-Review both paths printed by that command. Apply the reviewed plan only by
-passing those same artifacts through the guarded command:
-
-```sh
-CONFIRM_EXISTING_DATABASE_MIGRATION=reviewed \
-MODWIRE_DATABASE_BACKUP=.dev/database-safety/modwire-records-TIMESTAMP.dump \
-MODWIRE_DATABASE_MIGRATION_PLAN=.dev/database-safety/migration-plan-TIMESTAMP.txt \
-make runtime-db-migrate
-```
+Container startup itself never applies migrations. Instead, `make runtime-up`
+pulls the configured image, runs its one-off `migrate` service against the
+local `resumed-db` container, and starts the MCP service only when migration
+succeeds. The migration and runtime therefore always use the same immutable
+image tag. Take a PostgreSQL backup before running `make runtime-up` when a
+migration is potentially irreversible.
 
 `make runtime-down` removes only `enclosure-mcp`. The external `resumed-db`
 container, its network, and its bind-mounted PostgreSQL data are untouched.

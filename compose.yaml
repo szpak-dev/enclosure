@@ -1,30 +1,39 @@
 name: enclosure
 
+x-runtime: &runtime
+  image: ${ENCLOSURE_IMAGE:?Set ENCLOSURE_IMAGE to the published Docker Hub image and tag.}
+  pull_policy: always
+  environment:
+    ALLOWED_HOSTS: localhost,127.0.0.1,enclosure-mcp
+    DATABASE_HOST: resumed-db
+    DATABASE_PORT: "5432"
+    DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+    DEBUG: "0"
+    RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
+    RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
+    SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+  volumes:
+    - type: bind
+      source: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
+      target: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
+      bind:
+        create_host_path: false
+  networks:
+    - database
+
 services:
   mcp:
-    image: ${ENCLOSURE_IMAGE:?Set ENCLOSURE_IMAGE to the published Docker Hub image and tag.}
-    pull_policy: always
+    <<: *runtime
     container_name: enclosure-mcp
-    environment:
-      ALLOWED_HOSTS: localhost,127.0.0.1,enclosure-mcp
-      DATABASE_HOST: resumed-db
-      DATABASE_PORT: "5432"
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
-      DEBUG: "0"
-      RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
-      RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
-      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
     ports:
       - "127.0.0.1:${ENCLOSURE_MCP_PORT:-8666}:8000"
-    volumes:
-      - type: bind
-        source: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
-        target: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
-        bind:
-          create_host_path: false
-    networks:
-      - database
     restart: always
+
+  migrate:
+    <<: *runtime
+    profiles: [migration]
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    restart: "no"
 
 networks:
   database:
