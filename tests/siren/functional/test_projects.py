@@ -86,14 +86,22 @@ def test_siren_generates_project_source(
     details = client.get(f"/siren/projects/{project_id}")
 
     assert details.status_code == 200
-    assert {
-        (link["title"], link["href"])
+    configurations_link = next(
+        link
         for link in details.json()["links"]
-    } >= {
-        (
-            "Architecture configuration",
-            f"http://testserver/siren/projects/{project_id}/architecture-configuration",
-        )
+        if link["href"] == f"http://testserver/siren/projects/{project_id}/architecture-configurations"
+    )
+    assert configurations_link["rel"] == ["collection"]
+    configurations = client.get(configurations_link["href"].removeprefix("http://testserver"))
+    assert configurations.status_code == 200
+    configuration_link = configurations.json()["entities"][0]["links"][0]
+    configuration = client.get(configuration_link["href"].removeprefix("http://testserver"))
+    assert configuration.status_code == 200
+    assert configuration.json()["properties"] == {
+        "id": configuration_link["href"].split("/")[-1],
+        "project_id": project_id,
+        "boundaries_yaml": "boundaries: {}\n",
+        "shape_yaml": "shape:\n  realms:\n    - name: project\n      match: '*'\n",
     }
     action = next(action for action in details.json()["actions"] if action["name"] == "generate_project_source")
     assert action["href"] == f"http://testserver/siren/projects/{project_id}/source-generations"

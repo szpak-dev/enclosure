@@ -72,7 +72,12 @@ class Project(Schema):
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
 
 
-class ProjectArchitectureConfiguration(Schema):
+class ProjectArchitectureConfigurationReference(Schema):
+    id: str = Field(description="Architecture configuration identifier within the project.")
+    project_id: ProjectId
+
+
+class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference):
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
 

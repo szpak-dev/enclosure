@@ -88,19 +88,35 @@ class ProjectsController(ControllerBase):
         )
 
     @route.get(
-        "/{project_id}/architecture-configuration",
+        "/{project_id}/architecture-configurations",
+        response=list[schemas.ProjectArchitectureConfigurationReference],
+        operation_id="find_project_architecture_configurations",
+        summary="List project architecture configurations",
+        description="Return compact references to a project's architecture configurations.",
+    )
+    def find_architecture_configurations(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).find_project_architecture_configurations(project_id)
+
+    @route.get(
+        "/{project_id}/architecture-configurations/{configuration_id}",
         response=schemas.ProjectArchitectureConfiguration,
         operation_id="get_project_architecture_configuration",
         summary="Get project architecture configuration",
-        description="Return a project's Modwire boundary and architecture-shape configuration.",
+        description="Return one project's Modwire boundary and architecture-shape configuration.",
     )
     def get_architecture_configuration(
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
+        configuration_id: Annotated[str, Path(description="Architecture configuration identifier.")],
     ):
         return DjangoRequest.resolve(request, ProjectsService).get_project_architecture_configuration(
-            project_id
+            project_id,
+            configuration_id,
         )
 
     @route.get(

@@ -16,10 +16,7 @@ def build_server():
         source_path="/api",
         public_path="/siren",
         policy="sirenity.SirenAllowAllPolicy",
-        profiles=(
-            "sirenity.SirenStructuredFormProfile",
-            "enclosure.core.siren.EnclosureRelationshipsProfile",
-        ),
+        profiles=("sirenity.SirenStructuredFormProfile",),
     )
     return create_server(configuration, get_wsgi_application(), version="test")
 

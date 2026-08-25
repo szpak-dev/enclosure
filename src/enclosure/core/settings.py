@@ -68,10 +68,7 @@ SIRENITY = {
     "POLICY": "sirenity.SirenAllowAllPolicy",
     "SOURCE_PATH": "/api",
     "PUBLIC_PATH": "/siren",
-    "PROFILES": [
-        "sirenity.SirenStructuredFormProfile",
-        "enclosure.core.siren.EnclosureRelationshipsProfile",
-    ],
+    "PROFILES": ["sirenity.SirenStructuredFormProfile"],
 }
 SIRENITY_ROOT = "/siren/"
 ROOT_URLCONF = "enclosure.core.urls"

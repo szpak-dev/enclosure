@@ -4,7 +4,7 @@ import {
   isActiveNavigationGroup,
   navigationGroups,
   ownsNavigationTarget,
-  relatedResources,
+  navigableResources,
 } from "../SirenNavigationModel";
 
 function link(href: string, rel: string[], title: string): Link {
@@ -41,16 +41,17 @@ it("groups root collections by their application path", () => {
   ]);
 });
 
-it("keeps only advertised related links for entity subresources", () => {
+it("keeps only advertised related and nested collection links for entity subresources", () => {
   const entity = {
     actions: [],
     class: ["project"],
     entities: [],
     links: [
       link("/siren/projects/project-1", ["self"], "Project"),
+      link("/siren/projects/project-1/readme", ["related"], "Readme"),
       link(
-        "/siren/projects/project-1/architecture-configuration",
-        ["related"],
+        "/siren/projects/project-1/architecture-configurations",
+        ["collection"],
         "Architecture configuration",
       ),
       link("/siren/projects/project-1/insights", ["command"], "Insights"),
@@ -59,11 +60,16 @@ it("keeps only advertised related links for entity subresources", () => {
     title: "Project",
   } as unknown as Entity;
 
-  expect(relatedResources(entity)).toEqual([
+  expect(navigableResources(entity)).toEqual([
     {
-      id: "/siren/projects/project-1/architecture-configuration",
+      id: "/siren/projects/project-1/readme",
+      label: "Readme",
+      target: "/siren/projects/project-1/readme",
+    },
+    {
+      id: "/siren/projects/project-1/architecture-configurations",
       label: "Architecture configuration",
-      target: "/siren/projects/project-1/architecture-configuration",
+      target: "/siren/projects/project-1/architecture-configurations",
     },
   ]);
 });

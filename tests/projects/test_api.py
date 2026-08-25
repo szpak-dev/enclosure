@@ -313,11 +313,18 @@ def test_updates_registered_project(
         "architecture_root": str(tmp_path / "src"),
     }
     assert client.get(f"/api/projects/{created.json()['id']}").json() == updated.json()
+    configurations = client.get(f"/api/projects/{created.json()['id']}/architecture-configurations")
+    assert configurations.status_code == 200
+    references = configurations.json()
+    assert len(references) == 1
+    assert references[0]["project_id"] == created.json()["id"]
     configuration = client.get(
-        f"/api/projects/{created.json()['id']}/architecture-configuration"
+        f"/api/projects/{created.json()['id']}/architecture-configurations/{references[0]['id']}"
     )
     assert configuration.status_code == 200
     assert configuration.json() == {
+        "id": references[0]["id"],
+        "project_id": created.json()["id"],
         "boundaries_yaml": BOUNDARIES_YAML,
         "shape_yaml": UNHEALTHY_SHAPE_YAML,
     }

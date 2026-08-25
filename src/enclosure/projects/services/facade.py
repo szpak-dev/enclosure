@@ -5,7 +5,7 @@ from pydantic import JsonValue
 from wireup import injectable
 
 from ..errors import ProjectsError
-from ..models import Project
+from ..models import Project, ProjectArchitectureConfiguration
 from .adapters import RecordsAdapter, ScaffoldingsAdapter
 from .generation import GenerationResult, GenerationService
 from .reports import ReportsService
@@ -38,8 +38,18 @@ class ProjectsService:
     def get_project(self, project_id: str) -> Project:
         return self.repository.get(project_id)
 
-    def get_project_architecture_configuration(self, project_id: str) -> Project:
-        return self.repository.get(project_id)
+    def find_project_architecture_configurations(
+        self,
+        project_id: str,
+    ) -> QuerySet[ProjectArchitectureConfiguration]:
+        return self.repository.find_architecture_configurations(project_id)
+
+    def get_project_architecture_configuration(
+        self,
+        project_id: str,
+        configuration_id: str,
+    ) -> ProjectArchitectureConfiguration:
+        return self.repository.get_architecture_configuration(project_id, configuration_id)
 
     def get_workspace_context(self, root: str, task: str) -> dict[str, object]:
         project = self.repository.get_by_root(root)
@@ -74,10 +84,10 @@ class ProjectsService:
             self._project_data(
                 discovery,
                 architecture_root,
-                boundaries_yaml,
-                shape_yaml,
                 scaffolding_id,
             ),
+            boundaries_yaml,
+            shape_yaml,
             record_ids,
         )
 
@@ -97,29 +107,31 @@ class ProjectsService:
             self._project_data(
                 discovery,
                 architecture_root,
-                boundaries_yaml,
-                shape_yaml,
                 scaffolding_id,
             ),
+            boundaries_yaml,
+            shape_yaml,
             record_ids,
         )
 
     def check_health(self, project_id: str):
-        project = self.repository.get(project_id)
+        configuration = self.repository.get_project_architecture_configuration(project_id)
+        project = configuration.project
         return self.reports.generate_health_report(
             project.architecture_root,
             project.language_id,
-            project.boundaries_yaml,
-            project.shape_yaml,
+            configuration.boundaries_yaml,
+            configuration.shape_yaml,
         )
 
     def read_insights(self, project_id: str):
-        project = self.repository.get(project_id)
+        configuration = self.repository.get_project_architecture_configuration(project_id)
+        project = configuration.project
         return self.reports.generate_insights_report(
             project.architecture_root,
             project.language_id,
-            project.boundaries_yaml,
-            project.shape_yaml,
+            configuration.boundaries_yaml,
+            configuration.shape_yaml,
         )
 
     def _validate_project(
@@ -140,8 +152,6 @@ class ProjectsService:
     def _project_data(
         discovery: DiscoveredProject,
         architecture_root: str,
-        boundaries_yaml: str,
-        shape_yaml: str,
         scaffolding_id: str,
     ) -> dict[str, str]:
         return {
@@ -150,7 +160,5 @@ class ProjectsService:
             "language_id": discovery.stack.language,
             "language_version": discovery.stack.language_version,
             "package_manager_id": discovery.stack.package_manager,
-            "boundaries_yaml": boundaries_yaml,
-            "shape_yaml": shape_yaml,
             "scaffolding_id": scaffolding_id,
         }
