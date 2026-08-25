@@ -4,7 +4,9 @@ import { sirenRegistry } from "./SirenRegistry";
 import { SirenActions } from "./SirenActions";
 import { SirenCollection } from "./SirenCollection";
 import { SirenProperties } from "./SirenProperties";
+import { SirenRelatedResources } from "./SirenRelatedResources";
 import { entityLabel } from "./SirenLabels";
+import { navigableResources } from "./SirenNavigationModel";
 
 export type SirenEntityProps = {
   entity: Entity;
@@ -55,6 +57,10 @@ export function SirenEntity({
       <Stack>
         <Title order={1}>{label}</Title>
         <SirenProperties entity={entity} />
+        <SirenRelatedResources
+          onFollow={onFollow}
+          resources={navigableResources(entity)}
+        />
         <SirenActions
           actions={entity.actions}
           onSubmit={onSubmit}

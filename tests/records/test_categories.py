@@ -42,6 +42,26 @@ def test_create_category_starts_schema_history_at_version_one() -> None:
 
 
 @pytest.mark.django_db
+def test_category_list_returns_references_without_content_schemas() -> None:
+    client = Client()
+    category = create_category(client)
+
+    response = client.get("/api/records/categories")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "id": category["id"],
+            "title": category["title"],
+            "schema_version": category["schema_version"],
+        }
+    ]
+    details = client.get(f"/api/records/categories/{category['id']}")
+    assert details.status_code == 200
+    assert details.json()["content_schema"] == category["content_schema"]
+
+
+@pytest.mark.django_db
 def test_update_schema_without_records_replaces_version_one() -> None:
     client = Client()
     category = create_category(client)

@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from django.db.models import QuerySet
 from pydantic import JsonValue
 from wireup import injectable
 
@@ -27,8 +28,11 @@ class ScaffoldingService:
     def get(self, id: str) -> Scaffolding:
         return self.repository.get(id)
 
-    def find_all(self):
+    def find_all(self) -> QuerySet[Scaffolding]:
         return self.repository.find_all()
+
+    def search(self, name: str, language_id: str) -> QuerySet[Scaffolding]:
+        return self.repository.search(name, language_id)
 
     def update(self, id: str, data: dict) -> Scaffolding:
         self.spec_service.validate(data["spec"])

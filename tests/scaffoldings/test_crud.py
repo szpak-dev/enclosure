@@ -58,6 +58,51 @@ def test_scaffolding_crud() -> None:
 
 
 @pytest.mark.django_db
+def test_search_scaffoldings_by_name_and_language() -> None:
+    client = Client()
+    python = {
+        "language_id": "python",
+        "name": "Package",
+        "description": "Creates a Python package.",
+        "spec": {"language": "python", "variables": [], "templates": []},
+    }
+    javascript = {
+        "language_id": "javascript",
+        "name": "Package",
+        "description": "Creates a JavaScript package.",
+        "spec": {"language": "javascript", "variables": [], "templates": []},
+    }
+    created = [
+        client.post("/api/scaffoldings", data=payload, content_type="application/json")
+        for payload in (python, javascript)
+    ]
+    assert all(response.status_code == 201 for response in created)
+
+    matches = client.post(
+        "/api/scaffoldings/name-search-results",
+        data={"name": "ack"},
+        content_type="application/json",
+    )
+    constrained = client.post(
+        "/api/scaffoldings/name-search-results",
+        data={"name": "Package", "language_id": "python"},
+        content_type="application/json",
+    )
+
+    assert matches.status_code == 200
+    assert {item["language_id"] for item in matches.json()} == {"python", "javascript"}
+    assert constrained.status_code == 200
+    assert constrained.json() == [
+        {
+            "id": created[0].json()["id"],
+            "language_id": "python",
+            "name": "Package",
+            "description": "Creates a Python package.",
+        }
+    ]
+
+
+@pytest.mark.django_db
 def test_create_rejects_jinja_content_without_jinja_suffix() -> None:
     response = Client().post(
         "/api/scaffoldings",

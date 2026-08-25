@@ -3,7 +3,7 @@ from django.db import models
 
 class GateSatisfactionModel(models.Model):
     identifier = models.UUIDField(primary_key=True)
-    plan_run = models.ForeignKey("plans.PlanRunModel", on_delete=models.CASCADE, related_name="gate_satisfactions")
+    plan_run = models.ForeignKey("PlanRunModel", on_delete=models.CASCADE, related_name="gate_satisfactions")
     gate_id = models.CharField(max_length=255)
     satisfaction_key = models.CharField(max_length=300, unique=True)
     evidence = models.JSONField(default=dict)
@@ -11,7 +11,7 @@ class GateSatisfactionModel(models.Model):
 
 class OperationExecutionModel(models.Model):
     identifier = models.UUIDField(primary_key=True)
-    plan_run = models.ForeignKey("plans.PlanRunModel", on_delete=models.CASCADE, related_name="operation_executions")
+    plan_run = models.ForeignKey("PlanRunModel", on_delete=models.CASCADE, related_name="operation_executions")
     operation_id = models.CharField(max_length=255)
     execution_key = models.CharField(max_length=300, unique=True)
     status = models.CharField(max_length=32, default="complete")
@@ -20,7 +20,7 @@ class OperationExecutionModel(models.Model):
 
 class PlanArtifactModel(models.Model):
     identifier = models.UUIDField(primary_key=True)
-    plan_run = models.ForeignKey("plans.PlanRunModel", on_delete=models.CASCADE, related_name="artifacts")
+    plan_run = models.ForeignKey("PlanRunModel", on_delete=models.CASCADE, related_name="artifacts")
     artifact_id = models.CharField(max_length=255)
     artifact_key = models.CharField(max_length=300, unique=True)
     payload = models.JSONField(default=dict)
@@ -41,7 +41,7 @@ class PlanDefinitionModel(models.Model):
 
 class PlanRunModel(models.Model):
     identifier = models.UUIDField(primary_key=True)
-    definition = models.ForeignKey("plans.PlanDefinitionModel", on_delete=models.PROTECT, related_name="runs")
+    definition = models.ForeignKey(PlanDefinitionModel, on_delete=models.PROTECT, related_name="runs")
     definition_version = models.PositiveIntegerField()
     current_stage_id = models.CharField(max_length=255)
     current_input = models.JSONField(default=dict)
@@ -51,16 +51,6 @@ class PlanRunModel(models.Model):
 
 class StageSubmissionModel(models.Model):
     identifier = models.UUIDField(primary_key=True)
-    plan_run = models.ForeignKey("plans.PlanRunModel", on_delete=models.CASCADE, related_name="submissions")
+    plan_run = models.ForeignKey(PlanRunModel, on_delete=models.CASCADE, related_name="submissions")
     stage_id = models.CharField(max_length=255)
     payload = models.JSONField(default=dict)
-
-
-__all__ = [
-    "GateSatisfactionModel",
-    "OperationExecutionModel",
-    "PlanArtifactModel",
-    "PlanDefinitionModel",
-    "PlanRunModel",
-    "StageSubmissionModel",
-]

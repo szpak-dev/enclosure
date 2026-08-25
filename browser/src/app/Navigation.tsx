@@ -1,14 +1,24 @@
-import type { Link, Target } from "@siren-js/client";
+import { AppShell, ScrollArea } from "@mantine/core";
+import type { Target } from "@siren-js/client";
 import { SirenNavigation } from "../ui/siren/SirenNavigation";
+import type { NavigationGroup } from "../ui/siren/SirenNavigationModel";
 
 export type NavigationProps = {
-  links: Link[];
+  groups: readonly NavigationGroup[];
   onFollow: (target: Target) => void;
   target: Target;
 };
 
-export function Navigation({ links, onFollow, target }: NavigationProps) {
+export function Navigation({ groups, onFollow, target }: NavigationProps) {
   return (
-    <SirenNavigation activeTarget={target} links={links} onFollow={onFollow} />
+    <AppShell.Navbar p="md">
+      <ScrollArea>
+        <SirenNavigation
+          activeTarget={target}
+          groups={groups}
+          onFollow={onFollow}
+        />
+      </ScrollArea>
+    </AppShell.Navbar>
   );
 }

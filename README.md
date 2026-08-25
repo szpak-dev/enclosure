@@ -39,17 +39,23 @@ The built files live in the Django browser adapter's static directory. The produ
 ## Machine-wide MCP server
 
 This repository owns the Compose definition for the machine-wide Enclosure
-server. Compose builds `enclosure:mcp`, runs it as `enclosure-mcp`, and restarts
-it automatically with Docker. The existing `resumed-db` PostgreSQL container
-continues to own the database and its data; Enclosure only joins its external
-`resumed-api_default` network.
+server. GitHub Actions builds a multi-platform immutable image for each GitHub
+Release and publishes it to Docker Hub. Compose pulls the configured image,
+runs it as `enclosure-mcp`, and restarts it automatically with Docker. The
+existing `resumed-db` PostgreSQL container continues to own the database and
+its data; Enclosure only joins its external `resumed-api_default` network.
 
 The host Projects directory is mounted read/write at the same absolute path in
 the container. This preserves discovered project paths and allows Enclosure to
 generate files in any project. Set `ENCLOSURE_PROJECTS_DIR` in `.env` if the
 Projects directory is somewhere other than `/Users/gorky/Projects`.
 
-Validate, build, and start the server:
+Set `ENCLOSURE_IMAGE` in `.env` to a published release tag. Use an exact
+SemVer tag in production (for example
+`docker.io/YOUR_DOCKERHUB_USERNAME/enclosure:1.2.3`); `latest` is only the
+most recent stable release.
+
+Validate, pull, and start the server:
 
 ```sh
 make runtime-config
@@ -79,6 +85,20 @@ make runtime-db-migrate
 
 `make runtime-down` removes only `enclosure-mcp`. The external `resumed-db`
 container, its network, and its bind-mounted PostgreSQL data are untouched.
+
+### Releases and image versions
+
+The GitHub Release tag is the canonical version. A stable release such as
+`v1.2.3` publishes `1.2.3`, `1.2`, `latest`, and a traceability tag beginning
+with `sha-`; a prerelease never moves `latest`. The release workflow delegates
+the build, metadata, Docker Hub publication, SBOM, and provenance attestation
+to a reusable workflow. Before publishing, configure the repository variable
+`DOCKERHUB_USERNAME` and the repository secret `DOCKERHUB_TOKEN` (a Docker Hub
+access token with permission to push the public repository).
+
+For development, continue using `make dev` or `make mcp`: both execute the
+checked-out source directly and are intentionally separate from the immutable
+runtime-image path.
 
 For non-container development, keep using the host `DATABASE_URL` (currently
 port 5432) with the original `uv run` commands above. Its

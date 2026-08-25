@@ -31,6 +31,16 @@ class ScaffoldingController(ControllerBase):
     def find_all(self, request):
         return DjangoRequest.resolve(request, ScaffoldingService).find_all()
 
+    @route.post(
+        "/name-search-results",
+        response=list[schemas.ScaffoldingSummary],
+        operation_id="search_scaffoldings",
+        summary="Search scaffoldings",
+        description="Find compact scaffolding summaries by name, optionally constrained to one language.",
+    )
+    def search(self, request, body: schemas.SearchScaffoldings):
+        return DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id)
+
     @route.get(
         "/{scaffolding_id}",
         response=schemas.Scaffolding,
@@ -73,7 +83,9 @@ class ScaffoldingController(ControllerBase):
             "files": DjangoRequest.resolve(
                 request,
                 ScaffoldingService,
-            ).render(scaffolding_id, body.parameters).package.files,
+            )
+            .render(scaffolding_id, body.parameters)
+            .package.files,
         }
 
     @route.delete(

@@ -17,7 +17,8 @@ runtime-config:
 	docker compose config --quiet
 
 runtime-up:
-	docker compose up --detach --build
+	docker compose pull
+	docker compose up --detach
 
 runtime-down:
 	docker compose down

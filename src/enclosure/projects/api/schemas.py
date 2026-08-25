@@ -12,6 +12,10 @@ class DiscoverProject(Schema):
     root: str = Field(description="Absolute path to the project directory.")
 
 
+class FindProjectByRoot(Schema):
+    root: str = Field(description="Absolute path to the registered project directory.")
+
+
 class GetWorkspaceContext(Schema):
     root: str = Field(description="Absolute path to the registered project directory.")
     task: str = Field(description="Current task used to select relevant project guidance.")
@@ -53,6 +57,11 @@ class GeneratedProjectSource(Schema):
     files: tuple[str, ...] = Field(description="Written file paths relative to the registered project root.")
 
 
+class ProjectReference(Schema):
+    id: ProjectId
+    root: str = Field(description="Absolute path to the project directory.")
+
+
 class Project(Schema):
     id: ProjectId
     root: str = Field(description="Absolute path to the project directory.")
@@ -60,9 +69,17 @@ class Project(Schema):
     language_id: str = Field(description="Detected programming-language identifier.")
     language_version: str = Field(description="Detected programming-language version, when available.")
     package_manager_id: str = Field(description="Detected package-manager identifier.")
+    scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
+
+
+class ProjectArchitectureConfigurationReference(Schema):
+    id: str = Field(description="Architecture configuration identifier within the project.")
+    project_id: ProjectId
+
+
+class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference):
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
-    scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
 
 
 class HealthReport(Schema):

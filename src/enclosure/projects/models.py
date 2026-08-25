@@ -9,9 +9,17 @@ class Project(ShortUUIDModel):
     language_id = models.CharField(max_length=32)
     language_version = models.CharField(max_length=32)
     package_manager_id = models.CharField(max_length=32)
+    scaffolding_id = models.CharField(max_length=22)
+
+
+class ProjectArchitectureConfiguration(ShortUUIDModel):
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="architecture_configuration",
+    )
     boundaries_yaml = models.TextField()
     shape_yaml = models.TextField()
-    scaffolding_id = models.CharField(max_length=22)
 
 
 class ProjectRecord(ShortUUIDModel):

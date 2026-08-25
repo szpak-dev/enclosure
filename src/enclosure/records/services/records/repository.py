@@ -17,7 +17,7 @@ class RecordRepository(DjangoRepository):
     model: type[Record] = field(default=Record, init=False)
 
     def get(self, id: str) -> Record:
-        return self.find_all().get(pk=id)
+        return self.details().get(pk=id)
 
     def find(
         self,
@@ -32,7 +32,13 @@ class RecordRepository(DjangoRepository):
         return records.distinct()
 
     def find_all(self) -> QuerySet[Record]:
-        return self.model.objects.select_related("category").prefetch_related("tags", "resources")
+        return self.summaries()
+
+    def summaries(self) -> QuerySet[Record]:
+        return self.model.objects.select_related("category").prefetch_related("tags")
+
+    def details(self) -> QuerySet[Record]:
+        return self.summaries().prefetch_related("resources")
 
     @transaction.atomic
     def save(
@@ -65,7 +71,7 @@ class RecordRepository(DjangoRepository):
         limit: int,
         record_ids: tuple[str, ...] | None = None,
     ) -> list[Record]:
-        records = self.find_all().exclude(embedding__isnull=True)
+        records = self.summaries().exclude(embedding__isnull=True)
         if record_ids is not None:
             records = records.filter(id__in=record_ids)
         return list(records.order_by(CosineDistance("embedding", embedding))[:limit])

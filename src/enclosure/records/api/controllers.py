@@ -93,10 +93,10 @@ class RecordsController(ControllerBase):
 
     @route.post(
         "/search-results",
-        response=list[schemas.Record],
+        response=list[schemas.RecordSummary],
         operation_id="search_records",
         summary="Search records",
-        description="Find records by semantic similarity to a natural-language query.",
+        description="Find compact record summaries by semantic similarity to a natural-language query.",
     )
     def search(self, request, body: schemas.SearchRecords):
         return DjangoRequest.resolve(request, RecordsService).search_records(body.query, body.limit)
@@ -114,10 +114,10 @@ class RecordsController(ControllerBase):
 
     @route.get(
         "/categories",
-        response=list[schemas.Category],
+        response=list[schemas.CategoryReference],
         operation_id="find_record_categories",
         summary="List record categories",
-        description="Return all record categories and their content schemas.",
+        description="Return compact references to all record categories.",
     )
     def find_all_categories(self, request):
         return DjangoRequest.resolve(request, RecordsService).find_all_categories()
