@@ -32,13 +32,23 @@ class ProjectsController(ControllerBase):
 
     @route.get(
         "",
-        response=list[schemas.Project],
+        response=list[schemas.ProjectReference],
         operation_id="find_projects",
         summary="List projects",
-        description="Return all registered projects.",
+        description="Return references to all registered projects.",
     )
     def find_all(self, request):
         return DjangoRequest.resolve(request, ProjectsService).find_all_projects()
+
+    @route.post(
+        "/root-search-results",
+        response=schemas.ProjectReference,
+        operation_id="find_project_by_root",
+        summary="Find a project by root",
+        description="Find a registered project by its exact root path.",
+    )
+    def find_by_root(self, request, body: schemas.FindProjectByRoot):
+        return DjangoRequest.resolve(request, ProjectsService).find_project_by_root(body.root)
 
     @route.post(
         "",
@@ -75,6 +85,22 @@ class ProjectsController(ControllerBase):
             project_id,
             body.destination,
             body.parameters,
+        )
+
+    @route.get(
+        "/{project_id}/architecture-configuration",
+        response=schemas.ProjectArchitectureConfiguration,
+        operation_id="get_project_architecture_configuration",
+        summary="Get project architecture configuration",
+        description="Return a project's Modwire boundary and architecture-shape configuration.",
+    )
+    def get_architecture_configuration(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).get_project_architecture_configuration(
+            project_id
         )
 
     @route.get(

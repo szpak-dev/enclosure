@@ -203,8 +203,6 @@ def test_registers_discovered_project(
         "language_id": "python",
         "language_version": "",
         "package_manager_id": "uv",
-        "boundaries_yaml": BOUNDARIES_YAML,
-        "shape_yaml": HEALTHY_SHAPE_YAML,
         "scaffolding_id": dependencies["scaffolding_id"],
     }
 
@@ -239,10 +237,17 @@ def test_lists_and_fetches_registered_projects(
     assert created.status_code == 201
 
     listed = client.get("/api/projects")
+    found = client.post(
+        "/api/projects/root-search-results",
+        data={"root": str(tmp_path)},
+        content_type="application/json",
+    )
     fetched = client.get(f"/api/projects/{created.json()['id']}")
 
     assert listed.status_code == 200
-    assert listed.json() == [created.json()]
+    assert listed.json() == [{"id": created.json()["id"], "root": str(tmp_path)}]
+    assert found.status_code == 200
+    assert found.json() == {"id": created.json()["id"], "root": str(tmp_path)}
     assert fetched.status_code == 200
     assert fetched.json() == created.json()
 
@@ -306,9 +311,16 @@ def test_updates_registered_project(
     assert updated.json() == {
         **created.json(),
         "architecture_root": str(tmp_path / "src"),
-        "shape_yaml": UNHEALTHY_SHAPE_YAML,
     }
     assert client.get(f"/api/projects/{created.json()['id']}").json() == updated.json()
+    configuration = client.get(
+        f"/api/projects/{created.json()['id']}/architecture-configuration"
+    )
+    assert configuration.status_code == 200
+    assert configuration.json() == {
+        "boundaries_yaml": BOUNDARIES_YAML,
+        "shape_yaml": UNHEALTHY_SHAPE_YAML,
+    }
 
 
 @pytest.mark.django_db

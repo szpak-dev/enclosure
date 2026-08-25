@@ -32,7 +32,13 @@ class ProjectsService:
     def find_all_projects(self) -> QuerySet[Project]:
         return self.repository.find_all()
 
+    def find_project_by_root(self, root: str) -> Project:
+        return self.repository.get_by_root(root)
+
     def get_project(self, project_id: str) -> Project:
+        return self.repository.get(project_id)
+
+    def get_project_architecture_configuration(self, project_id: str) -> Project:
         return self.repository.get(project_id)
 
     def get_workspace_context(self, root: str, task: str) -> dict[str, object]:
