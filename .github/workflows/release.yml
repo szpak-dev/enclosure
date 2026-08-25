@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: publish-container-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish Enclosure runtime
+    uses: ./.github/workflows/docker-hub-image.yml
+    with:
+      dockerfile: Dockerfile
+      dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+      image: ${{ vars.DOCKERHUB_USERNAME }}/enclosure
+      release-tag: ${{ github.event.release.tag_name }}
+      stable-release: ${{ !github.event.release.prerelease }}
+    secrets: inherit

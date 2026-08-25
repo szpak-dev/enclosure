@@ -2,9 +2,8 @@ name: enclosure
 
 services:
   mcp:
-    build:
-      context: .
-    image: enclosure:mcp
+    image: ${ENCLOSURE_IMAGE:?Set ENCLOSURE_IMAGE to the published Docker Hub image and tag.}
+    pull_policy: always
     container_name: enclosure-mcp
     environment:
       ALLOWED_HOSTS: localhost,127.0.0.1,enclosure-mcp
