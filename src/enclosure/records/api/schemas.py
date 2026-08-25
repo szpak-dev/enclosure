@@ -37,6 +37,12 @@ class Category(Schema):
     schema_version: int = Field(description="Current content schema version.", ge=1)
 
 
+class CategoryReference(Schema):
+    id: CategoryId
+    title: str = Field(description="Unique category title.")
+    schema_version: int = Field(description="Current content schema version.", ge=1)
+
+
 class RecordCategory(Schema):
     id: CategoryId
     title: str = Field(description="Unique category title.")
