@@ -18,7 +18,7 @@ runtime-config:
 
 runtime-up:
 	@set -eu; \
-	image="$${ENCLOSURE_IMAGE:?Set ENCLOSURE_IMAGE in .env}"; \
+	image="$$(docker compose config --images | head -n 1)"; \
 	repository="$${image%:*}"; \
 	local_repository="$${repository#docker.io/}"; \
 	local_current="$${local_repository}:$${image##*:}"; \
