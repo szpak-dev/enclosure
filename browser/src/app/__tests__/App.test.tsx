@@ -99,6 +99,11 @@ it("loads the root once alongside a deep-linked resource", async () => {
   expect(
     screen.getByRole("button", { name: "Example resources" }),
   ).toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      screen.getByRole("link", { name: "Example resources" }),
+    ).toBeVisible(),
+  );
   await waitFor(() => expect(sirenClient.get).toHaveBeenCalledTimes(2));
   expect(
     sirenClient.get.mock.calls.filter(

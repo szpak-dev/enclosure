@@ -1,7 +1,11 @@
 import { Collapse, NavLink, Stack } from "@mantine/core";
 import type { Target } from "@siren-js/client";
-import { useState } from "react";
-import { type NavigationGroup } from "./SirenNavigationModel";
+import { useEffect, useState } from "react";
+import {
+  isActiveNavigationGroup,
+  ownsNavigationTarget,
+  type NavigationGroup,
+} from "./SirenNavigationModel";
 
 export type SirenNavigationProps = {
   activeTarget: Target;
@@ -29,6 +33,14 @@ export function SirenNavigation({
     new Set(),
   );
 
+  useEffect(() => {
+    const activeGroupIds = groups
+      .filter((group) => ownsNavigationTarget(group, activeTarget))
+      .map((group) => group.id);
+    if (!activeGroupIds.length) return;
+    setExpandedGroups((current) => new Set([...current, ...activeGroupIds]));
+  }, [activeTarget, groups]);
+
   const toggle = (group: NavigationGroup) =>
     setExpandedGroups((current) => {
       const next = new Set(current);
@@ -45,6 +57,7 @@ export function SirenNavigation({
           return (
             <Stack gap={2} key={group.id}>
               <NavLink
+                active={isActiveNavigationGroup(group, activeTarget)}
                 component="button"
                 label={group.label}
                 onClick={() => toggle(group)}

@@ -1,6 +1,11 @@
 import type { Entity, Link } from "@siren-js/client";
 import { expect, it } from "vitest";
-import { navigationGroups, relatedResources } from "../SirenNavigationModel";
+import {
+  isActiveNavigationGroup,
+  navigationGroups,
+  ownsNavigationTarget,
+  relatedResources,
+} from "../SirenNavigationModel";
 
 function link(href: string, rel: string[], title: string): Link {
   return { href, rel, title } as Link;
@@ -61,4 +66,23 @@ it("keeps only advertised related links for entity subresources", () => {
       target: "/siren/projects/project-1/architecture-configuration",
     },
   ]);
+});
+
+it("keeps the owning application active for nested resources", () => {
+  const [records, projects] = navigationGroups("/siren/", [
+    link("/siren/records", ["collection"], "Record"),
+    link("/siren/projects", ["collection"], "Project"),
+  ]);
+
+  expect(isActiveNavigationGroup(records, "/siren/projects/project-1")).toBe(
+    false,
+  );
+  expect(isActiveNavigationGroup(projects, "/siren/projects")).toBe(false);
+  expect(isActiveNavigationGroup(projects, "/siren/projects/project-1")).toBe(
+    true,
+  );
+  expect(ownsNavigationTarget(projects, "/siren/projects")).toBe(true);
+  expect(ownsNavigationTarget(projects, "/siren/projects/project-1")).toBe(
+    true,
+  );
 });

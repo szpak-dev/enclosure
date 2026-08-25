@@ -29,6 +29,10 @@ function pathSegments(target: Target): string[] {
     .filter(Boolean);
 }
 
+function targetPath(target: Target): string {
+  return new URL(targetId(target), window.location.origin).pathname;
+}
+
 function applicationId(rootTarget: Target, target: Target): string {
   const rootSegments = pathSegments(rootTarget);
   const targetSegments = pathSegments(target);
@@ -70,6 +74,31 @@ export function navigationGroups(
     });
   });
   return [...groups.values()];
+}
+
+export function isActiveNavigationGroup(
+  group: NavigationGroup,
+  activeTarget: Target,
+): boolean {
+  return (
+    ownsNavigationTarget(group, activeTarget) &&
+    !group.resources.some(
+      (resource) => targetPath(resource.target) === targetPath(activeTarget),
+    )
+  );
+}
+
+export function ownsNavigationTarget(
+  group: NavigationGroup,
+  target: Target,
+): boolean {
+  const activePath = targetPath(target);
+  return group.resources.some((resource) => {
+    const resourcePath = targetPath(resource.target);
+    return (
+      activePath === resourcePath || activePath.startsWith(`${resourcePath}/`)
+    );
+  });
 }
 
 export function relatedResources(entity: Entity): NavigationItem[] {
