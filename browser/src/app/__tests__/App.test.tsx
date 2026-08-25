@@ -70,7 +70,7 @@ it("loads the configured root once for navigation and content", async () => {
     await screen.findByRole("heading", { name: "Enclosure API" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "Example resources" }),
+    screen.getByRole("button", { name: "Example resources" }),
   ).toBeInTheDocument();
   expect(sirenClient.get).toHaveBeenCalledTimes(1);
   expect(sirenClient.get).toHaveBeenCalledWith("/example-siren/");
@@ -97,7 +97,7 @@ it("loads the root once alongside a deep-linked resource", async () => {
     await screen.findByRole("heading", { name: "Current example resource" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "Example resources" }),
+    screen.getByRole("button", { name: "Example resources" }),
   ).toBeInTheDocument();
   await waitFor(() => expect(sirenClient.get).toHaveBeenCalledTimes(2));
   expect(
@@ -201,7 +201,7 @@ it("retries failed navigation without replacing a deep-linked resource", async (
     await screen.findByRole("heading", { name: "Current example resource" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "Example resources" }),
+    screen.getByRole("button", { name: "Example resources" }),
   ).toBeInTheDocument();
   expect(window.location.hash).toBe("#/example-resources");
 });
@@ -309,6 +309,9 @@ it("navigates from the root through a collection to an updated entity", async ()
 
   render(<App rootTarget="/example-siren/" />);
 
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Example resources" }),
+  );
   fireEvent.click(
     await screen.findByRole("link", { name: "Example resources" }),
   );

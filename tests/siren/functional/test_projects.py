@@ -86,6 +86,15 @@ def test_siren_generates_project_source(
     details = client.get(f"/siren/projects/{project_id}")
 
     assert details.status_code == 200
+    assert {
+        (link["title"], link["href"])
+        for link in details.json()["links"]
+    } >= {
+        (
+            "Architecture configuration",
+            f"http://testserver/siren/projects/{project_id}/architecture-configuration",
+        )
+    }
     action = next(action for action in details.json()["actions"] if action["name"] == "generate_project_source")
     assert action["href"] == f"http://testserver/siren/projects/{project_id}/source-generations"
     assert action["method"] == "POST"

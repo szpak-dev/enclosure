@@ -1,9 +1,11 @@
 import { Alert, AppShell, Button, Stack } from "@mantine/core";
-import { useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { SirenClient } from "../client/SirenClient";
+import { navigationGroups } from "../ui/siren/SirenNavigationModel";
 import { SirenPage } from "../ui/siren/SirenPage";
 import { AppFooter } from "./AppFooter";
 import { AppHeader } from "./AppHeader";
+import { Navigation } from "./Navigation";
 import { AppProviders } from "./providers/AppProviders";
 import { useSirenBrowser } from "./useSirenBrowser";
 
@@ -14,11 +16,21 @@ export type AppProps = {
 function Browser({ rootTarget }: AppProps): ReactElement {
   const [client] = useState(() => new SirenClient());
   const state = useSirenBrowser(client, rootTarget);
+  const groups = useMemo(
+    () => navigationGroups(rootTarget, state.root?.links ?? []),
+    [rootTarget, state.root],
+  );
 
   return (
-    <AppShell footer={{ height: 48 }} header={{ height: 60 }} padding="md">
-      <AppHeader
-        links={state.root?.links ?? []}
+    <AppShell
+      footer={{ height: 48 }}
+      header={{ height: 60 }}
+      navbar={{ breakpoint: "sm", width: 280 }}
+      padding="md"
+    >
+      <AppHeader />
+      <Navigation
+        groups={groups}
         onFollow={state.follow}
         target={state.target}
       />
