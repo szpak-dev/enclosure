@@ -37,6 +37,12 @@ class Category(Schema):
     schema_version: int = Field(description="Current content schema version.", ge=1)
 
 
+class RecordCategory(Schema):
+    id: CategoryId
+    title: str = Field(description="Unique category title.")
+    schema_version: int = Field(description="Current content schema version.", ge=1)
+
+
 class WriteTag(Schema):
     name: str = Field(description="Unique tag name.")
 
@@ -66,7 +72,7 @@ class WriteRecord(Schema):
 class RecordSummary(Schema):
     id: RecordId
     title: str = Field(description="Human-readable record title.")
-    category: Category = Field(description="Category that defines the record's content schema.")
+    category: RecordCategory = Field(description="Category that defines the record's content schema.")
     schema_version: int = Field(description="Content schema version assigned to the record.", ge=1)
     tags: list[Tag] = Field(description="Tags assigned to the record.")
 

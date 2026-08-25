@@ -58,7 +58,35 @@ def test_new_record_is_assigned_current_schema_version() -> None:
     )
 
     assert response.status_code == 201
-    assert response.json()["schema_version"] == 1
+    record = response.json()
+    assert record["schema_version"] == 1
+    assert record["category"] == {
+        "id": category["id"],
+        "title": category["title"],
+        "schema_version": category["schema_version"],
+    }
+
+
+@pytest.mark.django_db
+def test_record_responses_do_not_embed_the_category_content_schema() -> None:
+    client = Client()
+    category = create_category(client, "Names", NAME_SCHEMA)
+    tag = create_tag(client)
+    created = client.post(
+        "/api/records",
+        data=write_record(category["id"], tag["id"], {"name": "value"}),
+        content_type="application/json",
+    ).json()
+
+    responses = (
+        client.get("/api/records"),
+        client.get(f"/api/records/{created['id']}"),
+    )
+
+    for response in responses:
+        assert response.status_code == 200
+        record = response.json()[0] if isinstance(response.json(), list) else response.json()
+        assert "content_schema" not in record["category"]
 
 
 @pytest.mark.django_db
