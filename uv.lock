@@ -442,7 +442,7 @@ requires-dist = [
     { name = "httpx" },
     { name = "markdown-it-py" },
     { name = "mcp", specifier = ">=2,<3" },
-    { name = "mermaiden", specifier = "==4.0.0" },
+    { name = "mermaiden", specifier = "==5.2.0" },
     { name = "modwire-architecture", specifier = ">=7.0.0,<8" },
     { name = "modwire-extraction", specifier = "==2.1.1" },
     { name = "modwire-hex" },
@@ -819,16 +819,18 @@ wheels = [
 
 [[package]]
 name = "mermaiden"
-version = "4.0.0"
+version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
+    { name = "jsonschema" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "wireup" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f5/83/10d2cae74b0a8893b2137b3196401c39d3ace209925aeb04f3eefbbf1b2b/mermaiden-4.0.0.tar.gz", hash = "sha256:d172aee9226df36974aa9bf3dd23f95988010d75436083b0a6a0855f15f2ee68", size = 78407, upload-time = "2026-08-24T13:46:37.072Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/e0/72ec70412519181a672283a087f6767d3d9d8ba4c2cd30346388e1f97a9d/mermaiden-5.2.0.tar.gz", hash = "sha256:3690f33c14dfb49c2a471665abf0adbde46b7258475914abda94847579a2ba58", size = 132196, upload-time = "2026-09-01T11:37:02.162Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/45/70fb62b23bfb0cc9e8a6e7bab2575fdc0b2d3e2f71dfede3d253d436b2bf/mermaiden-4.0.0-py3-none-any.whl", hash = "sha256:8d16f06cb17ff5b56f875972a03da732dcd0a690325ad864db3dc06efc90db19", size = 159266, upload-time = "2026-08-24T13:46:35.649Z" },
+    { url = "https://files.pythonhosted.org/packages/07/94/78b9a088e8952a3d1a2383b0ba8e7d303261c3a8d71b7d0a58928d825927/mermaiden-5.2.0-py3-none-any.whl", hash = "sha256:271620433a325d2be12e865f85cfb26e8b6429fae74874c3670b786198aaa09c", size = 232577, upload-time = "2026-09-01T11:37:00.432Z" },
 ]
 
 [[package]]

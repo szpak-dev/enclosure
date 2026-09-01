@@ -25,7 +25,7 @@ class DiagramKindsController(ControllerBase):
         response=schemas.DiagramKindDescription,
         operation_id="get_diagram_kind",
         summary="Get a diagram kind",
-        description="Return the elements, relations, annotations, and commands available for a diagram kind.",
+        description="Return the objects, placements, and commands available for a diagram kind.",
     )
     def get(self, request, kind: Annotated[str, Path(description="Mermaiden diagram-kind identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).describe_kind(kind)
@@ -186,7 +186,7 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram",
         summary="Get a diagram",
-        description="Return a diagram's canonical snapshot and generated Mermaid source.",
+        description="Return a diagram's canonical snapshot and Mermaid source when renderable.",
     )
     def get(self, request, diagram_id: Annotated[str, Path(description="Diagram identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).get_diagram(diagram_id)
@@ -207,7 +207,7 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="apply_diagram_command",
         summary="Apply a diagram command",
-        description="Apply one catalog command and persist the regenerated snapshot and Mermaid source.",
+        description="Apply one catalog command and persist its snapshot and source when renderable.",
     )
     def apply_command(
         self,

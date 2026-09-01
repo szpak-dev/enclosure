@@ -1,6 +1,17 @@
 import pytest
 from django.test import Client
 
+CRUD_COMMANDS = {
+    "update_element",
+    "update_relation",
+    "update_annotation",
+    "move_element",
+    "reorder_elements",
+    "remove_element",
+    "remove_relation",
+    "remove_annotation",
+}
+
 
 def create_diagram_set(client: Client, title: str) -> dict[str, object]:
     response = client.post(
@@ -20,6 +31,68 @@ def create_diagram(client: Client, diagram_set_id: object, title: str) -> dict[s
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_diagram_kind_exposes_crud_commands_and_placements() -> None:
+    response = Client().get("/api/diagrams/kinds/flowchart")
+
+    assert response.status_code == 200
+    description = response.json()
+    assert CRUD_COMMANDS <= description["commands"].keys()
+    assert description["placements"]["flow_group"]["allowed_parents"] == ["$root", "flow_group"]
+
+
+@pytest.mark.django_db
+def test_draft_survives_independent_commands_until_diagram_is_renderable() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Draft persistence")
+    diagram = create_diagram(client, diagram_set["id"], "Draft flow")
+    diagram_url = f"/api/diagrams/{diagram['id']}"
+
+    assert diagram["snapshot"]["draft"] is True
+    assert diagram["source"] == ""
+
+    start = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 1,
+            "operation": "add_start",
+            "arguments": {"id": "start", "label": "Start"},
+        },
+        content_type="application/json",
+    )
+    assert start.status_code == 200
+    assert start.json()["revision"] == 2
+    assert start.json()["snapshot"]["draft"] is True
+    assert start.json()["source"] == ""
+
+    end = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 2,
+            "operation": "add_end",
+            "arguments": {"id": "end", "label": "End"},
+        },
+        content_type="application/json",
+    )
+    assert end.status_code == 200
+    assert end.json()["revision"] == 3
+    assert end.json()["snapshot"]["draft"] is True
+    assert end.json()["source"] == ""
+
+    flow = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 3,
+            "operation": "add_flow",
+            "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+        },
+        content_type="application/json",
+    )
+    assert flow.status_code == 200
+    assert flow.json()["revision"] == 4
+    assert flow.json()["snapshot"]["draft"] is False
+    assert "flowchart TD" in flow.json()["source"]
 
 
 @pytest.mark.django_db

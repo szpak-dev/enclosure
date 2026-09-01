@@ -28,6 +28,9 @@ class DiagramKindDescription(DiagramKind):
     annotations: dict[str, dict[str, JsonValue]] = Field(
         description="Annotation kinds and their JSON Schemas."
     )
+    placements: dict[str, dict[str, JsonValue]] = Field(
+        description="Element kinds and the parent kinds in which they may be placed."
+    )
     commands: dict[str, dict[str, JsonValue]] = Field(
         description="Available commands keyed by operation name, with their argument JSON Schemas."
     )

@@ -1,5 +1,7 @@
 from django.test import Client
 
+from enclosure.shared.diagrams import DiagramsError, DiagramsService
+
 
 def test_lists_supported_languages() -> None:
     response = Client().get("/api/languages")
@@ -62,3 +64,19 @@ def test_missing_language_returns_not_found() -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Resource not found."}
+
+
+def test_gets_mermaid_configuration_schema_from_public_command_catalog() -> None:
+    schema = DiagramsService().get_schema("flowchart")
+
+    assert schema["type"] == "object"
+    assert schema["properties"]["wrap"]["type"] == "boolean"
+
+
+def test_mermaid_configuration_schema_rejects_unknown_diagram() -> None:
+    try:
+        DiagramsService().get_schema("missing")
+    except DiagramsError as error:
+        assert str(error) == "Unsupported diagram ID: 'missing'"
+    else:
+        raise AssertionError("Unknown diagram ID was accepted.")
