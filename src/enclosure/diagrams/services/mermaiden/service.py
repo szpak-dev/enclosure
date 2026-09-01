@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
-import mermaiden.application as mermaiden_application
-from mermaiden.diagrams.domain import DiagramModel
+from mermaiden import Application
 from wireup import injectable
 
 from ...errors import DiagramsError
@@ -11,10 +11,10 @@ from ...errors import DiagramsError
 @injectable
 @dataclass(frozen=True)
 class MermaidenService:
-    _application: mermaiden_application.Application = field(init=False, repr=False)
+    _application: Application = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_application", mermaiden_application.Application.create())
+        object.__setattr__(self, "_application", Application.create())
 
     def find_kinds(self) -> tuple[dict[str, str], ...]:
         return tuple({"id": item.id, "name": item.name} for item in self._application.available_diagrams())
@@ -31,28 +31,31 @@ class MermaidenService:
         except KeyError as error:
             raise DiagramsError(str(error)) from error
 
-    def create(self, kind: str) -> DiagramModel:
+    def create(self, kind: str) -> Any:
         try:
             return self._application.create_diagram(kind)
         except KeyError as error:
             raise DiagramsError(str(error)) from error
 
-    def restore(self, snapshot: Mapping[str, object]) -> DiagramModel:
-        return self._application.restore(snapshot)
+    def restore(self, snapshot: Mapping[str, object]) -> Any:
+        try:
+            return self._application.restore(snapshot)
+        except RuntimeError as error:
+            raise DiagramsError(str(error)) from error
 
     def apply(
         self,
-        diagram: DiagramModel,
+        diagram: Any,
         operation: str,
         arguments: Mapping[str, object],
     ) -> None:
         try:
-            self._application.apply(diagram, mermaiden_application.DiagramCommand(operation, arguments))
-        except (mermaiden_application.ChangeRejected, mermaiden_application.UnknownCommand) as error:
+            self._application.execute(diagram, operation, arguments)
+        except RuntimeError as error:
             raise DiagramsError(str(error)) from error
 
-    def snapshot(self, diagram: DiagramModel) -> dict[str, object]:
+    def snapshot(self, diagram: Any) -> dict[str, object]:
         return self._application.snapshot(diagram).to_dict()
 
-    def render(self, diagram: DiagramModel) -> str:
+    def render(self, diagram: Any) -> str:
         return self._application.render(diagram)

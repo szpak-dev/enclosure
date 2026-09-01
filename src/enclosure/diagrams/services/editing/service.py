@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from django.db.models import QuerySet
 from wireup import injectable
@@ -27,8 +28,7 @@ class DiagramEditingService:
             diagram_set_id,
             {
                 **values,
-                "snapshot": self.mermaiden.snapshot(diagram),
-                "source": self.mermaiden.render(diagram),
+                **self._persistence_values(diagram),
             },
         )
 
@@ -58,8 +58,15 @@ class DiagramEditingService:
         return self.update(
             id,
             expected_revision,
-            {"snapshot": self.mermaiden.snapshot(diagram), "source": self.mermaiden.render(diagram)},
+            self._persistence_values(diagram),
         )
+
+    def _persistence_values(self, diagram: Any) -> dict[str, object]:
+        snapshot = self.mermaiden.snapshot(diagram)
+        return {
+            "snapshot": snapshot,
+            "source": "" if snapshot.get("draft") is True else self.mermaiden.render(diagram),
+        }
 
     def update(
         self,

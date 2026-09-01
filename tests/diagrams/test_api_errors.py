@@ -1,4 +1,5 @@
 import pytest
+from django.apps import apps
 from django.test import Client
 
 
@@ -59,6 +60,29 @@ def test_invalid_command_arguments_return_domain_error() -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"]
+
+
+@pytest.mark.django_db
+def test_version_one_snapshot_returns_domain_error_without_conversion() -> None:
+    client = Client()
+    diagram = create_diagram(client)
+    diagram_model = apps.get_model("diagrams", "Diagram")
+    stored = diagram_model.objects.get(pk=diagram["id"])
+    stored.snapshot = {**stored.snapshot, "version": 1}
+    stored.save(update_fields=["snapshot"])
+
+    response = client.post(
+        f"/api/diagrams/{diagram['id']}/commands",
+        data={
+            "expected_revision": 1,
+            "operation": "add_start",
+            "arguments": {"id": "start", "label": "Start"},
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Unsupported snapshot version '1'; expected version '2'."}
 
 
 @pytest.mark.django_db

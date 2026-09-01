@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-import mermaiden
+from mermaiden import Application
 from wireup import injectable
 
 from .errors import DiagramsError
@@ -13,10 +13,10 @@ from .errors import DiagramsError
 @injectable
 @dataclass(frozen=True)
 class DiagramsService:
-    _application: mermaiden.Application = field(init=False, repr=False)
+    _application: Application = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_application", mermaiden.Application.create())
+        object.__setattr__(self, "_application", Application.create())
 
     def get_ids(self) -> list[str]:
         return [diagram.id for diagram in self._application.available_diagrams()]

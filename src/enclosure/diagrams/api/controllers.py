@@ -186,7 +186,7 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram",
         summary="Get a diagram",
-        description="Return a diagram's canonical snapshot and generated Mermaid source.",
+        description="Return a diagram's canonical snapshot and Mermaid source when renderable.",
     )
     def get(self, request, diagram_id: Annotated[str, Path(description="Diagram identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).get_diagram(diagram_id)
@@ -207,7 +207,7 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="apply_diagram_command",
         summary="Apply a diagram command",
-        description="Apply one catalog command and persist the regenerated snapshot and Mermaid source.",
+        description="Apply one catalog command and persist its snapshot and source when renderable.",
     )
     def apply_command(
         self,

@@ -43,6 +43,59 @@ def test_diagram_kind_exposes_crud_commands_and_placements() -> None:
 
 
 @pytest.mark.django_db
+def test_draft_survives_independent_commands_until_diagram_is_renderable() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Draft persistence")
+    diagram = create_diagram(client, diagram_set["id"], "Draft flow")
+    diagram_url = f"/api/diagrams/{diagram['id']}"
+
+    assert diagram["snapshot"]["draft"] is True
+    assert diagram["source"] == ""
+
+    start = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 1,
+            "operation": "add_start",
+            "arguments": {"id": "start", "label": "Start"},
+        },
+        content_type="application/json",
+    )
+    assert start.status_code == 200
+    assert start.json()["revision"] == 2
+    assert start.json()["snapshot"]["draft"] is True
+    assert start.json()["source"] == ""
+
+    end = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 2,
+            "operation": "add_end",
+            "arguments": {"id": "end", "label": "End"},
+        },
+        content_type="application/json",
+    )
+    assert end.status_code == 200
+    assert end.json()["revision"] == 3
+    assert end.json()["snapshot"]["draft"] is True
+    assert end.json()["source"] == ""
+
+    flow = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 3,
+            "operation": "add_flow",
+            "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+        },
+        content_type="application/json",
+    )
+    assert flow.status_code == 200
+    assert flow.json()["revision"] == 4
+    assert flow.json()["snapshot"]["draft"] is False
+    assert "flowchart TD" in flow.json()["source"]
+
+
+@pytest.mark.django_db
 def test_diagram_set_exposes_diagrams_through_nested_resources() -> None:
     client = Client()
     first_set = create_diagram_set(client, "First topic")
