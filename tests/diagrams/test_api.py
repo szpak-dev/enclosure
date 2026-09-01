@@ -1,6 +1,17 @@
 import pytest
 from django.test import Client
 
+CRUD_COMMANDS = {
+    "update_element",
+    "update_relation",
+    "update_annotation",
+    "move_element",
+    "reorder_elements",
+    "remove_element",
+    "remove_relation",
+    "remove_annotation",
+}
+
 
 def create_diagram_set(client: Client, title: str) -> dict[str, object]:
     response = client.post(
@@ -20,6 +31,15 @@ def create_diagram(client: Client, diagram_set_id: object, title: str) -> dict[s
     )
     assert response.status_code == 201
     return response.json()
+
+
+def test_diagram_kind_exposes_crud_commands_and_placements() -> None:
+    response = Client().get("/api/diagrams/kinds/flowchart")
+
+    assert response.status_code == 200
+    description = response.json()
+    assert CRUD_COMMANDS <= description["commands"].keys()
+    assert description["placements"]["flow_group"]["allowed_parents"] == ["$root", "flow_group"]
 
 
 @pytest.mark.django_db

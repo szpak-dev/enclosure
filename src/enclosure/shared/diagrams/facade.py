@@ -1,36 +1,31 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from mermaiden.application import Application
+import mermaiden
 from wireup import injectable
 
 from .errors import DiagramsError
 
-# Legacy Records resource-validation boundary. Keep this service unchanged while
-# the first-class diagrams Django app is developed; that app owns its own
-# Mermaiden integration.
+# Legacy Records resource-validation boundary. The first-class diagrams Django
+# app owns diagram persistence and editing through its own Mermaiden integration.
 
 
 @injectable
 @dataclass(frozen=True)
 class DiagramsService:
-    _application: Application = field(init=False, repr=False)
+    _application: mermaiden.Application = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_application", Application.create())
+        object.__setattr__(self, "_application", mermaiden.Application.create())
 
     def get_ids(self) -> list[str]:
         return [diagram.id for diagram in self._application.available_diagrams()]
 
     def get_schema(self, diagram_id: str) -> dict[str, Any]:
-        for diagram in self._application.available_diagrams():
-            if diagram.id != diagram_id:
-                continue
-            for configuration in self._application.mermaid_diagram_configs():
-                if configuration.config_key == diagram.config_key:
-                    return configuration.schema
-            raise DiagramsError(f"No configuration schema is available for diagram ID: {diagram_id!r}")
-        raise DiagramsError(f"Unsupported diagram ID: {diagram_id!r}")
+        try:
+            return self._application.command_payload(diagram_id, "configure").model_json_schema()
+        except KeyError as error:
+            raise DiagramsError(f"Unsupported diagram ID: {diagram_id!r}") from error
 
     def recognize(self, content: str) -> None:
         syntax = self._syntax(content)

@@ -25,7 +25,7 @@ class DiagramKindsController(ControllerBase):
         response=schemas.DiagramKindDescription,
         operation_id="get_diagram_kind",
         summary="Get a diagram kind",
-        description="Return the elements, relations, annotations, and commands available for a diagram kind.",
+        description="Return the objects, placements, and commands available for a diagram kind.",
     )
     def get(self, request, kind: Annotated[str, Path(description="Mermaiden diagram-kind identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).describe_kind(kind)
