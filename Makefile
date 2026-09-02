@@ -64,5 +64,5 @@ runtime-rollback:
 	image="$$(docker compose config --images | head -n 1)"; \
 	previous="$${image%:*}:previous"; \
 	docker image inspect "$$previous" >/dev/null; \
-	ENCLOSURE_IMAGE="$$previous" docker compose run --rm --no-deps migrate; \
-	ENCLOSURE_IMAGE="$$previous" docker compose up --detach --force-recreate mcp
+	ENCLOSURE_IMAGE="$$previous" docker compose run --pull never --rm --no-deps migrate; \
+	ENCLOSURE_IMAGE="$$previous" docker compose up --pull never --detach --force-recreate mcp
