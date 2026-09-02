@@ -56,8 +56,7 @@ class PHP(Language):
             homepage_url="https://cs.symfony.com/",
             config_paths=(".php-cs-fixer.php",),
             default_enabled=True,
-            commands={"check": "php-cs-fixer fix --dry-run --diff",
-                      "fix": "php-cs-fixer fix"},
+            commands={"check": "php-cs-fixer fix --dry-run --diff", "fix": "php-cs-fixer fix"},
         ),
         Tool(
             id="phpstan",

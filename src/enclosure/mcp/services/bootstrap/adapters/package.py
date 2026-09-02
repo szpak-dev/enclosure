@@ -15,6 +15,4 @@ class PackageBootstrapRepository(BootstrapRepository):
     resource: ClassVar[str] = "resources/agent-bootstrap.md"
 
     def read(self) -> str:
-        return files(self.package).joinpath(*PurePosixPath(self.resource).parts).read_text(
-            encoding="utf-8"
-        )
+        return files(self.package).joinpath(*PurePosixPath(self.resource).parts).read_text(encoding="utf-8")

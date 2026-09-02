@@ -19,15 +19,9 @@ class DiagramKind(Schema):
 
 
 class DiagramKindDescription(DiagramKind):
-    elements: dict[str, dict[str, JsonValue]] = Field(
-        description="Element kinds and their JSON Schemas."
-    )
-    relations: dict[str, dict[str, JsonValue]] = Field(
-        description="Relation kinds and their JSON Schemas."
-    )
-    annotations: dict[str, dict[str, JsonValue]] = Field(
-        description="Annotation kinds and their JSON Schemas."
-    )
+    elements: dict[str, dict[str, JsonValue]] = Field(description="Element kinds and their JSON Schemas.")
+    relations: dict[str, dict[str, JsonValue]] = Field(description="Relation kinds and their JSON Schemas.")
+    annotations: dict[str, dict[str, JsonValue]] = Field(description="Annotation kinds and their JSON Schemas.")
     placements: dict[str, dict[str, JsonValue]] = Field(
         description="Element kinds and the parent kinds in which they may be placed."
     )

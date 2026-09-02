@@ -29,9 +29,7 @@ class AgentBootstrapService:
         if not markdown.strip():
             raise ValueError("The MCP agent bootstrap is empty.")
         if len(content) > MAX_BOOTSTRAP_BYTES:
-            raise ValueError(
-                f"The MCP agent bootstrap exceeds {MAX_BOOTSTRAP_BYTES} bytes."
-            )
+            raise ValueError(f"The MCP agent bootstrap exceeds {MAX_BOOTSTRAP_BYTES} bytes.")
         return AgentBootstrap(
             uri="pkg://enclosure.mcp/resources/agent-bootstrap.md",
             release=self.release,

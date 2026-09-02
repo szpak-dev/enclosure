@@ -9,11 +9,7 @@ from modwire_hex import DjangoApplication
 
 _package_root = Path(__file__).parent
 _package_name = __package__
-_installed_apps = {
-    app.partition(".apps.")[0]
-    for app in settings.INSTALLED_APPS
-    if app.startswith(f"{_package_name}.")
-}
+_installed_apps = {app.partition(".apps.")[0] for app in settings.INSTALLED_APPS if app.startswith(f"{_package_name}.")}
 _package_paths = sorted(
     {
         path
@@ -28,9 +24,7 @@ _package_paths = sorted(
     }
 )
 _injectables: list[ModuleType] = [
-    import_module(
-        f"{_package_name}.{package.relative_to(_package_root).as_posix().replace('/', '.')}"
-    )
+    import_module(f"{_package_name}.{package.relative_to(_package_root).as_posix().replace('/', '.')}")
     for package in _package_paths
 ]
 

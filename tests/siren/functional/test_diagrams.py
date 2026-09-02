@@ -17,12 +17,8 @@ def test_siren_diagram_set_advertises_its_diagram_collection() -> None:
     assert diagram_set.status_code == 201
     created_document = diagram_set.json()
     diagram_set_id = created_document["properties"]["id"]
-    created_collection_link = next(
-        link for link in created_document["links"] if "collection" in link["rel"]
-    )
-    assert urlsplit(created_collection_link["href"]).path == (
-        f"/siren/diagram-sets/{diagram_set_id}/diagrams"
-    )
+    created_collection_link = next(link for link in created_document["links"] if "collection" in link["rel"])
+    assert urlsplit(created_collection_link["href"]).path == (f"/siren/diagram-sets/{diagram_set_id}/diagrams")
 
     diagram = client.post(
         f"/siren/diagram-sets/{diagram_set_id}/diagrams",
@@ -65,9 +61,7 @@ def test_siren_diagram_set_advertises_its_diagram_collection() -> None:
     )
 
     assert updated.status_code == 200
-    updated_collection_link = next(
-        link for link in updated.json()["links"] if "collection" in link["rel"]
-    )
+    updated_collection_link = next(link for link in updated.json()["links"] if "collection" in link["rel"])
     assert updated_collection_link["href"] == collection_link["href"]
 
 

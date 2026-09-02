@@ -40,9 +40,7 @@ class FilesystemAdapter:
                 overwrite=file.overwrite,
             )
 
-        return tuple(
-            sorted((output_root / file.path).resolve().relative_to(root).as_posix() for file in files)
-        )
+        return tuple(sorted((output_root / file.path).resolve().relative_to(root).as_posix() for file in files))
 
     def _validate_targets(
         self,

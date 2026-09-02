@@ -115,7 +115,5 @@ def test_stale_revision_returns_domain_error() -> None:
 
     assert response.status_code == 422
     assert response.json() == {
-        "detail": (
-            f"Diagram {diagram['id']!r} revision conflict: expected 1, current revision is 2."
-        )
+        "detail": (f"Diagram {diagram['id']!r} revision conflict: expected 1, current revision is 2.")
     }

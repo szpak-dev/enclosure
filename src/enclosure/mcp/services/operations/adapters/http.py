@@ -16,12 +16,8 @@ class HttpSirenExecutor:
             **{name: str(value) for name, value in operation.header_values.items()},
         }
         if operation.cookie_values:
-            cookie = SimpleCookie(
-                {name: str(value) for name, value in operation.cookie_values.items()}
-            )
-            headers["cookie"] = "; ".join(
-                morsel.OutputString() for morsel in cookie.values()
-            )
+            cookie = SimpleCookie({name: str(value) for name, value in operation.cookie_values.items()})
+            headers["cookie"] = "; ".join(morsel.OutputString() for morsel in cookie.values())
 
         with Client(
             transport=WSGITransport(app=get_wsgi_application()),

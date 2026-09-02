@@ -45,9 +45,7 @@ def test_siren_exposes_schema_update_as_a_separate_category_action() -> None:
     actions = {action["name"]: action for action in details.json()["actions"]}
     assert [field["name"] for field in actions["update_record_category"]["fields"]] == ["title"]
     schema_action = actions["update_record_category_content_schema"]
-    assert schema_action["href"] == (
-        f"http://testserver/siren/records/categories/{category_id}/content-schema"
-    )
+    assert schema_action["href"] == (f"http://testserver/siren/records/categories/{category_id}/content-schema")
     assert schema_action["method"] == "PUT"
     structured_form = schema_action["https://modwire.dev/siren/structured-form/v1"]
     assert [control["name"] for control in structured_form["controls"]] == ["content_schema"]
