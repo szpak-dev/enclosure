@@ -1,9 +1,7 @@
-from .model import McpPresentation, WorkspaceContextReceipt, WorkspaceContextStatus
+from .model import McpPresentation
 from .service import PresentationService
 
 __all__ = [
     "McpPresentation",
     "PresentationService",
-    "WorkspaceContextReceipt",
-    "WorkspaceContextStatus",
 ]

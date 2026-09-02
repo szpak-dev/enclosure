@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
 
 
-@dataclass(frozen=True, slots=True)
-class AgentBootstrap:
+class AgentBootstrap(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     uri: str
     release: str
     revision: str

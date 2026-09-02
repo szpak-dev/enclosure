@@ -1,34 +1,33 @@
 from collections.abc import Mapping
-from dataclasses import dataclass
 
-from pydantic import JsonValue
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 
-@dataclass(frozen=True, slots=True)
-class ToolDefinition:
+class McpValue(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ToolDefinition(McpValue):
     name: str
     title: str
     description: str
     input_schema: Mapping[str, JsonValue]
 
 
-@dataclass(frozen=True, slots=True)
-class ToolCatalogue:
+class ToolCatalogue(McpValue):
     fingerprint: str
     tools: tuple[ToolDefinition, ...]
 
 
-@dataclass(frozen=True, slots=True)
-class ToolInvocation:
+class ToolInvocation(McpValue):
     operation_id: str
     arguments: Mapping[str, JsonValue]
 
 
-@dataclass(frozen=True, slots=True)
-class SirenDocument:
+class SirenDocument(McpValue):
     operation_id: str
     document: Mapping[str, JsonValue]
     is_error: bool
     classes: tuple[str, ...]
-    title: str | None
-    detail: str | None
+    title: str
+    detail: str

@@ -7,7 +7,7 @@ from .model import SirenDocument, ToolCatalogue, ToolInvocation
 
 
 @injectable
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OperationsService:
     gateway: SirenGateway
 
