@@ -5,6 +5,8 @@
 - Project: `{{ properties.project_id }}`
 - Root: `{{ properties.root }}`
 - Readiness: **{{ properties.readiness | default("ready") }}**
+- Authority: `{{ properties.authority.kind }}:{{ properties.authority.id }}`
+- Revision: `{{ properties.authority.revision }}`
 {% macro guidance_item(item, kind) %}
 ### {{ item.title }}
 

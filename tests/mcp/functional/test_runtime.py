@@ -163,6 +163,27 @@ class PublicMcpClient:
             result = await session.call_tool("get_workspace_context", arguments)
             return rest_response, result
 
+    async def incomplete_workspace_context(self, root: Path) -> CallToolResult:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            records = await http_client.get("/api/records")
+            records.raise_for_status()
+            deleted = await http_client.delete(f"/api/records/{records.json()[0]['id']}")
+            deleted.raise_for_status()
+            return await session.call_tool(
+                "get_workspace_context",
+                {
+                    "root": str(root),
+                    "task": "Apply example guidance safely",
+                },
+            )
+
     async def project_health(
         self,
         root: Path,
@@ -386,6 +407,23 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     assert "guidance" not in receipt["guidance"][0]
     assert len(markdown.encode("utf-8")) <= 16_384
     assert len(json.dumps(receipt).encode("utf-8")) <= 8_192
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text(
+        "class ExampleApplication:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    result = asyncio.run(PublicMcpClient(PublicCompositeApplication()).incomplete_workspace_context(tmp_path))
+
+    assert result.is_error is True
+    assert result.structured_content["status"] == "incomplete"
+    assert result.structured_content["authority"]["kind"] == "project-record-bindings"
+    assert result.structured_content["diagnostics"][0]["code"] == "mandatory_guidance_unavailable"
+    assert "Readiness: **incomplete**" in result.content[0].text
 
 
 @pytest.mark.django_db(transaction=True)

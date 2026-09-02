@@ -17,6 +17,7 @@
     "status": {{ properties.readiness | default("ready") | tojson }},
     "project_id": {{ properties.project_id | tojson }},
     "root": {{ properties.root | tojson }},
+    "authority": {{ properties.authority | tojson }},
     "bootstrap": {
       "uri": {{ bootstrap.uri | tojson }},
       "release": {{ bootstrap.release | tojson }},
