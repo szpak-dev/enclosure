@@ -68,6 +68,31 @@ curl --fail http://127.0.0.1:8666/health/
 The Streamable HTTP MCP endpoint is available to every local project at
 `http://127.0.0.1:8666/mcp`.
 
+### MCP application boundary
+
+`enclosure.mcp` owns MCP protocol lifecycle, tool exposure, and agent-facing
+presentation. REST and Siren remain the authority for authorization, operation
+dispatch, and domain decisions; MCP consumes their results and does not import
+project services to recompute them. Operation-specific Markdown and compact
+receipts are package Jinja templates rendered by the injectable
+`enclosure.shared.TemplateService`, so other applications can use the same
+renderer without duplicating Jinja configuration.
+
+`get_workspace_context` emits the packaged agent bootstrap once, before the
+ordered project guidance. Its receipt keeps operational facts and counts while
+the Markdown retains guidance, checks, omissions, diagnostics, readiness, and
+mandatory or optional classification supplied by REST. `check_project_health`
+separates healthy, gating-failure, and advisory results and includes affected
+targets and next actions. Agent presentations are limited to 16 KiB of text and
+8 KiB of structured content; an oversized result fails explicitly as
+`presentation_budget_exceeded` instead of truncating guidance.
+
+Run the complete local verification contract before handoff:
+
+```sh
+make ci
+```
+
 Container startup itself never applies migrations. Instead, `make runtime-up`
 pulls the configured image, runs its one-off `migrate` service against the
 local `resumed-db` container, and starts the MCP service only when migration

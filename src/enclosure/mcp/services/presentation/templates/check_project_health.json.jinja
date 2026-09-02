@@ -1,0 +1,40 @@
+{% set counts = namespace(failures=0, advisories=0) %}
+{% set targets = [] %}
+{% set actions = [] %}
+{% for report in properties.reports %}
+{% set counts.failures = counts.failures + (report.violations | length) %}
+{% set counts.advisories = counts.advisories + (report.advisories | default([]) | length) %}
+{% for finding in report.violations %}
+{% set target = finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") %}
+{% if target not in targets %}{% do targets.append(target) %}{% endif %}
+{% set action = "Review " ~ target ~ " against " ~ finding.rule_name ~ "." %}
+{% if action not in actions %}{% do actions.append(action) %}{% endif %}
+{% endfor %}
+{% for finding in report.advisories | default([]) %}
+{% set target = finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") %}
+{% if target not in targets %}{% do targets.append(target) %}{% endif %}
+{% set action = "Review " ~ target ~ " against " ~ finding.rule_name ~ "." %}
+{% if action not in actions %}{% do actions.append(action) %}{% endif %}
+{% endfor %}
+{% endfor %}
+{% set status = "gating-failure" if not properties.healthy else "advisory" if counts.advisories else "healthy" %}
+{
+  "is_error": {{ (not properties.healthy) | tojson }},
+  "structured_content": {
+    "operation_id": "check_project_health",
+    "status": {{ status | tojson }},
+    "healthy": {{ properties.healthy | tojson }},
+    "reports": [
+      {% for report in properties.reports %}{
+        "id": {{ report.metadata.id | tojson }},
+        "title": {{ report.metadata.title | tojson }},
+        "failure_count": {{ report.violations | length }},
+        "advisory_count": {{ report.advisories | default([]) | length }}
+      }{% if not loop.last %},{% endif %}{% endfor %}
+    ],
+    "failure_count": {{ counts.failures }},
+    "advisory_count": {{ counts.advisories }},
+    "targets": {{ targets | tojson }},
+    "next_actions": {{ actions | tojson }}
+  }
+}
