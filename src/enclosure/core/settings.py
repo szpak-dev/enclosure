@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "enclosure.browser.adapters.http.apps.BrowserHttpConfig",
     "enclosure.diagrams.apps.DiagramsConfig",
     "enclosure.languages.apps.LanguagesConfig",
+    "enclosure.mcp.apps.McpConfig",
     "enclosure.scaffoldings.apps.ScaffoldingsDjangoConfig",
     "enclosure.records.apps.RecordsConfig",
     "enclosure.projects.apps.ProjectsConfig",
