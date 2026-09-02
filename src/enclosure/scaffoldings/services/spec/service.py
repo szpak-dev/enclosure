@@ -47,9 +47,7 @@ class ScaffoldingSpecService:
     @staticmethod
     def _validate_template_content_paths(spec: ScaffoldingSpec) -> None:
         for template in spec.templates:
-            if not template.path.endswith(".jinja") and any(
-                token in template.content for token in ("{{", "{%", "{#")
-            ):
+            if not template.path.endswith(".jinja") and any(token in template.content for token in ("{{", "{%", "{#")):
                 raise ScaffoldingError("Template content uses Jinja syntax; its path must end with '.jinja'.")
 
     def _validate_parameters(
@@ -71,9 +69,6 @@ class ScaffoldingSpecService:
             raise ScaffoldingError(f"Invalid rendering parameters ({'; '.join(details)}).")
 
         try:
-            return {
-                name: variable.validate_value(parameters[name])
-                for name, variable in variables.items()
-            }
+            return {name: variable.validate_value(parameters[name]) for name, variable in variables.items()}
         except ValidationError as error:
             raise ScaffoldingError(str(error)) from error

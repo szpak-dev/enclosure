@@ -30,10 +30,7 @@ def test_api_operation_ids_are_unique_snake_case() -> None:
 def test_api_operations_and_fields_are_documented() -> None:
     schema = Client().get("/api/openapi.json").json()
     operations = [
-        operation
-        for path in schema["paths"].values()
-        for method, operation in path.items()
-        if method in HTTP_METHODS
+        operation for path in schema["paths"].values() for method, operation in path.items() if method in HTTP_METHODS
     ]
     parameters = [parameter for operation in operations for parameter in operation.get("parameters", [])]
     fields = [

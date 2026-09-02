@@ -89,11 +89,6 @@ class ObjectVariable(BaseVariable):
 
 
 Variable = Annotated[
-    StringVariable
-    | IntegerVariable
-    | NumberVariable
-    | BooleanVariable
-    | ArrayVariable
-    | ObjectVariable,
+    StringVariable | IntegerVariable | NumberVariable | BooleanVariable | ArrayVariable | ObjectVariable,
     Field(discriminator="type"),
 ]

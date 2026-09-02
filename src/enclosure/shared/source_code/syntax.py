@@ -13,11 +13,11 @@ class Highlighter:
     """
     Transforms source code to highlighted HTML
     """
+
     def highlight(self, path: str, source: SourceCodePackage, *, template_id: str) -> tuple[str, str]:
         try:
             try:
-                lexer = get_lexer_for_filename(
-                    PurePosixPath(path).name, source)
+                lexer = get_lexer_for_filename(PurePosixPath(path).name, source)
             except ClassNotFound:
                 lexer = TextLexer()
             language = lexer.aliases[0] if lexer.aliases else "text"

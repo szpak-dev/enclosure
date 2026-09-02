@@ -4,7 +4,7 @@ from .errors import SourceCodeError
 
 
 class CodePackage(BaseModel):
-    """ Keeps map of relative paths to file content. File tree is rendered.
+    """Keeps map of relative paths to file content. File tree is rendered.
 
     Raises:
         ValueError: in case anything wrong with a path
@@ -12,6 +12,7 @@ class CodePackage(BaseModel):
     Returns:
         dict[str, str]: paths to strings
     """
+
     files: dict[str, str]
 
     @field_validator("files")
@@ -42,7 +43,7 @@ class CodePackage(BaseModel):
 
 
 class SourceCodePackage(BaseModel):
-    """ CodePackage but knows what particular language it carries. File tree is rendered.
+    """CodePackage but knows what particular language it carries. File tree is rendered.
 
     Raises:
         ValueError: in case anything wrong with a path
@@ -50,5 +51,6 @@ class SourceCodePackage(BaseModel):
     Returns:
         dict[str, str]: paths to strings
     """
+
     language: str
     package: CodePackage

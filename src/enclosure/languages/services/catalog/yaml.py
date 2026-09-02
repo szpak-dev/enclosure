@@ -11,7 +11,10 @@ class Yaml(Language):
     name: str = "Yaml"
     executable: str = "yml"
     requires_extraction: bool = False
-    source_extensions: tuple[str, ...] = (".yml", ".yaml",)
+    source_extensions: tuple[str, ...] = (
+        ".yml",
+        ".yaml",
+    )
     aliases: tuple[str, ...] = ()
 
     def validate(self, path: str, content: str) -> None:
