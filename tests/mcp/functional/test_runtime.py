@@ -176,9 +176,7 @@ class PublicMcpClient:
                 {"summary": "Example project guidance."},
                 shape_yaml,
             )
-            rest_response = await http_client.get(
-                f"/api/projects/{project_id}/health-violations"
-            )
+            rest_response = await http_client.get(f"/api/projects/{project_id}/health-violations")
             result = await session.call_tool(
                 "check_project_health",
                 {"project_id": project_id},
