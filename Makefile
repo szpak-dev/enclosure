@@ -1,4 +1,4 @@
-.PHONY: browser-build ci dev format mcp runtime-config runtime-down runtime-logs runtime-up superuser
+.PHONY: browser-build ci dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -58,3 +58,11 @@ runtime-down:
 
 runtime-logs:
 	docker compose logs --follow mcp
+
+runtime-rollback:
+	@set -eu; \
+	image="$$(docker compose config --images | head -n 1)"; \
+	previous="$${image%:*}:previous"; \
+	docker image inspect "$$previous" >/dev/null; \
+	ENCLOSURE_IMAGE="$$previous" docker compose run --rm --no-deps migrate; \
+	ENCLOSURE_IMAGE="$$previous" docker compose up --detach --force-recreate mcp

@@ -1,6 +1,7 @@
 import hashlib
 import os
 from dataclasses import dataclass
+from functools import cached_property
 from typing import ClassVar
 
 from wireup import injectable
@@ -18,12 +19,17 @@ class AgentBootstrapService:
     release: ClassVar[str] = os.getenv("ENCLOSURE_RUNTIME_VERSION", "0.0.0+dev")
 
     def instructions(self) -> str:
+        self.load()
         return (
             "Enclosure provides project operating context and architecture checks. "
             "Call get_workspace_context before working in a registered workspace."
         )
 
     def load(self) -> AgentBootstrap:
+        return self._loaded
+
+    @cached_property
+    def _loaded(self) -> AgentBootstrap:
         markdown = self.repository.read()
         content = markdown.encode("utf-8")
         if not markdown.strip():

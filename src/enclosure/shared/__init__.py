@@ -3,6 +3,7 @@ from .errors import DomainError
 from .filesystem import FilesPackage, FilesystemService
 from .json_schema import JsonSchemaService
 from .source_code import CodePackage, CodePackageWriter, SourceCodePackage, SourceCodeRenderer, SourceCodeService
+from .templates import TemplateService
 
 __all__ = [
     "JsonSchemaService",
@@ -15,4 +16,5 @@ __all__ = [
     "CodePackageWriter",
     "SourceCodePackage",
     "DomainError",
+    "TemplateService",
 ]

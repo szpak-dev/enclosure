@@ -1,0 +1,74 @@
+{{ bootstrap.markdown | trim }}
+
+# Workspace context
+
+- Project: `{{ properties.project_id }}`
+- Root: `{{ properties.root }}`
+- Readiness: **{{ properties.readiness | default("ready") }}**
+{% macro guidance_item(item, kind) %}
+### {{ item.title }}
+
+- Requirement: **{{ kind }}**
+
+{{ item.summary }}
+{% if item.applies_when %}
+
+**Applies when**
+{% for condition in item.applies_when %}
+- {{ condition }}
+{% endfor %}
+{% endif %}
+{% if item.guidance %}
+
+**Guidance**
+{% for directive in item.guidance %}
+- {{ directive }}
+{% endfor %}
+{% endif %}
+{% if item.checks %}
+
+**Checks**
+{% for check in item.checks %}
+- {{ check }}
+{% endfor %}
+{% endif %}
+{% endmacro %}
+{% if properties.mandatory_guidance is defined or properties.optional_guidance is defined %}
+{% if properties.mandatory_guidance | default([]) %}
+
+## Mandatory guidance
+{% for item in properties.mandatory_guidance | default([]) %}
+
+{{ guidance_item(item, "mandatory") | trim }}
+{% endfor %}
+{% endif %}
+{% if properties.optional_guidance | default([]) %}
+
+## Optional guidance
+{% for item in properties.optional_guidance | default([]) %}
+
+{{ guidance_item(item, "optional") | trim }}
+{% endfor %}
+{% endif %}
+{% else %}
+
+## Project guidance
+{% for item in properties.guidance %}
+
+{{ guidance_item(item, "mandatory" if item.mandatory is defined and item.mandatory else "optional" if item.mandatory is defined else "selected") | trim }}
+{% endfor %}
+{% endif %}
+{% if properties.omissions | default([]) %}
+
+## Omissions
+{% for omission in properties.omissions %}
+- {{ omission if omission is string else omission | tojson }}
+{% endfor %}
+{% endif %}
+{% if properties.diagnostics | default([]) %}
+
+## Diagnostics
+{% for diagnostic in properties.diagnostics %}
+- {{ diagnostic if diagnostic is string else diagnostic | tojson }}
+{% endfor %}
+{% endif %}

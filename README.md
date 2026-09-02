@@ -1,63 +1,62 @@
-# enclosure
+# Enclosure
 
-Django API scaffold with JSON logs, dotenv settings, health checks, and auto-discovered Django Ninja Extra controllers.
+Enclosure gives coding agents the context and guardrails they need to work
+confidently across projects. It combines reusable project guidance,
+architecture checks, diagrams, and scaffolding behind REST, Siren, and MCP.
+
+## Highlights
+
+- Agent-ready workspace guidance and project-health checks
+- Architecture contracts backed by Modwire and Mermaiden
+- Reusable records and project scaffolding
+- A Siren browser for exploring resources and actions
+- One machine-wide MCP server for every local project
+
+## Quick start
 
 ```sh
 uv sync
 uv run python manage.py migrate
-make dev
-```
-
-`make dev` keeps the standard Django development server. To run the complete
-local ASGI stack with automatic reload, use:
-
-```sh
 make mcp
 ```
 
-This serves the Siren browser at `/`, REST at `/api`, Siren at `/siren`, and
-the MCP Streamable HTTP endpoint at `/mcp`, all on `127.0.0.1:8000`. Local
-static files are served automatically when Django debug mode is enabled; no
-development `collectstatic` step is required.
+The local stack runs on `127.0.0.1:8000`:
 
-## Siren browser
+| Interface | URL |
+| --- | --- |
+| Siren browser | `http://127.0.0.1:8000/` |
+| REST API | `http://127.0.0.1:8000/api/` |
+| Siren API | `http://127.0.0.1:8000/siren/` |
+| MCP | `http://127.0.0.1:8000/mcp` |
 
-The TypeScript Siren browser is available at `GET /`. It starts from `/siren/`, follows advertised links, and renders forms for advertised actions.
+Use `make dev` when only the standard Django development server is needed.
 
-After changing its source, rebuild the static files deterministically from the repository root before starting Django or building the image:
+## Development
+
+Run the complete verification suite before handoff:
+
+```sh
+make ci
+```
+
+After changing the TypeScript browser, rebuild its checked-in static assets:
 
 ```sh
 make browser-build
 ```
 
-Restarting Django does not rebuild or invalidate the browser bundle. After the
-build finishes, hard-refresh the open page (`Cmd+Shift+R` on macOS or
-`Ctrl+Shift+R` elsewhere) to replace a cached `browser.js`.
-
-The built files live in the Django browser adapter's static directory. The production image runs `collectstatic`, and WhiteNoise serves the manifest-versioned assets.
+Hard-refresh the browser after rebuilding to discard a cached bundle.
 
 ## Machine-wide MCP server
 
-This repository owns the Compose definition for the machine-wide Enclosure
-server. GitHub Actions builds a multi-platform immutable image for each GitHub
-Release and publishes it to Docker Hub. Compose pulls the configured image,
-runs it as `enclosure-mcp`, and restarts it automatically with Docker. The
-existing `resumed-db` PostgreSQL container continues to own the database and
-its data; Enclosure only joins its external `resumed-api_default` network.
+The Compose runtime exposes MCP at `http://127.0.0.1:8666/mcp` and keeps the
+server running as `enclosure-mcp`. Configure `.env` as needed:
 
-The host Projects directory is mounted read/write at the same absolute path in
-the container. This preserves discovered project paths and allows Enclosure to
-generate files in any project. Set `ENCLOSURE_PROJECTS_DIR` in `.env` if the
-Projects directory is somewhere other than `/Users/gorky/Projects`.
+- `ENCLOSURE_IMAGE` selects `latest` or an exact immutable release tag.
+- `ENCLOSURE_PROJECTS_DIR` selects the host projects directory mounted into
+  the container at the same absolute path.
 
-Set `ENCLOSURE_IMAGE` in `.env` to
-`docker.io/9orky/enclosure:latest` to follow the most recent stable release.
-`make runtime-up` retains the prior image locally as `:previous`, so the
-previous release remains available while older Enclosure tags and dangling
-images are pruned. Set an exact SemVer tag instead (for example
-`docker.io/9orky/enclosure:1.2.3`) when a deployment must remain pinned.
-
-Validate, pull, and start the server:
+Start or update the runtime:
 
 ```sh
 make runtime-config
@@ -65,40 +64,19 @@ make runtime-up
 curl --fail http://127.0.0.1:8666/health/
 ```
 
-The Streamable HTTP MCP endpoint is available to every local project at
-`http://127.0.0.1:8666/mcp`.
+`runtime-up` migrates with the selected image before starting MCP and retains
+the previous image locally as `:previous`. Back up PostgreSQL before deploying
+potentially irreversible migrations. Use `make runtime-rollback` to restore
+the retained image, and `make runtime-down` to remove only the MCP container.
 
-Container startup itself never applies migrations. Instead, `make runtime-up`
-pulls the configured image, runs its one-off `migrate` service against the
-local `resumed-db` container, and starts the MCP service only when migration
-succeeds. The migration and runtime therefore always use the same immutable
-image tag. Take a PostgreSQL backup before running `make runtime-up` when a
-migration is potentially irreversible.
+## Releases
 
-`make runtime-down` removes only `enclosure-mcp`. The external `resumed-db`
-container, its network, and its bind-mounted PostgreSQL data are untouched.
+GitHub Release tags are canonical. Stable releases publish SemVer, minor,
+`latest`, and commit-traceability image tags; prereleases never move `latest`.
+Docker Hub publication requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` in
+the repository configuration.
 
-### Releases and image versions
+## API attribution
 
-The GitHub Release tag is the canonical version. A stable release such as
-`v1.2.3` publishes `1.2.3`, `1.2`, `latest`, and a traceability tag beginning
-with `sha-`; a prerelease never moves `latest`. The release workflow delegates
-the build, metadata, Docker Hub publication, SBOM, and provenance attestation
-to a reusable workflow. Before publishing, configure the repository variable
-`DOCKERHUB_USERNAME` and the repository secret `DOCKERHUB_TOKEN` (a Docker Hub
-access token with permission to push the public repository).
-
-For development, continue using `make dev` or `make mcp`: both execute the
-checked-out source directly and are intentionally separate from the immutable
-runtime-image path.
-
-For non-container development, keep using the host `DATABASE_URL` (currently
-port 5432) with the original `uv run` commands above. Its
-default HTTP port remains `8000`, separate from the container runtime on
-`8666`.
-
-## API
-
-The auth-free API entry point is `GET /api/`. Mutating record endpoints use
-`X-Actor-Id` and `X-Actor-Type` for attribution; actor types are `user` and
-`agent`.
+The API is auth-free. Mutating record requests use `X-Actor-Id` and
+`X-Actor-Type`; supported actor types are `user` and `agent`.
