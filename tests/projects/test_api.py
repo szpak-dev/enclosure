@@ -85,8 +85,10 @@ def dependencies(client: Client) -> dict[str, str]:
     assert scaffolding.status_code == 201
 
     return {
+        "category_id": category.json()["id"],
         "record_id": record.json()["id"],
         "scaffolding_id": scaffolding.json()["id"],
+        "tag_id": tag.json()["id"],
     }
 
 
@@ -253,7 +255,7 @@ def test_lists_and_fetches_registered_projects(
 
 
 @pytest.mark.django_db
-def test_gets_compact_workspace_context_from_linked_records(
+def test_gets_ready_workspace_context_from_linked_records(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -271,21 +273,190 @@ def test_gets_compact_workspace_context_from_linked_records(
         content_type="application/json",
     )
 
+    context = response.json()
+
     assert response.status_code == 200
-    assert response.json() == {
+    assert context == {
         "project_id": created["id"],
         "root": str(tmp_path),
+        "readiness": "ready",
+        "authority": {
+            "kind": "project-record-bindings",
+            "id": f"project:{created['id']}:record-bindings",
+            "revision": context["authority"]["revision"],
+        },
         "guidance": [
             {
                 "id": dependencies["record_id"],
                 "title": "Project context",
                 "summary": "Project context",
+                "authority": f"record:{dependencies['record_id']}",
+                "revision": context["guidance"][0]["revision"],
+                "schema_revision": 1,
+                "current_schema_revision": 1,
                 "applies_when": [],
                 "guidance": [],
                 "checks": [],
             }
         ],
+        "diagnostics": [],
     }
+
+
+@pytest.mark.django_db
+def test_marks_missing_bound_guidance_incomplete(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    )
+    deleted = client.delete(f"/api/records/{dependencies['record_id']}")
+
+    response = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+
+    assert deleted.status_code == 204
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "incomplete"
+    assert response.json()["guidance"] == []
+    assert response.json()["diagnostics"] == [
+        {
+            "code": "mandatory_guidance_unavailable",
+            "message": "One or more bound guidance records no longer exist. Rebind or restore them.",
+            "guidance_ids": [dependencies["record_id"]],
+        }
+    ]
+
+
+@pytest.mark.django_db
+def test_marks_stale_guidance_revision_incomplete(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    )
+    revised = client.put(
+        f"/api/records/categories/{dependencies['category_id']}/content-schema",
+        data={"content_schema": {"type": "object", "required": ["summary"]}},
+        content_type="application/json",
+    )
+
+    response = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+
+    assert revised.status_code == 200
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "incomplete"
+    assert response.json()["guidance"][0]["schema_revision"] == 1
+    assert response.json()["guidance"][0]["current_schema_revision"] == 2
+    assert response.json()["diagnostics"] == [
+        {
+            "code": "guidance_revision_stale",
+            "message": "Bound guidance uses an obsolete category schema revision. Review and republish it.",
+            "guidance_ids": [dependencies["record_id"]],
+        }
+    ]
+
+
+@pytest.mark.django_db
+def test_reports_conflicting_guidance_authority(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    first = client.put(
+        f"/api/records/{dependencies['record_id']}",
+        data={
+            "title": "Project context",
+            "content": {"authority": "project-policy"},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    ).json()
+    second = client.post(
+        "/api/records",
+        data={
+            "title": "Conflicting project context",
+            "content": {"authority": "project-policy"},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    ).json()
+    python_project(tmp_path)
+    payload = registration(discover(client, tmp_path), dependencies)
+    payload["record_ids"] = [first["id"], second["id"]]
+    client.post("/api/projects", data=payload, content_type="application/json")
+
+    response = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "conflicted"
+    assert response.json()["diagnostics"] == [
+        {
+            "code": "guidance_authority_conflict",
+            "message": "Multiple bound guidance records claim authority 'project-policy'. Bind one effective source.",
+            "guidance_ids": sorted([first["id"], second["id"]]),
+        }
+    ]
+
+
+@pytest.mark.django_db
+def test_preserves_resolved_guidance_when_context_is_incomplete(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    second = client.post(
+        "/api/records",
+        data={
+            "title": "Additional project context",
+            "content": {},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    ).json()
+    python_project(tmp_path)
+    payload = registration(discover(client, tmp_path), dependencies)
+    payload["record_ids"] = [dependencies["record_id"], second["id"]]
+    client.post("/api/projects", data=payload, content_type="application/json")
+    client.delete(f"/api/records/{second['id']}")
+
+    response = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["readiness"] == "incomplete"
+    assert [guidance["id"] for guidance in response.json()["guidance"]] == [dependencies["record_id"]]
+    assert response.json()["diagnostics"][0]["guidance_ids"] == [second["id"]]
 
 
 @pytest.mark.django_db

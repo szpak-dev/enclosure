@@ -7,6 +7,7 @@ from wireup import injectable
 from ..errors import ProjectsError
 from ..models import Project, ProjectArchitectureConfiguration
 from .adapters import RecordsAdapter, ScaffoldingsAdapter
+from .context import WorkspaceContext, WorkspaceContextService
 from .generation import GenerationResult, GenerationService
 from .reports import ReportsService
 from .reports.adapters import ArchitectureAdapter
@@ -18,6 +19,7 @@ from .stack import DiscoveredProject, StackDetector
 @dataclass(frozen=True)
 class ProjectsService:
     architecture: ArchitectureAdapter
+    context: WorkspaceContextService
     generation: GenerationService
     records: RecordsAdapter
     scaffoldings: ScaffoldingsAdapter
@@ -51,16 +53,14 @@ class ProjectsService:
     ) -> ProjectArchitectureConfiguration:
         return self.repository.get_architecture_configuration(project_id, configuration_id)
 
-    def get_workspace_context(self, root: str, task: str) -> dict[str, object]:
+    def get_workspace_context(self, root: str, task: str) -> WorkspaceContext:
         project = self.repository.get_by_root(root)
-        return {
-            "project_id": project.id,
-            "root": project.root,
-            "guidance": self.records.find_guidance(
-                self.repository.find_record_ids(project.id),
-                task,
-            ),
-        }
+        return self.context.resolve(
+            project.id,
+            project.root,
+            self.repository.find_record_ids(project.id),
+            task,
+        )
 
     def generate_source(
         self,
