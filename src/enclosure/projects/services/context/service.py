@@ -1,13 +1,14 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from wireup import injectable
 
-from ..adapters import RecordsAdapter, WorkspaceGuidance
+from ..adapters.model import WorkspaceGuidance
 from ..contracts.model import (
     ConfiguredOperatingContractBinding,
     UnconfiguredOperatingContractBinding,
 )
+from ..routing.service import WorkspaceRoutingService
 from .model import (
     WorkspaceAuthority,
     WorkspaceContext,
@@ -18,7 +19,8 @@ from .model import (
 @injectable
 @dataclass(frozen=True)
 class WorkspaceContextService:
-    records: RecordsAdapter
+    routing: WorkspaceRoutingService
+    max_optional_characters: int = field(default=4096, init=False)
 
     def resolve(
         self,
@@ -51,17 +53,20 @@ class WorkspaceContextService:
             reference for reference in binding.effective_revision.references if reference.kind == "guidance"
         )
         record_ids = tuple(reference.id for reference in guidance_references)
-        resolution = self.records.resolve_guidance(record_ids, task)
+        route = self.routing.route(
+            project_id,
+            guidance_references,
+            task,
+            self.max_optional_characters,
+        )
+        mandatory_ids = set(record_ids)
+        mandatory_guidance = tuple(item for item in route.guidance if item.id in mandatory_ids)
         diagnostics = self._diagnostics(
             record_ids,
-            resolution.guidance,
-            resolution.selected_ids,
-            resolution.missing_ids,
+            mandatory_guidance,
+            route.guidance,
+            route.missing_mandatory_ids,
             {reference.id: reference.revision for reference in guidance_references},
-        )
-        guidance_by_id = {guidance.id: guidance for guidance in resolution.guidance}
-        selected_guidance = tuple(
-            guidance_by_id[guidance_id] for guidance_id in resolution.selected_ids if guidance_id in guidance_by_id
         )
         readiness = "conflicted" if self._has_conflict(diagnostics) else "incomplete" if diagnostics else "ready"
         return WorkspaceContext(
@@ -73,15 +78,15 @@ class WorkspaceContextService:
                 id=binding.contract.authority,
                 revision=str(binding.effective_revision.version),
             ),
-            guidance=selected_guidance,
+            guidance=route.guidance,
             diagnostics=diagnostics,
         )
 
     def _diagnostics(
         self,
         record_ids: tuple[str, ...],
+        mandatory_guidance: tuple[WorkspaceGuidance, ...],
         guidance: tuple[WorkspaceGuidance, ...],
-        selected_ids: tuple[str, ...],
         missing_ids: tuple[str, ...],
         expected_revisions: dict[str, str],
     ) -> tuple[WorkspaceContextDiagnostic, ...]:
@@ -105,7 +110,9 @@ class WorkspaceContextService:
                 )
             )
 
-        stale_ids = tuple(sorted(item.id for item in guidance if item.schema_revision != item.current_schema_revision))
+        stale_ids = tuple(
+            sorted(item.id for item in mandatory_guidance if item.schema_revision != item.current_schema_revision)
+        )
         if stale_ids:
             diagnostics.append(
                 WorkspaceContextDiagnostic(
@@ -115,7 +122,11 @@ class WorkspaceContextService:
                 )
             )
         changed_ids = tuple(
-            sorted(item.id for item in guidance if expected_revisions.get(item.id, item.revision) != item.revision)
+            sorted(
+                item.id
+                for item in mandatory_guidance
+                if expected_revisions.get(item.id, item.revision) != item.revision
+            )
         )
         if changed_ids:
             diagnostics.append(
@@ -125,15 +136,6 @@ class WorkspaceContextService:
                     guidance_ids=changed_ids,
                 )
             )
-        if guidance and not selected_ids:
-            diagnostics.append(
-                WorkspaceContextDiagnostic(
-                    code="guidance_selection_unavailable",
-                    message="Bound guidance exists but no safe task selection could be produced.",
-                    guidance_ids=tuple(sorted(item.id for item in guidance)),
-                )
-            )
-
         authorities: defaultdict[str, list[str]] = defaultdict(list)
         for item in guidance:
             authorities[item.authority].append(item.id)

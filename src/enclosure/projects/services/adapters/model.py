@@ -20,5 +20,11 @@ class WorkspaceGuidanceResolution(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     guidance: tuple[WorkspaceGuidance, ...]
-    selected_ids: tuple[str, ...]
     missing_ids: tuple[str, ...]
+
+
+class GuidanceRanking(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    available: bool
+    ordered_ids: tuple[str, ...]

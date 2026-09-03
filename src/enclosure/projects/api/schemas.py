@@ -53,10 +53,23 @@ class WorkspaceContext(Schema):
         description="Whether the returned context is safe to treat as complete."
     )
     authority: WorkspaceAuthority = Field(description="Authority and revision used to resolve this response.")
-    guidance: list[WorkspaceGuidance] = Field(description="Relevant linked guidance, ordered by task relevance.")
+    guidance: list[WorkspaceGuidance] = Field(
+        description="Mandatory guidance first, followed by routed optional guidance."
+    )
     diagnostics: list[WorkspaceContextDiagnostic] = Field(
         description="Stable reasons the response is incomplete or conflicted."
     )
+
+
+class GuidanceScope(Schema):
+    id: str = Field(description="Guidance-scope identifier.")
+    project_id: ProjectId
+    record_id: str = Field(description="Optional guidance record made eligible for this project.")
+    position: int = Field(description="Deterministic fallback position within the project.", ge=1)
+
+
+class ReplaceGuidanceScopes(Schema):
+    record_ids: list[str] = Field(description="Ordered optional guidance records eligible for routing.")
 
 
 class RegisterProject(Schema):
