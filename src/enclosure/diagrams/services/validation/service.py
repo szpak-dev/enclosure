@@ -27,30 +27,29 @@ class DiagramValidationService:
             "kind": self._required_string(data.get("kind"), "Diagram kind", maximum=64),
         }
 
-    @staticmethod
-    def expected_revision(value: object) -> int:
+    def diagram_title(self, value: object) -> str:
+        return self._required_string(value, "Diagram title", maximum=255)
+
+    def expected_revision(self, value: object) -> int:
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             raise DiagramsError("Expected diagram revision must be a positive integer.")
         return value
 
-    @staticmethod
-    def _allowed_fields(data: Mapping[str, object], allowed: set[str], subject: str) -> None:
+    def _allowed_fields(self, data: Mapping[str, object], allowed: set[str], subject: str) -> None:
         unknown = set(data) - allowed
         if unknown:
             names = ", ".join(sorted(unknown))
             raise DiagramsError(f"Unsupported {subject} fields: {names}.")
 
-    @classmethod
-    def _required_string(cls, value: object, name: str, *, maximum: int) -> str:
-        normalized = cls._string(value, name).strip()
+    def _required_string(self, value: object, name: str, *, maximum: int) -> str:
+        normalized = self._string(value, name).strip()
         if not normalized:
             raise DiagramsError(f"{name} must be a non-empty string.")
         if len(normalized) > maximum:
             raise DiagramsError(f"{name} must not exceed {maximum} characters.")
         return normalized
 
-    @staticmethod
-    def _string(value: object, name: str) -> str:
+    def _string(self, value: object, name: str) -> str:
         if not isinstance(value, str):
             raise DiagramsError(f"{name} must be a string.")
         return value

@@ -59,6 +59,14 @@ class CreateDiagram(StrictSchema):
     kind: DiagramKindId = Field(description="Mermaiden diagram kind used to create the diagram.", max_length=64)
 
 
+class UpdateDiagram(StrictSchema):
+    expected_revision: int = Field(
+        description="Diagram revision on which the metadata update is based.",
+        ge=1,
+    )
+    title: str = Field(description="Replacement diagram title.", min_length=1, max_length=255)
+
+
 class ApplyDiagramCommand(StrictSchema):
     expected_revision: int = Field(
         description="Diagram revision on which the command is based.",

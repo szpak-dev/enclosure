@@ -11,6 +11,71 @@ from . import schemas
 @api_controller("/projects", tags=["Projects"])
 class ProjectsController(ControllerBase):
     @route.post(
+        "/operating-contracts",
+        response={201: schemas.OperatingContract},
+        operation_id="create_operating_contract",
+        summary="Create an operating contract",
+        description="Create an operating-contract envelope with one canonical authority and provenance.",
+    )
+    def create_operating_contract(self, request, body: schemas.CreateOperatingContract):
+        contract = DjangoRequest.resolve(request, ProjectsService).create_operating_contract(
+            body.title,
+            body.authority,
+            body.provenance,
+        )
+        return Status(201, contract)
+
+    @route.get(
+        "/operating-contracts/{contract_id}",
+        response=schemas.OperatingContract,
+        operation_id="get_operating_contract",
+        summary="Get an operating contract",
+        description="Return an operating-contract envelope and its canonical authority.",
+    )
+    def get_operating_contract(
+        self,
+        request,
+        contract_id: Annotated[str, Path(description="Operating-contract identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).get_operating_contract(contract_id)
+
+    @route.post(
+        "/operating-contracts/{contract_id}/revisions",
+        response={201: schemas.OperatingContractRevision},
+        operation_id="publish_operating_contract_revision",
+        summary="Publish an operating-contract revision",
+        description="Validate and publish the next immutable revision of an operating contract.",
+    )
+    def publish_operating_contract_revision(
+        self,
+        request,
+        contract_id: Annotated[str, Path(description="Operating-contract identifier.")],
+        body: schemas.PublishOperatingContractRevision,
+    ):
+        references = tuple(reference.model_dump(mode="python") for reference in body.references)
+        revision = DjangoRequest.resolve(request, ProjectsService).publish_operating_contract_revision(
+            contract_id,
+            tuple(body.record_ids),
+            references,
+        )
+        return Status(201, revision)
+
+    @route.get(
+        "/operating-contracts/{contract_id}/revisions/{version}",
+        response=schemas.OperatingContractRevision,
+        operation_id="get_operating_contract_revision",
+        summary="Get an operating-contract revision",
+        description="Return one immutable published operating-contract revision.",
+    )
+    def get_operating_contract_revision(
+        self,
+        request,
+        contract_id: Annotated[str, Path(description="Operating-contract identifier.")],
+        version: Annotated[int, Path(description="Contract-local revision number.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).get_operating_contract_revision(contract_id, version)
+
+    @route.post(
         "/workspace-contexts",
         response=schemas.WorkspaceContext,
         operation_id="get_workspace_context",
@@ -67,6 +132,67 @@ class ProjectsController(ControllerBase):
             body.record_ids,
         )
         return Status(201, project)
+
+    @route.post(
+        "/{project_id}/operating-contract-bindings",
+        response={201: schemas.ConfiguredOperatingContractBinding},
+        operation_id="bind_project_operating_contract",
+        summary="Bind a project operating contract",
+        description="Create the single active operating-contract binding for an unconfigured project.",
+    )
+    def bind_operating_contract(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.WriteOperatingContractBinding,
+    ):
+        binding = DjangoRequest.resolve(request, ProjectsService).bind_project_operating_contract(
+            project_id,
+            body.contract_id,
+            body.version,
+            body.update_policy,
+        )
+        return Status(201, binding)
+
+    @route.get(
+        "/{project_id}/operating-contract-binding",
+        response={
+            200: schemas.ConfiguredOperatingContractBinding,
+            409: schemas.UnconfiguredOperatingContractBinding,
+        },
+        operation_id="get_project_operating_contract_binding",
+        summary="Get a project operating-contract binding",
+        description="Return the configured binding and effective revision, or an explicit unconfigured state.",
+    )
+    def get_operating_contract_binding(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+    ):
+        binding = DjangoRequest.resolve(request, ProjectsService).get_project_operating_contract_binding(project_id)
+        if binding.state == "unconfigured":
+            return Status(409, binding)
+        return binding
+
+    @route.put(
+        "/{project_id}/operating-contract-binding",
+        response=schemas.ConfiguredOperatingContractBinding,
+        operation_id="replace_project_operating_contract_binding",
+        summary="Replace a project operating-contract binding",
+        description="Explicitly replace the active contract revision and update policy.",
+    )
+    def replace_operating_contract_binding(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.WriteOperatingContractBinding,
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).replace_project_operating_contract_binding(
+            project_id,
+            body.contract_id,
+            body.version,
+            body.update_policy,
+        )
 
     @route.post(
         "/{project_id}/source-generations",
@@ -134,13 +260,13 @@ class ProjectsController(ControllerBase):
         response=schemas.Project,
         operation_id="update_project",
         summary="Update a project",
-        description="Replace a project's discovery data, architecture configuration, and supporting records.",
+        description="Replace a project's discovery data and architecture configuration.",
     )
     def update(
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
-        body: schemas.RegisterProject,
+        body: schemas.UpdateProject,
     ):
         return DjangoRequest.resolve(request, ProjectsService).update_project(
             project_id,
@@ -149,7 +275,6 @@ class ProjectsController(ControllerBase):
             body.boundaries_yaml,
             body.shape_yaml,
             body.scaffolding_id,
-            body.record_ids,
         )
 
     @route.get(

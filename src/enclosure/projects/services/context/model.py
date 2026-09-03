@@ -8,7 +8,7 @@ from ..adapters.model import WorkspaceGuidance
 class WorkspaceAuthority(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    kind: Literal["project-record-bindings"]
+    kind: Literal["project-operating-contract"]
     id: str
     revision: str
 

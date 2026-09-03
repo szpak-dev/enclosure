@@ -47,6 +47,9 @@ class DiagramsService:
     def get_diagram(self, id: str) -> Diagram:
         return self.editing.get(id)
 
+    def update_diagram(self, id: str, expected_revision: int, title: str) -> Diagram:
+        return self.editing.rename(id, expected_revision, title)
+
     def get_diagram_in_set(self, diagram_set_id: str, id: str) -> Diagram:
         return self.editing.get_in_set(diagram_set_id, id)
 

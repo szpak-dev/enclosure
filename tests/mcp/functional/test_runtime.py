@@ -171,11 +171,8 @@ class PublicMcpClient:
                 root,
                 {"summary": "Example project guidance."},
                 EXAMPLE_HEALTHY_SHAPE_YAML,
+                bind_guidance=False,
             )
-            records = await http_client.get("/api/records")
-            records.raise_for_status()
-            deleted = await http_client.delete(f"/api/records/{records.json()[0]['id']}")
-            deleted.raise_for_status()
             return await session.call_tool(
                 "get_workspace_context",
                 {
@@ -210,6 +207,7 @@ class PublicMcpClient:
         root: Path,
         guidance: Mapping[str, Any],
         shape_yaml: str,
+        bind_guidance: bool = True,
     ) -> str:
         category = await http_client.post(
             "/api/records/categories",
@@ -268,7 +266,7 @@ class PublicMcpClient:
                 "boundaries_yaml": EXAMPLE_BOUNDARIES_YAML,
                 "shape_yaml": shape_yaml,
                 "scaffolding_id": scaffolding.json()["id"],
-                "record_ids": [record.json()["id"]],
+                "record_ids": [record.json()["id"]] if bind_guidance else [],
             },
         )
         project.raise_for_status()
@@ -340,10 +338,30 @@ def test_lists_the_siren_catalogue() -> None:
     assert "find_languages" in tools
     assert "find_project_by_root" in tools
     assert "get_workspace_context" in tools
+    assert "create_operating_contract" in tools
+    assert "get_project_operating_contract_binding" in tools
     assert tools["get_language"].title == "Get a language"
     assert tools["get_language"].input_schema["required"] == ["language_id"]
     assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
     assert tools["find_project_by_root"].input_schema["required"] == ["root"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_creates_operating_contract_through_public_mcp() -> None:
+    result = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).call_tool(
+            "create_operating_contract",
+            {
+                "title": "Example operating contract",
+                "authority": "example:operating-contract",
+                "provenance": "functional-test",
+            },
+        )
+    )
+
+    assert result.is_error is False
+    assert result.structured_content["properties"]["title"] == "Example operating contract"
+    assert result.structured_content["properties"]["authority"] == "example:operating-contract"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -421,8 +439,8 @@ def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> No
 
     assert result.is_error is True
     assert result.structured_content["status"] == "incomplete"
-    assert result.structured_content["authority"]["kind"] == "project-record-bindings"
-    assert result.structured_content["diagnostics"][0]["code"] == "mandatory_guidance_unavailable"
+    assert result.structured_content["authority"]["kind"] == "project-operating-contract"
+    assert result.structured_content["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
     assert "Readiness: **incomplete**" in result.content[0].text
 
 

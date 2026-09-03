@@ -4,10 +4,12 @@ from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.db.models.deletion import ProtectedError
 from pgvector.django import CosineDistance
 from wireup import injectable
 
 from ....core.models import DjangoRepository
+from ...errors import RecordsError
 from ...models import Record, Resource
 
 
@@ -63,7 +65,10 @@ class RecordRepository(DjangoRepository):
 
     @transaction.atomic
     def delete(self, id: str) -> None:
-        self.get(id).delete()
+        try:
+            self.get(id).delete()
+        except ProtectedError as error:
+            raise RecordsError("A record published in an operating contract cannot be deleted.") from error
 
     def search(
         self,

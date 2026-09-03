@@ -35,6 +35,13 @@ class DiagramEditingService:
     def get(self, id: str) -> Diagram:
         return self.repository.get_diagram(id)
 
+    def rename(self, id: str, expected_revision: int, title: str) -> Diagram:
+        return self.update(
+            id,
+            expected_revision,
+            {"title": self.validation.diagram_title(title)},
+        )
+
     def get_in_set(self, diagram_set_id: str, id: str) -> Diagram:
         return self.repository.get_diagram_in_set(diagram_set_id, id)
 

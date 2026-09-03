@@ -35,7 +35,7 @@ class WorkspaceGuidance(Schema):
 
 
 class WorkspaceAuthority(Schema):
-    kind: Literal["project-record-bindings"] = Field(description="Authority mechanism used for this response.")
+    kind: Literal["project-operating-contract"] = Field(description="Authority mechanism used for this response.")
     id: str = Field(description="Stable identifier of the effective authority.")
     revision: str = Field(description="Deterministic revision of the effective authority.")
 
@@ -65,7 +65,78 @@ class RegisterProject(Schema):
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
-    record_ids: list[str] = Field(description="Identifiers of records that provide project context.")
+    record_ids: list[str] = Field(
+        description="Records used to publish and bind the initial operating contract; empty leaves it unconfigured."
+    )
+
+
+class UpdateProject(Schema):
+    discovery: DiscoveredProject = Field(description="Detected project root and technology stack.")
+    architecture_root: str = Field(description="Absolute path analyzed by the architecture rules.")
+    boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
+    shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
+    scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
+
+
+class CreateOperatingContract(Schema):
+    title: str = Field(description="Human-readable operating-contract title.", min_length=1)
+    authority: str = Field(description="Stable canonical authority owned by this contract.", min_length=1)
+    provenance: str = Field(description="Origin of the contract definition.", min_length=1)
+
+
+class OperatingContract(Schema):
+    id: str = Field(description="Operating-contract identifier.")
+    title: str = Field(description="Human-readable operating-contract title.")
+    authority: str = Field(description="Stable canonical authority owned by this contract.")
+    provenance: str = Field(description="Origin of the contract definition.")
+
+
+class OperatingContractReference(Schema):
+    kind: Literal["guidance", "policy", "architecture"] = Field(description="Referenced contract kind.")
+    id: str = Field(description="Identifier owned by the referenced domain.", min_length=1)
+    authority: str = Field(description="Canonical authority of the referenced contract.", min_length=1)
+    revision: str = Field(description="Immutable referenced revision.", min_length=1)
+
+
+class PublishOperatingContractRevision(Schema):
+    record_ids: list[str] = Field(description="Mandatory guidance records captured by this revision.", min_length=1)
+    references: list[OperatingContractReference] = Field(
+        default_factory=list,
+        description="Typed policy and architecture references captured without copying their semantics.",
+    )
+
+
+class OperatingContractRevision(Schema):
+    id: str = Field(description="Published operating-contract revision identifier.")
+    contract_id: str = Field(description="Owning operating-contract identifier.")
+    version: int = Field(description="Contract-local immutable revision number.", ge=1)
+    references: list[OperatingContractReference] = Field(description="Ordered immutable contract references.")
+
+
+class WriteOperatingContractBinding(Schema):
+    contract_id: str = Field(description="Operating contract to bind.")
+    version: int = Field(description="Published revision anchoring the binding.", ge=1)
+    update_policy: Literal["pinned", "follow-latest"] = Field(
+        description="Whether the effective revision stays pinned or follows later publications."
+    )
+
+
+class ConfiguredOperatingContractBinding(Schema):
+    state: Literal["configured"] = Field(description="Discriminator for an active operating-contract binding.")
+    project_id: ProjectId
+    contract: OperatingContract = Field(description="Canonical operating-contract envelope bound to the project.")
+    update_policy: Literal["pinned", "follow-latest"] = Field(
+        description="Policy used to resolve the effective published revision."
+    )
+    bound_revision: int = Field(description="Revision selected when the binding was written.", ge=1)
+    effective_revision: OperatingContractRevision = Field(
+        description="Published revision currently governing the project."
+    )
+
+
+class UnconfiguredOperatingContractBinding(Schema):
+    state: Literal["unconfigured"] = Field(description="Discriminator for a project without a contract binding.")
+    project_id: ProjectId
 
 
 class GenerateProjectSource(Schema):
