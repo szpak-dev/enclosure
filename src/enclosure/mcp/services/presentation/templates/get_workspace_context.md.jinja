@@ -4,73 +4,64 @@
 
 - Project: `{{ properties.project_id }}`
 - Root: `{{ properties.root }}`
-- Readiness: **{{ properties.readiness | default("ready") }}**
-- Authority: `{{ properties.authority.kind }}:{{ properties.authority.id }}`
-- Revision: `{{ properties.authority.revision }}`
-{% macro guidance_item(item, kind) %}
-### {{ item.title }}
+- Readiness: **{{ properties.readiness }}**
+- Authority: `{{ properties.receipt.authority.kind }}:{{ properties.receipt.authority.id }}`
+- Revision: `{{ properties.receipt.authority.revision }}`
+- Provenance: `{{ properties.receipt.authority.provenance }}`
+- Coverage: **{{ properties.receipt.coverage.status }}** ({{ properties.receipt.coverage.selected_count }} selected, {{ properties.receipt.coverage.omitted_count }} omitted, {{ properties.receipt.coverage.diagnostic_count }} diagnostics)
+- Serialized supplemental guidance budget: {{ properties.receipt.budget.used_optional_characters }}/{{ properties.receipt.budget.optional_character_limit }} characters
 
-- Requirement: **{{ kind }}**
+## Selected guidance
+{% for guidance in properties.guidance %}
+{% set item = properties.receipt["items"][loop.index0] %}
 
-{{ item.summary }}
-{% if item.applies_when %}
+### {{ guidance.title }}
+
+- Requirement: **{{ item.requirement }}**
+- Selection reason: `{{ item.reason }}` — {{ item.explanation }}
+- Record: `{{ item.record_id }}`
+- Guidance authority: `{{ item.authority }}`
+- Guidance revision: `{{ item.revision }}`
+- Follow-up: `get_record(record_id="{{ item.record_id }}")`
+
+{{ guidance.summary }}
+{% if guidance.applies_when %}
 
 **Applies when**
-{% for condition in item.applies_when %}
+{% for condition in guidance.applies_when %}
 - {{ condition }}
 {% endfor %}
 {% endif %}
-{% if item.guidance %}
+{% if guidance.guidance %}
 
 **Guidance**
-{% for directive in item.guidance %}
+{% for directive in guidance.guidance %}
 - {{ directive }}
 {% endfor %}
 {% endif %}
-{% if item.checks %}
+{% endfor %}
+{% if properties.receipt.required_checks %}
 
-**Checks**
-{% for check in item.checks %}
+## Required checks
+{% for check in properties.receipt.required_checks %}
 - {{ check }}
 {% endfor %}
 {% endif %}
-{% endmacro %}
-{% if properties.mandatory_guidance is defined or properties.optional_guidance is defined %}
-{% if properties.mandatory_guidance | default([]) %}
-
-## Mandatory guidance
-{% for item in properties.mandatory_guidance | default([]) %}
-
-{{ guidance_item(item, "mandatory") | trim }}
-{% endfor %}
-{% endif %}
-{% if properties.optional_guidance | default([]) %}
-
-## Optional guidance
-{% for item in properties.optional_guidance | default([]) %}
-
-{{ guidance_item(item, "optional") | trim }}
-{% endfor %}
-{% endif %}
-{% else %}
-
-## Project guidance
-{% for item in properties.guidance %}
-
-{{ guidance_item(item, "mandatory" if item.mandatory is defined and item.mandatory else "optional" if item.mandatory is defined else "selected") | trim }}
-{% endfor %}
-{% endif %}
-{% if properties.omissions | default([]) %}
+{% if properties.receipt.omissions %}
 
 ## Omissions
-{% for omission in properties.omissions %}
-- {{ omission if omission is string else omission | tojson }}
+{% for omission in properties.receipt.omissions %}
+- `{{ omission.code }}`: {{ omission.message }} Records: {% for guidance_id in omission.guidance_ids %}`{{ guidance_id }}`{% if not loop.last %}, {% endif %}{% endfor %}
 {% endfor %}
 {% endif %}
-{% if properties.diagnostics | default([]) %}
+{% if properties.receipt.diagnostics %}
 
 ## Diagnostics
-{% for diagnostic in properties.diagnostics %}
-- {{ diagnostic if diagnostic is string else diagnostic | tojson }}
+{% for diagnostic in properties.receipt.diagnostics %}
+- `{{ diagnostic.code }}`: {{ diagnostic.message }}{% if diagnostic.guidance_ids %} Records: {% for guidance_id in diagnostic.guidance_ids %}`{{ guidance_id }}`{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
 {% endfor %}
 {% endif %}
+
+## Stop condition
+
+`{{ properties.receipt.stop_condition }}`

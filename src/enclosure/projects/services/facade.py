@@ -7,7 +7,8 @@ from pydantic import JsonValue
 from wireup import injectable
 
 from .adapters import ScaffoldingsAdapter
-from .context import WorkspaceContext, WorkspaceContextService
+from .context.model import WorkspaceContext
+from .context.service import WorkspaceContextService
 from .contracts.model import (
     ConfiguredOperatingContractBinding,
     OperatingContract,

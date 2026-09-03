@@ -8,18 +8,18 @@ from ..contracts.model import (
     ConfiguredOperatingContractBinding,
     UnconfiguredOperatingContractBinding,
 )
+from ..receipts.model import WorkspaceAuthority, WorkspaceContextDiagnostic
+from ..receipts.service import ContextReceiptService
+from ..routing.model import GuidanceRoute
 from ..routing.service import WorkspaceRoutingService
-from .model import (
-    WorkspaceAuthority,
-    WorkspaceContext,
-    WorkspaceContextDiagnostic,
-)
+from .model import WorkspaceContext
 
 
 @injectable
 @dataclass(frozen=True)
 class WorkspaceContextService:
     routing: WorkspaceRoutingService
+    receipts: ContextReceiptService
     max_optional_characters: int = field(default=4096, init=False)
 
     def resolve(
@@ -30,23 +30,32 @@ class WorkspaceContextService:
         task: str,
     ) -> WorkspaceContext:
         if isinstance(binding, UnconfiguredOperatingContractBinding):
+            route = GuidanceRoute(
+                items=(),
+                missing_mandatory_ids=(),
+                omitted_optional_ids=(),
+                used_optional_characters=0,
+                optional_character_limit=self.max_optional_characters,
+            )
+            authority = WorkspaceAuthority(
+                kind="project-operating-contract",
+                id=f"project:{project_id}:operating-contract",
+                revision="unconfigured",
+                provenance="unconfigured",
+            )
+            diagnostics = (
+                WorkspaceContextDiagnostic(
+                    code="mandatory_contract_unconfigured",
+                    message="The project has no operating contract. Publish and bind one before continuing.",
+                    guidance_ids=(),
+                ),
+            )
             return WorkspaceContext(
                 project_id=project_id,
                 root=root,
                 readiness="incomplete",
-                authority=WorkspaceAuthority(
-                    kind="project-operating-contract",
-                    id=f"project:{project_id}:operating-contract",
-                    revision="unconfigured",
-                ),
                 guidance=(),
-                diagnostics=(
-                    WorkspaceContextDiagnostic(
-                        code="mandatory_contract_unconfigured",
-                        message="The project has no operating contract. Publish and bind one before continuing.",
-                        guidance_ids=(),
-                    ),
-                ),
+                receipt=self.receipts.build(route, authority, diagnostics, "incomplete"),
             )
 
         guidance_references = tuple(
@@ -59,27 +68,28 @@ class WorkspaceContextService:
             task,
             self.max_optional_characters,
         )
-        mandatory_ids = set(record_ids)
-        mandatory_guidance = tuple(item for item in route.guidance if item.id in mandatory_ids)
+        guidance = tuple(item.guidance for item in route.items)
+        mandatory_guidance = tuple(item.guidance for item in route.items if item.requirement == "mandatory")
         diagnostics = self._diagnostics(
             record_ids,
             mandatory_guidance,
-            route.guidance,
+            guidance,
             route.missing_mandatory_ids,
             {reference.id: reference.revision for reference in guidance_references},
         )
         readiness = "conflicted" if self._has_conflict(diagnostics) else "incomplete" if diagnostics else "ready"
+        authority = WorkspaceAuthority(
+            kind="project-operating-contract",
+            id=binding.contract.authority,
+            revision=str(binding.effective_revision.version),
+            provenance=binding.contract.provenance,
+        )
         return WorkspaceContext(
             project_id=project_id,
             root=root,
             readiness=readiness,
-            authority=WorkspaceAuthority(
-                kind="project-operating-contract",
-                id=binding.contract.authority,
-                revision=str(binding.effective_revision.version),
-            ),
-            guidance=route.guidance,
-            diagnostics=diagnostics,
+            guidance=guidance,
+            receipt=self.receipts.build(route, authority, diagnostics, readiness),
         )
 
     def _diagnostics(

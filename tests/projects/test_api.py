@@ -284,7 +284,7 @@ def test_publishes_and_binds_versioned_operating_contract(
     )
     assert context.status_code == 200
     assert context.json()["readiness"] == "incomplete"
-    assert context.json()["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
+    assert context.json()["receipt"]["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
 
     binding_data = {
         "contract_id": contract["id"],
@@ -386,11 +386,6 @@ def test_gets_ready_workspace_context_from_linked_records(
         "project_id": created["id"],
         "root": str(tmp_path),
         "readiness": "ready",
-        "authority": {
-            "kind": "project-operating-contract",
-            "id": f"project:{created['id']}:operating-contract",
-            "revision": "1",
-        },
         "guidance": [
             {
                 "id": dependencies["record_id"],
@@ -405,7 +400,40 @@ def test_gets_ready_workspace_context_from_linked_records(
                 "checks": [],
             }
         ],
-        "diagnostics": [],
+        "receipt": {
+            "authority": {
+                "kind": "project-operating-contract",
+                "id": f"project:{created['id']}:operating-contract",
+                "revision": "1",
+                "provenance": "project-registration",
+            },
+            "items": [
+                {
+                    "record_id": dependencies["record_id"],
+                    "title": "Project context",
+                    "requirement": "mandatory",
+                    "reason": "operating-contract",
+                    "explanation": "Required by the active project operating contract.",
+                    "authority": f"record:{dependencies['record_id']}",
+                    "revision": context["guidance"][0]["revision"],
+                    "checks": [],
+                }
+            ],
+            "required_checks": [],
+            "budget": {
+                "used_optional_characters": 0,
+                "optional_character_limit": 4096,
+            },
+            "coverage": {
+                "status": "complete",
+                "selected_count": 1,
+                "omitted_count": 0,
+                "diagnostic_count": 0,
+            },
+            "omissions": [],
+            "diagnostics": [],
+            "stop_condition": "selected-guidance-and-checks",
+        },
     }
 
 
@@ -524,6 +552,11 @@ def test_routes_scoped_guidance_for_representative_tasks(
         guidance_ids = [guidance["id"] for guidance in response.json()["guidance"]]
         assert guidance_ids == [dependencies["record_id"], expected_id, universal.json()["id"]]
         assert unscoped.json()["id"] not in guidance_ids
+        assert [item["reason"] for item in response.json()["receipt"]["items"]] == [
+            "operating-contract",
+            "task-applicable",
+            "project-default",
+        ]
 
 
 @override_settings(RECORDS_EMBEDDINGS_ENABLED=False)
@@ -588,6 +621,20 @@ def test_routes_optional_guidance_by_fallback_order_within_budget(
         first.json()["id"],
     ]
     assert response.json()["guidance"][1]["summary"] == "a" * 1800
+    assert response.json()["receipt"]["coverage"] == {
+        "status": "partial",
+        "selected_count": 2,
+        "omitted_count": 1,
+        "diagnostic_count": 0,
+    }
+    assert response.json()["receipt"]["omissions"] == [
+        {
+            "code": "optional-budget-exhausted",
+            "guidance_ids": [second.json()["id"]],
+            "message": "Supplemental guidance was omitted because the workspace-context budget was exhausted.",
+        }
+    ]
+    assert response.json()["receipt"]["stop_condition"] == "resolve-context-gaps"
 
 
 @pytest.mark.django_db
@@ -614,7 +661,7 @@ def test_protects_guidance_published_in_an_operating_contract(
     assert deleted.json() == {"detail": "A record published in an operating contract cannot be deleted."}
     assert response.status_code == 200
     assert response.json()["readiness"] == "ready"
-    assert response.json()["diagnostics"] == []
+    assert response.json()["receipt"]["diagnostics"] == []
 
 
 @pytest.mark.django_db
@@ -646,7 +693,7 @@ def test_marks_stale_guidance_revision_incomplete(
     assert response.json()["readiness"] == "incomplete"
     assert response.json()["guidance"][0]["schema_revision"] == 1
     assert response.json()["guidance"][0]["current_schema_revision"] == 2
-    assert response.json()["diagnostics"] == [
+    assert response.json()["receipt"]["diagnostics"] == [
         {
             "code": "guidance_revision_stale",
             "message": "Bound guidance uses an obsolete category schema revision. Review and republish it.",
@@ -696,7 +743,7 @@ def test_reports_conflicting_guidance_authority(
 
     assert response.status_code == 200
     assert response.json()["readiness"] == "conflicted"
-    assert response.json()["diagnostics"] == [
+    assert response.json()["receipt"]["diagnostics"] == [
         {
             "code": "guidance_authority_conflict",
             "message": "Multiple bound guidance records claim authority 'project-policy'. Bind one effective source.",
@@ -747,7 +794,7 @@ def test_marks_changed_published_guidance_incomplete(
     assert changed.status_code == 200
     assert response.status_code == 200
     assert response.json()["readiness"] == "incomplete"
-    assert response.json()["diagnostics"] == [
+    assert response.json()["receipt"]["diagnostics"] == [
         {
             "code": "guidance_revision_changed",
             "message": "Published operating-contract guidance has changed. Publish a new contract revision.",
