@@ -85,6 +85,40 @@ class ProjectsController(ControllerBase):
     def workspace_context(self, request, body: schemas.GetWorkspaceContext):
         return DjangoRequest.resolve(request, ProjectsService).get_workspace_context(body.root, body.task)
 
+    @route.get(
+        "/{project_id}/guidance-scopes",
+        response=list[schemas.GuidanceScope],
+        operation_id="find_guidance_scopes",
+        summary="List guidance scopes",
+        description="Return the ordered optional guidance records eligible for this project.",
+    )
+    def find_guidance_scopes(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+    ):
+        return list(DjangoRequest.resolve(request, ProjectsService).find_guidance_scopes(project_id))
+
+    @route.put(
+        "/{project_id}/guidance-scopes",
+        response=list[schemas.GuidanceScope],
+        operation_id="replace_guidance_scopes",
+        summary="Replace guidance scopes",
+        description="Replace the project's ordered allow-list of optional guidance records.",
+    )
+    def replace_guidance_scopes(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.ReplaceGuidanceScopes,
+    ):
+        return list(
+            DjangoRequest.resolve(request, ProjectsService).replace_guidance_scopes(
+                project_id,
+                tuple(body.record_ids),
+            )
+        )
+
     @route.post(
         "/discoveries",
         response=schemas.DiscoveredProject,

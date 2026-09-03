@@ -53,8 +53,6 @@ class OperatingContractsService:
 
         resolution = self.records.resolve_guidance(
             record_ids,
-            "Publish mandatory project operating guidance",
-            limit=len(record_ids),
         )
         if resolution.missing_ids:
             raise ProjectsError("Operating contract guidance must reference existing records.")

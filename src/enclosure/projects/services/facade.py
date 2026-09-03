@@ -21,6 +21,8 @@ from .registry.model import ArchitectureConfiguration, Project
 from .registry.service import RegistryService
 from .reports import HealthReport, InsightsReport, ReportsService
 from .reports.adapters import ArchitectureAdapter
+from .routing.model import GuidanceScope
+from .routing.service import WorkspaceRoutingService
 from .stack import DiscoveredProject, StackDetector
 
 
@@ -35,6 +37,7 @@ class ProjectsService:
     stack: StackDetector
     reports: ReportsService
     registry: RegistryService
+    routing: WorkspaceRoutingService
 
     def discover_project(self, root: str) -> DiscoveredProject:
         stack = self.stack.detect(root)
@@ -70,6 +73,18 @@ class ProjectsService:
             self.contracts.get_binding(project.id),
             task,
         )
+
+    def find_guidance_scopes(self, project_id: str) -> tuple[GuidanceScope, ...]:
+        self.registry.get(project_id)
+        return self.routing.find_scopes(project_id)
+
+    def replace_guidance_scopes(
+        self,
+        project_id: str,
+        record_ids: tuple[str, ...],
+    ) -> tuple[GuidanceScope, ...]:
+        self.registry.get(project_id)
+        return self.routing.replace_scopes(project_id, record_ids)
 
     def create_operating_contract(self, title: str, authority: str, provenance: str) -> OperatingContract:
         return self.contracts.create(title, authority, provenance)

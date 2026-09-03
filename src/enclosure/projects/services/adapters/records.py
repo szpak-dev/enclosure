@@ -7,7 +7,7 @@ from wireup import injectable
 
 from enclosure.records.services import RecordsService
 
-from .model import WorkspaceGuidance, WorkspaceGuidanceResolution
+from .model import GuidanceRanking, WorkspaceGuidance, WorkspaceGuidanceResolution
 
 
 @injectable
@@ -15,21 +15,18 @@ from .model import WorkspaceGuidance, WorkspaceGuidanceResolution
 class RecordsAdapter:
     records: RecordsService
 
-    def check_records_existence(self, record_ids: list[str]) -> None:
+    def check_records_existence(self, record_ids: tuple[str, ...]) -> None:
         for record_id in record_ids:
             self.records.get_record(record_id)
 
     def resolve_guidance(
         self,
         record_ids: tuple[str, ...],
-        task: str,
-        limit: int = 3,
     ) -> WorkspaceGuidanceResolution:
         if not record_ids:
-            return WorkspaceGuidanceResolution(guidance=(), selected_ids=(), missing_ids=())
+            return WorkspaceGuidanceResolution(guidance=(), missing_ids=())
 
         guidance = []
-        resolved_ids = []
         missing_ids = []
         for record_id in record_ids:
             try:
@@ -37,23 +34,19 @@ class RecordsAdapter:
             except ObjectDoesNotExist:
                 missing_ids.append(record_id)
                 continue
-            resolved_ids.append(record_id)
             guidance.append(self._guidance(record))
 
-        selected = (
-            self.records.search_records(
-                task,
-                min(limit, len(resolved_ids)),
-                record_ids=tuple(resolved_ids),
-            )
-            if resolved_ids
-            else ()
-        )
         return WorkspaceGuidanceResolution(
             guidance=tuple(guidance),
-            selected_ids=tuple(record.id for record in selected),
             missing_ids=tuple(missing_ids),
         )
+
+    def rank_guidance(self, record_ids: tuple[str, ...], task: str) -> GuidanceRanking:
+        if not record_ids:
+            return GuidanceRanking(available=False, ordered_ids=())
+        ranked = self.records.search_records(task, len(record_ids), record_ids=record_ids)
+        ordered_ids = tuple(record.id for record in ranked)
+        return GuidanceRanking(available=bool(ordered_ids), ordered_ids=ordered_ids)
 
     def _guidance(self, record: object) -> WorkspaceGuidance:
         content = record.content if isinstance(record.content, dict) else {}
@@ -86,7 +79,9 @@ class RecordsAdapter:
                     "language": resource.language,
                     "content": resource.content,
                 }
-                for resource in sorted(record.resources.all(), key=lambda resource: resource.path)
+                for _, _, resource in sorted(
+                    (resource.path, resource.id, resource) for resource in record.resources.all()
+                )
             ],
         }
         return hashlib.sha256(

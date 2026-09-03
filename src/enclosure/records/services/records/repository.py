@@ -1,3 +1,4 @@
+import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -76,10 +77,37 @@ class RecordRepository(DjangoRepository):
         limit: int,
         record_ids: tuple[str, ...] | None = None,
     ) -> list[Record]:
-        records = self.summaries().exclude(embedding__isnull=True)
+        if embedding is None:
+            return []
+        records = self.summaries()
         if record_ids is not None:
             records = records.filter(id__in=record_ids)
-        return list(records.order_by(CosineDistance("embedding", embedding))[:limit])
+
+        distances: dict[str, float] = {}
+        for record_id, distance in (
+            records.exclude(embedding__isnull=True)
+            .annotate(distance=CosineDistance("embedding", embedding))
+            .values_list("id", "distance")
+        ):
+            if distance is not None and math.isfinite(distance):
+                distances[record_id] = distance
+
+        resources = Resource.objects.exclude(embedding__isnull=True)
+        if record_ids is not None:
+            resources = resources.filter(record_id__in=record_ids)
+        for record_id, distance in resources.annotate(distance=CosineDistance("embedding", embedding)).values_list(
+            "record_id", "distance"
+        ):
+            if distance is None or not math.isfinite(distance):
+                continue
+            distances[record_id] = min(distance, distances.get(record_id, distance))
+
+        ordered_ids = tuple(
+            record_id
+            for _, record_id in sorted((distance, record_id) for record_id, distance in distances.items())[:limit]
+        )
+        records_by_id = {record.id: record for record in records.filter(id__in=ordered_ids)}
+        return [records_by_id[record_id] for record_id in ordered_ids]
 
     def _sync_resources(self, record: Record, resources: Iterable[Mapping[str, Any]]) -> None:
         existing_resources = {resource.path: resource for resource in record.resources.all()}

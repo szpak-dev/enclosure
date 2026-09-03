@@ -118,3 +118,29 @@ class OperatingContractBinding(ShortUUIDModel):
         related_name="bindings",
     )
     update_policy = models.CharField(max_length=32, choices=UpdatePolicy)
+
+
+class GuidanceScope(ShortUUIDModel):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="guidance_scopes",
+    )
+    record = models.ForeignKey(
+        "records.Record",
+        on_delete=models.PROTECT,
+        related_name="guidance_scopes",
+    )
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("project", "record"),
+                name="projects_guidance_scope_record_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("project", "position"),
+                name="projects_guidance_scope_position_unique",
+            ),
+        ]
