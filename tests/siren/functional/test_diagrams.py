@@ -26,6 +26,20 @@ def test_siren_diagram_set_advertises_its_diagram_collection() -> None:
         content_type="application/json",
     )
     assert diagram.status_code == 201
+    diagram_id = diagram.json()["properties"]["id"]
+    diagram_detail = client.get(f"/siren/diagrams/{diagram_id}").json()
+    update_action = next(action for action in diagram_detail["actions"] if action["name"] == "update_diagram")
+    assert update_action["method"] == "PATCH"
+    assert [field["name"] for field in update_action["fields"]] == ["expected_revision", "title"]
+    renamed = client.patch(
+        urlsplit(update_action["href"]).path,
+        data={"expected_revision": 1, "title": "Updated system context"},
+        content_type="application/json",
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["properties"]["title"] == "Updated system context"
+    assert renamed.json()["properties"]["revision"] == 2
+    assert renamed.json()["properties"]["snapshot"] == diagram_detail["properties"]["snapshot"]
 
     response = client.get(f"/siren/diagram-sets/{diagram_set_id}")
 

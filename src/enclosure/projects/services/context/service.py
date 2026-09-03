@@ -1,11 +1,13 @@
-import hashlib
-import json
 from collections import defaultdict
 from dataclasses import dataclass
 
 from wireup import injectable
 
 from ..adapters import RecordsAdapter, WorkspaceGuidance
+from ..contracts.model import (
+    ConfiguredOperatingContractBinding,
+    UnconfiguredOperatingContractBinding,
+)
 from .model import (
     WorkspaceAuthority,
     WorkspaceContext,
@@ -22,15 +24,40 @@ class WorkspaceContextService:
         self,
         project_id: str,
         root: str,
-        record_ids: tuple[str, ...],
+        binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
         task: str,
     ) -> WorkspaceContext:
+        if isinstance(binding, UnconfiguredOperatingContractBinding):
+            return WorkspaceContext(
+                project_id=project_id,
+                root=root,
+                readiness="incomplete",
+                authority=WorkspaceAuthority(
+                    kind="project-operating-contract",
+                    id=f"project:{project_id}:operating-contract",
+                    revision="unconfigured",
+                ),
+                guidance=(),
+                diagnostics=(
+                    WorkspaceContextDiagnostic(
+                        code="mandatory_contract_unconfigured",
+                        message="The project has no operating contract. Publish and bind one before continuing.",
+                        guidance_ids=(),
+                    ),
+                ),
+            )
+
+        guidance_references = tuple(
+            reference for reference in binding.effective_revision.references if reference.kind == "guidance"
+        )
+        record_ids = tuple(reference.id for reference in guidance_references)
         resolution = self.records.resolve_guidance(record_ids, task)
         diagnostics = self._diagnostics(
             record_ids,
             resolution.guidance,
             resolution.selected_ids,
             resolution.missing_ids,
+            {reference.id: reference.revision for reference in guidance_references},
         )
         guidance_by_id = {guidance.id: guidance for guidance in resolution.guidance}
         selected_guidance = tuple(
@@ -42,9 +69,9 @@ class WorkspaceContextService:
             root=root,
             readiness=readiness,
             authority=WorkspaceAuthority(
-                kind="project-record-bindings",
-                id=f"project:{project_id}:record-bindings",
-                revision=self._revision(record_ids, resolution.guidance, resolution.missing_ids),
+                kind="project-operating-contract",
+                id=binding.contract.authority,
+                revision=str(binding.effective_revision.version),
             ),
             guidance=selected_guidance,
             diagnostics=diagnostics,
@@ -56,6 +83,7 @@ class WorkspaceContextService:
         guidance: tuple[WorkspaceGuidance, ...],
         selected_ids: tuple[str, ...],
         missing_ids: tuple[str, ...],
+        expected_revisions: dict[str, str],
     ) -> tuple[WorkspaceContextDiagnostic, ...]:
         diagnostics = []
         if not record_ids:
@@ -86,6 +114,17 @@ class WorkspaceContextService:
                     guidance_ids=stale_ids,
                 )
             )
+        changed_ids = tuple(
+            sorted(item.id for item in guidance if expected_revisions.get(item.id, item.revision) != item.revision)
+        )
+        if changed_ids:
+            diagnostics.append(
+                WorkspaceContextDiagnostic(
+                    code="guidance_revision_changed",
+                    message="Published operating-contract guidance has changed. Publish a new contract revision.",
+                    guidance_ids=changed_ids,
+                )
+            )
         if guidance and not selected_ids:
             diagnostics.append(
                 WorkspaceContextDiagnostic(
@@ -114,22 +153,3 @@ class WorkspaceContextService:
 
     def _has_conflict(self, diagnostics: tuple[WorkspaceContextDiagnostic, ...]) -> bool:
         return any(diagnostic.code == "guidance_authority_conflict" for diagnostic in diagnostics)
-
-    def _revision(
-        self,
-        record_ids: tuple[str, ...],
-        guidance: tuple[WorkspaceGuidance, ...],
-        missing_ids: tuple[str, ...],
-    ) -> str:
-        guidance_revisions = {item.id: item.revision for item in guidance}
-        missing = set(missing_ids)
-        payload = [
-            {
-                "id": record_id,
-                "revision": guidance_revisions.get(record_id, "missing" if record_id in missing else "unresolved"),
-            }
-            for record_id in sorted(record_ids)
-        ]
-        return hashlib.sha256(
-            json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
-        ).hexdigest()

@@ -1,17 +1,26 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 
-from django.db.models import QuerySet
+from django.db import transaction
 from pydantic import JsonValue
 from wireup import injectable
 
-from ..errors import ProjectsError
-from ..models import Project, ProjectArchitectureConfiguration
-from .adapters import RecordsAdapter, ScaffoldingsAdapter
+from .adapters import ScaffoldingsAdapter
 from .context import WorkspaceContext, WorkspaceContextService
+from .contracts.model import (
+    ConfiguredOperatingContractBinding,
+    OperatingContract,
+    OperatingContractReference,
+    OperatingContractRevision,
+    UnconfiguredOperatingContractBinding,
+)
+from .contracts.service import OperatingContractsService
 from .generation import GenerationResult, GenerationService
-from .reports import ReportsService
+from .registry.model import ArchitectureConfiguration, Project
+from .registry.service import RegistryService
+from .reports import HealthReport, InsightsReport, ReportsService
 from .reports.adapters import ArchitectureAdapter
-from .repository import ProjectRepository
 from .stack import DiscoveredProject, StackDetector
 
 
@@ -19,48 +28,96 @@ from .stack import DiscoveredProject, StackDetector
 @dataclass(frozen=True)
 class ProjectsService:
     architecture: ArchitectureAdapter
+    contracts: OperatingContractsService
     context: WorkspaceContextService
     generation: GenerationService
-    records: RecordsAdapter
     scaffoldings: ScaffoldingsAdapter
     stack: StackDetector
     reports: ReportsService
-    repository: ProjectRepository
+    registry: RegistryService
 
     def discover_project(self, root: str) -> DiscoveredProject:
         stack = self.stack.detect(root)
         return DiscoveredProject(root=root, stack=stack)
 
-    def find_all_projects(self) -> QuerySet[Project]:
-        return self.repository.find_all()
+    def find_all_projects(self) -> tuple[Project, ...]:
+        return self.registry.find_all()
 
     def find_project_by_root(self, root: str) -> Project:
-        return self.repository.get_by_root(root)
+        return self.registry.get_by_root(root)
 
     def get_project(self, project_id: str) -> Project:
-        return self.repository.get(project_id)
+        return self.registry.get(project_id)
 
     def find_project_architecture_configurations(
         self,
         project_id: str,
-    ) -> QuerySet[ProjectArchitectureConfiguration]:
-        return self.repository.find_architecture_configurations(project_id)
+    ) -> tuple[ArchitectureConfiguration, ...]:
+        return self.registry.find_architecture_configurations(project_id)
 
     def get_project_architecture_configuration(
         self,
         project_id: str,
         configuration_id: str,
-    ) -> ProjectArchitectureConfiguration:
-        return self.repository.get_architecture_configuration(project_id, configuration_id)
+    ) -> ArchitectureConfiguration:
+        return self.registry.get_architecture_configuration(project_id, configuration_id)
 
     def get_workspace_context(self, root: str, task: str) -> WorkspaceContext:
-        project = self.repository.get_by_root(root)
+        project = self.registry.get_by_root(root)
         return self.context.resolve(
             project.id,
             project.root,
-            self.repository.find_record_ids(project.id),
+            self.contracts.get_binding(project.id),
             task,
         )
+
+    def create_operating_contract(self, title: str, authority: str, provenance: str) -> OperatingContract:
+        return self.contracts.create(title, authority, provenance)
+
+    def get_operating_contract(self, contract_id: str) -> OperatingContract:
+        return self.contracts.get(contract_id)
+
+    def publish_operating_contract_revision(
+        self,
+        contract_id: str,
+        record_ids: tuple[str, ...],
+        references: tuple[Mapping[str, str], ...],
+    ) -> OperatingContractRevision:
+        return self.contracts.publish(
+            contract_id,
+            record_ids,
+            tuple(OperatingContractReference.model_validate(reference) for reference in references),
+        )
+
+    def get_operating_contract_revision(self, contract_id: str, version: int) -> OperatingContractRevision:
+        return self.contracts.get_revision(contract_id, version)
+
+    def bind_project_operating_contract(
+        self,
+        project_id: str,
+        contract_id: str,
+        version: int,
+        update_policy: Literal["pinned", "follow-latest"],
+    ) -> ConfiguredOperatingContractBinding:
+        self.registry.get(project_id)
+        return self.contracts.bind(project_id, contract_id, version, update_policy)
+
+    def replace_project_operating_contract_binding(
+        self,
+        project_id: str,
+        contract_id: str,
+        version: int,
+        update_policy: Literal["pinned", "follow-latest"],
+    ) -> ConfiguredOperatingContractBinding:
+        self.registry.get(project_id)
+        return self.contracts.replace_binding(project_id, contract_id, version, update_policy)
+
+    def get_project_operating_contract_binding(
+        self,
+        project_id: str,
+    ) -> ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding:
+        self.registry.get(project_id)
+        return self.contracts.get_binding(project_id)
 
     def generate_source(
         self,
@@ -70,6 +127,7 @@ class ProjectsService:
     ) -> GenerationResult:
         return self.generation.generate(project_id, destination, parameters)
 
+    @transaction.atomic
     def register_project(
         self,
         discovery: DiscoveredProject,
@@ -79,8 +137,8 @@ class ProjectsService:
         scaffolding_id: str,
         record_ids: list[str],
     ) -> Project:
-        self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id, record_ids)
-        return self.repository.register(
+        self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
+        project = self.registry.register(
             self._project_data(
                 discovery,
                 architecture_root,
@@ -88,8 +146,9 @@ class ProjectsService:
             ),
             boundaries_yaml,
             shape_yaml,
-            record_ids,
         )
+        self.contracts.bootstrap(project.id, tuple(record_ids))
+        return project
 
     def update_project(
         self,
@@ -99,10 +158,9 @@ class ProjectsService:
         boundaries_yaml: str,
         shape_yaml: str,
         scaffolding_id: str,
-        record_ids: list[str],
     ) -> Project:
-        self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id, record_ids)
-        return self.repository.update(
+        self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
+        return self.registry.update(
             project_id,
             self._project_data(
                 discovery,
@@ -111,12 +169,11 @@ class ProjectsService:
             ),
             boundaries_yaml,
             shape_yaml,
-            record_ids,
         )
 
-    def check_health(self, project_id: str):
-        configuration = self.repository.get_project_architecture_configuration(project_id)
-        project = configuration.project
+    def check_health(self, project_id: str) -> HealthReport:
+        configuration = self.registry.get_current_architecture_configuration(project_id)
+        project = self.registry.get(project_id)
         return self.reports.generate_health_report(
             project.architecture_root,
             project.language_id,
@@ -124,9 +181,9 @@ class ProjectsService:
             configuration.shape_yaml,
         )
 
-    def read_insights(self, project_id: str):
-        configuration = self.repository.get_project_architecture_configuration(project_id)
-        project = configuration.project
+    def read_insights(self, project_id: str) -> InsightsReport:
+        configuration = self.registry.get_current_architecture_configuration(project_id)
+        project = self.registry.get(project_id)
         return self.reports.generate_insights_report(
             project.architecture_root,
             project.language_id,
@@ -139,17 +196,12 @@ class ProjectsService:
         boundaries_yaml: str,
         shape_yaml: str,
         scaffolding_id: str,
-        record_ids: list[str],
     ) -> None:
-        if len(record_ids) != len(set(record_ids)):
-            raise ProjectsError("A project cannot bind the same record more than once.")
-
-        self.records.check_records_existence(record_ids)
         self.scaffoldings.check_scaffolding_existence(scaffolding_id)
         self.architecture.validate_yaml_config(boundaries_yaml, shape_yaml)
 
-    @staticmethod
     def _project_data(
+        self,
         discovery: DiscoveredProject,
         architecture_root: str,
         scaffolding_id: str,

@@ -126,6 +126,27 @@ def test_diagram_set_exposes_diagrams_through_nested_resources() -> None:
 
 
 @pytest.mark.django_db
+def test_updates_diagram_title_without_changing_mermaiden_content() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Example metadata")
+    diagram = create_diagram(client, diagram_set["id"], "Example original title")
+
+    response = client.patch(
+        f"/api/diagrams/{diagram['id']}",
+        data={"expected_revision": diagram["revision"], "title": "Example updated title"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        **diagram,
+        "title": "Example updated title",
+        "revision": diagram["revision"] + 1,
+        "updated_at": response.json()["updated_at"],
+    }
+
+
+@pytest.mark.django_db
 def test_nested_diagram_detail_rejects_a_diagram_from_another_set() -> None:
     client = Client()
     first_set = create_diagram_set(client, "First topic")

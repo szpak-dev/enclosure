@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from django.test import Client
@@ -12,7 +13,7 @@ def client() -> Client:
 
 
 @pytest.fixture
-def registered_project(tmp_path: Path) -> tuple[str, Path]:
+def registered_project(tmp_path: Path) -> tuple[str, Path, str]:
     setup = Client()
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "app.py").write_text("", encoding="utf-8")
@@ -70,19 +71,19 @@ def registered_project(tmp_path: Path) -> tuple[str, Path]:
             "boundaries_yaml": "boundaries: {}\n",
             "shape_yaml": "shape:\n  realms:\n    - name: project\n      match: '*'\n",
             "scaffolding_id": scaffolding["id"],
-            "record_ids": [record["id"]],
+            "record_ids": [],
         },
         content_type="application/json",
     ).json()
-    return project["id"], tmp_path
+    return project["id"], tmp_path, record["id"]
 
 
 @pytest.mark.django_db
 def test_siren_generates_project_source(
     client: Client,
-    registered_project: tuple[str, Path],
+    registered_project: tuple[str, Path, str],
 ) -> None:
-    project_id, root = registered_project
+    project_id, root, _ = registered_project
     details = client.get(f"/siren/projects/{project_id}")
 
     assert details.status_code == 200
@@ -121,3 +122,79 @@ def test_siren_generates_project_source(
     assert generated.json()["class"] == ["command-result"]
     assert generated.json()["properties"] == {"files": ["generated/__init__.py"]}
     assert (root / "generated" / "__init__.py").read_text(encoding="utf-8") == "generated\n"
+
+
+@pytest.mark.django_db
+def test_siren_exposes_operating_contract_lifecycle(
+    client: Client,
+    registered_project: tuple[str, Path, str],
+) -> None:
+    project_id, _, record_id = registered_project
+    root = client.get("/siren/").json()
+    create_action = next(action for action in root["actions"] if action["name"] == "create_operating_contract")
+    assert create_action["method"] == "POST"
+    assert [field["name"] for field in create_action["fields"]] == ["title", "authority", "provenance"]
+
+    created = client.post(
+        urlsplit(create_action["href"]).path,
+        data={
+            "title": "Example Siren operating contract",
+            "authority": "example:siren:operating-contract",
+            "provenance": "example-siren-test",
+        },
+        content_type="application/json",
+    )
+    assert created.status_code == 201
+    contract = created.json()["properties"]
+    created_actions = {action["name"]: action for action in created.json()["actions"]}
+    assert "get_operating_contract" in created_actions
+
+    published = client.post(
+        f"/siren/projects/operating-contracts/{contract['id']}/revisions",
+        data={"record_ids": [record_id], "references": []},
+        content_type="application/json",
+    )
+    assert published.status_code == 201
+    assert published.json()["properties"]["contract_id"] == contract["id"]
+    assert published.json()["properties"]["version"] == 1
+
+    retrieved = client.get(urlsplit(created_actions["get_operating_contract"]["href"]).path)
+    assert retrieved.status_code == 200
+    assert retrieved.json()["properties"] == contract
+
+    project = client.get(f"/siren/projects/{project_id}").json()
+    project_actions = {action["name"]: action for action in project["actions"]}
+    assert {
+        "bind_project_operating_contract",
+        "get_project_operating_contract_binding",
+        "replace_project_operating_contract_binding",
+    } <= project_actions.keys()
+
+    unconfigured = client.get(urlsplit(project_actions["get_project_operating_contract_binding"]["href"]).path)
+    assert unconfigured.status_code == 409
+
+    binding = {
+        "contract_id": contract["id"],
+        "version": 1,
+        "update_policy": "pinned",
+    }
+    bound = client.post(
+        urlsplit(project_actions["bind_project_operating_contract"]["href"]).path,
+        data=binding,
+        content_type="application/json",
+    )
+    assert bound.status_code == 201
+    assert bound.json()["properties"]["state"] == "configured"
+    assert bound.json()["properties"]["effective_revision"]["version"] == 1
+
+    replaced = client.put(
+        urlsplit(project_actions["replace_project_operating_contract_binding"]["href"]).path,
+        data={**binding, "update_policy": "follow-latest"},
+        content_type="application/json",
+    )
+    assert replaced.status_code == 200
+    assert replaced.json()["properties"]["update_policy"] == "follow-latest"
+
+    fetched = client.get(urlsplit(project_actions["get_project_operating_contract_binding"]["href"]).path)
+    assert fetched.status_code == 200
+    assert fetched.json()["properties"] == replaced.json()["properties"]

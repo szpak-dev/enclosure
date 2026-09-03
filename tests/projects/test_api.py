@@ -210,6 +210,111 @@ def test_registers_discovered_project(
 
 
 @pytest.mark.django_db
+def test_publishes_and_binds_versioned_operating_contract(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    contract_response = client.post(
+        "/api/projects/operating-contracts",
+        data={
+            "title": "Example Python delivery contract",
+            "authority": "example:engineering:python-delivery",
+            "provenance": "example-repository",
+        },
+        content_type="application/json",
+    )
+    assert contract_response.status_code == 201
+    contract = contract_response.json()
+
+    first_response = client.post(
+        f"/api/projects/operating-contracts/{contract['id']}/revisions",
+        data={
+            "record_ids": [dependencies["record_id"]],
+            "references": [
+                {
+                    "kind": "policy",
+                    "id": "example-python-policy",
+                    "authority": "example:policy:python",
+                    "revision": "3",
+                }
+            ],
+        },
+        content_type="application/json",
+    )
+    assert first_response.status_code == 201
+    first = first_response.json()
+    assert first["version"] == 1
+    assert [reference["kind"] for reference in first["references"]] == ["guidance", "policy"]
+
+    second_response = client.post(
+        f"/api/projects/operating-contracts/{contract['id']}/revisions",
+        data={
+            "record_ids": [dependencies["record_id"]],
+            "references": [
+                {
+                    "kind": "architecture",
+                    "id": "example-python-architecture",
+                    "authority": "example:architecture:python",
+                    "revision": "5",
+                }
+            ],
+        },
+        content_type="application/json",
+    )
+    assert second_response.status_code == 201
+    assert second_response.json()["version"] == 2
+    assert client.get(f"/api/projects/operating-contracts/{contract['id']}/revisions/1").json() == first
+
+    python_project(tmp_path)
+    payload = registration(discover(client, tmp_path), dependencies)
+    payload["record_ids"] = []
+    project_response = client.post("/api/projects", data=payload, content_type="application/json")
+    assert project_response.status_code == 201
+    project = project_response.json()
+
+    unconfigured = client.get(f"/api/projects/{project['id']}/operating-contract-binding")
+    assert unconfigured.status_code == 409
+    assert unconfigured.json() == {"state": "unconfigured", "project_id": project["id"]}
+    context = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+    assert context.status_code == 200
+    assert context.json()["readiness"] == "incomplete"
+    assert context.json()["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
+
+    binding_data = {
+        "contract_id": contract["id"],
+        "version": 1,
+        "update_policy": "pinned",
+    }
+    bound = client.post(
+        f"/api/projects/{project['id']}/operating-contract-bindings",
+        data=binding_data,
+        content_type="application/json",
+    )
+    assert bound.status_code == 201
+    assert bound.json()["effective_revision"]["version"] == 1
+    duplicate = client.post(
+        f"/api/projects/{project['id']}/operating-contract-bindings",
+        data={**binding_data, "version": 2},
+        content_type="application/json",
+    )
+    assert duplicate.status_code == 422
+
+    replaced = client.put(
+        f"/api/projects/{project['id']}/operating-contract-binding",
+        data={**binding_data, "update_policy": "follow-latest"},
+        content_type="application/json",
+    )
+    assert replaced.status_code == 200
+    assert replaced.json()["bound_revision"] == 1
+    assert replaced.json()["effective_revision"]["version"] == 2
+
+
+@pytest.mark.django_db
 def test_registration_rejects_invalid_architecture_yaml(
     client: Client,
     dependencies: dict[str, str],
@@ -281,9 +386,9 @@ def test_gets_ready_workspace_context_from_linked_records(
         "root": str(tmp_path),
         "readiness": "ready",
         "authority": {
-            "kind": "project-record-bindings",
-            "id": f"project:{created['id']}:record-bindings",
-            "revision": context["authority"]["revision"],
+            "kind": "project-operating-contract",
+            "id": f"project:{created['id']}:operating-contract",
+            "revision": "1",
         },
         "guidance": [
             {
@@ -304,7 +409,7 @@ def test_gets_ready_workspace_context_from_linked_records(
 
 
 @pytest.mark.django_db
-def test_marks_missing_bound_guidance_incomplete(
+def test_protects_guidance_published_in_an_operating_contract(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -323,17 +428,11 @@ def test_marks_missing_bound_guidance_incomplete(
         content_type="application/json",
     )
 
-    assert deleted.status_code == 204
+    assert deleted.status_code == 422
+    assert deleted.json() == {"detail": "A record published in an operating contract cannot be deleted."}
     assert response.status_code == 200
-    assert response.json()["readiness"] == "incomplete"
-    assert response.json()["guidance"] == []
-    assert response.json()["diagnostics"] == [
-        {
-            "code": "mandatory_guidance_unavailable",
-            "message": "One or more bound guidance records no longer exist. Rebind or restore them.",
-            "guidance_ids": [dependencies["record_id"]],
-        }
-    ]
+    assert response.json()["readiness"] == "ready"
+    assert response.json()["diagnostics"] == []
 
 
 @pytest.mark.django_db
@@ -425,7 +524,7 @@ def test_reports_conflicting_guidance_authority(
 
 
 @pytest.mark.django_db
-def test_preserves_resolved_guidance_when_context_is_incomplete(
+def test_marks_changed_published_guidance_incomplete(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -445,7 +544,17 @@ def test_preserves_resolved_guidance_when_context_is_incomplete(
     payload = registration(discover(client, tmp_path), dependencies)
     payload["record_ids"] = [dependencies["record_id"], second["id"]]
     client.post("/api/projects", data=payload, content_type="application/json")
-    client.delete(f"/api/records/{second['id']}")
+    changed = client.put(
+        f"/api/records/{second['id']}",
+        data={
+            "title": "Changed project context",
+            "content": {},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    )
 
     response = client.post(
         "/api/projects/workspace-contexts",
@@ -453,10 +562,16 @@ def test_preserves_resolved_guidance_when_context_is_incomplete(
         content_type="application/json",
     )
 
+    assert changed.status_code == 200
     assert response.status_code == 200
     assert response.json()["readiness"] == "incomplete"
-    assert [guidance["id"] for guidance in response.json()["guidance"]] == [dependencies["record_id"]]
-    assert response.json()["diagnostics"][0]["guidance_ids"] == [second["id"]]
+    assert response.json()["diagnostics"] == [
+        {
+            "code": "guidance_revision_changed",
+            "message": "Published operating-contract guidance has changed. Publish a new contract revision.",
+            "guidance_ids": [second["id"]],
+        }
+    ]
 
 
 @pytest.mark.django_db
@@ -651,8 +766,8 @@ def test_registration_rejects_missing_record(
 
     response = client.post("/api/projects", data=payload, content_type="application/json")
 
-    assert response.status_code == 404
-    assert response.json() == {"detail": "Resource not found."}
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Operating contract guidance must reference existing records."}
 
 
 @pytest.mark.django_db
@@ -668,7 +783,7 @@ def test_registration_rejects_duplicate_record_bindings(
     response = client.post("/api/projects", data=payload, content_type="application/json")
 
     assert response.status_code == 422
-    assert response.json() == {"detail": "A project cannot bind the same record more than once."}
+    assert response.json() == {"detail": "An operating contract revision cannot reference guidance more than once."}
 
 
 @pytest.mark.django_db
@@ -699,7 +814,7 @@ def test_failed_registration_does_not_reserve_project_root(
     payload["record_ids"] = [dependencies["record_id"], "missing"]
 
     failed = client.post("/api/projects", data=payload, content_type="application/json")
-    assert failed.status_code == 404
+    assert failed.status_code == 422
 
     payload["record_ids"] = [dependencies["record_id"]]
     retried = client.post("/api/projects", data=payload, content_type="application/json")

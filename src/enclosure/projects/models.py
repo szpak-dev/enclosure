@@ -22,14 +22,99 @@ class ProjectArchitectureConfiguration(ShortUUIDModel):
     shape_yaml = models.TextField()
 
 
-class ProjectRecord(ShortUUIDModel):
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="record_bindings")
-    record_id = models.CharField(max_length=22)
+class OperatingContract(ShortUUIDModel):
+    title = models.CharField(max_length=255)
+    authority = models.CharField(max_length=512, unique=True)
+    provenance = models.CharField(max_length=512)
+
+
+class OperatingContractRevision(ShortUUIDModel):
+    contract = models.ForeignKey(
+        OperatingContract,
+        on_delete=models.CASCADE,
+        related_name="revisions",
+    )
+    version = models.PositiveIntegerField()
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=("project", "record_id"),
-                name="projects_project_record_unique",
+                fields=("contract", "version"),
+                name="projects_operating_contract_revision_unique",
             ),
         ]
+
+
+class OperatingContractGuidance(ShortUUIDModel):
+    revision = models.ForeignKey(
+        OperatingContractRevision,
+        on_delete=models.CASCADE,
+        related_name="guidance_references",
+    )
+    record = models.ForeignKey(
+        "records.Record",
+        on_delete=models.PROTECT,
+        related_name="operating_contract_references",
+    )
+    record_revision = models.CharField(max_length=64)
+    authority = models.CharField(max_length=512)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("revision", "record"),
+                name="projects_operating_contract_guidance_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("revision", "position"),
+                name="projects_operating_contract_guidance_position_unique",
+            ),
+        ]
+
+
+class OperatingContractReference(ShortUUIDModel):
+    class Kind(models.TextChoices):
+        POLICY = "policy", "Policy"
+        ARCHITECTURE = "architecture", "Architecture"
+
+    revision = models.ForeignKey(
+        OperatingContractRevision,
+        on_delete=models.CASCADE,
+        related_name="contract_references",
+    )
+    kind = models.CharField(max_length=32, choices=Kind)
+    target_id = models.CharField(max_length=255)
+    authority = models.CharField(max_length=512)
+    target_revision = models.CharField(max_length=128)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("revision", "kind", "target_id"),
+                name="projects_operating_contract_reference_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("revision", "position"),
+                name="projects_operating_contract_reference_position_unique",
+            ),
+        ]
+
+
+class OperatingContractBinding(ShortUUIDModel):
+    class UpdatePolicy(models.TextChoices):
+        PINNED = "pinned", "Pinned"
+        FOLLOW_LATEST = "follow-latest", "Follow latest"
+
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="operating_contract_binding",
+    )
+    bound_revision = models.ForeignKey(
+        OperatingContractRevision,
+        on_delete=models.PROTECT,
+        related_name="bindings",
+    )
+    update_policy = models.CharField(max_length=32, choices=UpdatePolicy)

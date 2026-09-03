@@ -191,6 +191,25 @@ class DiagramsController(ControllerBase):
     def get(self, request, diagram_id: Annotated[str, Path(description="Diagram identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).get_diagram(diagram_id)
 
+    @route.patch(
+        "/{diagram_id}",
+        response=schemas.Diagram,
+        operation_id="update_diagram",
+        summary="Update a diagram",
+        description="Replace diagram metadata without changing its canonical Mermaiden snapshot.",
+    )
+    def update(
+        self,
+        request,
+        diagram_id: Annotated[str, Path(description="Diagram identifier.")],
+        body: schemas.UpdateDiagram,
+    ):
+        return DjangoRequest.resolve(request, DiagramsService).update_diagram(
+            diagram_id,
+            body.expected_revision,
+            body.title,
+        )
+
     @route.delete(
         "/{diagram_id}",
         response={204: None},
