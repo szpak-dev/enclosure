@@ -740,6 +740,12 @@ def test_reports_conflicting_guidance_authority(
         data={"root": str(tmp_path), "task": "Change project source safely"},
         content_type="application/json",
     )
+    project = client.post(
+        "/api/projects/root-search-results",
+        data={"root": str(tmp_path)},
+        content_type="application/json",
+    ).json()
+    health = client.get(f"/api/projects/{project['id']}/health-violations")
 
     assert response.status_code == 200
     assert response.json()["readiness"] == "conflicted"
@@ -750,6 +756,11 @@ def test_reports_conflicting_guidance_authority(
             "guidance_ids": sorted([first["id"], second["id"]]),
         }
     ]
+    guidance_report = next(
+        report for report in health.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
+    )
+    assert health.json()["healthy"] is False
+    assert [finding["rule"] for finding in guidance_report["violations"]] == ["authority-conflict"]
 
 
 @pytest.mark.django_db
@@ -1069,6 +1080,187 @@ def test_health_contains_only_gating_reports(
     assert response.json()["reports"]
     assert all("violations" in report for report in response.json()["reports"])
     assert all(not report["violations"] for report in response.json()["reports"])
+    guidance_report = next(
+        report for report in response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
+    )
+    assert guidance_report["advisories"] == []
+
+
+@pytest.mark.django_db
+def test_health_reports_malformed_guidance_graph_and_blocks_ready_context(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    supplemental = client.post(
+        "/api/records",
+        data={
+            "title": "Python refinement",
+            "content": {"authority": "unrelated:python", "guidance": ["Keep typing strict."]},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    ).json()
+    outside = client.post(
+        "/api/records",
+        data={
+            "title": "Outside guidance",
+            "content": {"guidance": ["This record is not effective for the project."]},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    ).json()
+    python_project(tmp_path)
+    project = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    scoped = client.put(
+        f"/api/projects/{project['id']}/guidance-scopes",
+        data={"record_ids": [supplemental["id"]]},
+        content_type="application/json",
+    )
+    relationships = client.put(
+        f"/api/projects/{project['id']}/guidance-relationships",
+        data={
+            "relationships": [
+                {
+                    "source_record_id": dependencies["record_id"],
+                    "target_record_id": supplemental["id"],
+                    "kind": "refinement",
+                },
+                {
+                    "source_record_id": supplemental["id"],
+                    "target_record_id": dependencies["record_id"],
+                    "kind": "prerequisite",
+                },
+                {
+                    "source_record_id": dependencies["record_id"],
+                    "target_record_id": outside["id"],
+                    "kind": "containment",
+                },
+            ]
+        },
+        content_type="application/json",
+    )
+
+    health = client.get(f"/api/projects/{project['id']}/health-violations")
+    context = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change Python typing"},
+        content_type="application/json",
+    )
+
+    assert scoped.status_code == 200
+    assert relationships.status_code == 200
+    assert all(relationship["id"] for relationship in relationships.json())
+    assert {relationship["project_id"] for relationship in relationships.json()} == {project["id"]}
+    assert client.get(f"/api/projects/{project['id']}/guidance-relationships").json() == relationships.json()
+    assert health.status_code == 200
+    assert health.json()["healthy"] is False
+    guidance_report = next(
+        report for report in health.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
+    )
+    rules = {finding["rule"] for finding in guidance_report["violations"]}
+    assert {
+        "ambiguous-entry-point",
+        "dangling-relationship",
+        "guidance-cycle",
+        "invalid-refinement",
+    } <= rules
+    assert all(finding["guidance_ids"] for finding in guidance_report["violations"])
+    assert all(finding["remediation"] for finding in guidance_report["violations"])
+    assert context.status_code == 200
+    assert context.json()["readiness"] == "incomplete"
+    assert "guidance-cycle" in {diagnostic["code"] for diagnostic in context.json()["receipt"]["diagnostics"]}
+
+
+@pytest.mark.django_db
+def test_health_keeps_unreachable_oversized_optional_guidance_advisory(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    optional = client.post(
+        "/api/records",
+        data={
+            "title": "Large optional guidance",
+            "content": {"summary": "x" * 5000},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    ).json()
+    python_project(tmp_path)
+    project = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    client.put(
+        f"/api/projects/{project['id']}/guidance-scopes",
+        data={"record_ids": [optional["id"]]},
+        content_type="application/json",
+    )
+
+    response = client.get(f"/api/projects/{project['id']}/health-violations")
+
+    guidance_report = next(
+        report for report in response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
+    )
+    assert response.status_code == 200
+    assert response.json()["healthy"] is True
+    assert guidance_report["violations"] == []
+    assert {finding["rule"] for finding in guidance_report["advisories"]} == {
+        "optional-budget-exceeded",
+        "unreachable-guidance",
+    }
+
+
+@pytest.mark.django_db
+def test_health_blocks_oversized_required_guidance(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    client.put(
+        f"/api/records/{dependencies['record_id']}",
+        data={
+            "title": "Project context",
+            "content": {"guidance": ["x" * 9000]},
+            "category_id": dependencies["category_id"],
+            "tag_ids": [dependencies["tag_id"]],
+            "resources": [],
+        },
+        content_type="application/json",
+    )
+    python_project(tmp_path)
+    project = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+
+    health = client.get(f"/api/projects/{project['id']}/health-violations")
+    context = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(tmp_path), "task": "Change project source safely"},
+        content_type="application/json",
+    )
+
+    guidance_report = next(
+        report for report in health.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
+    )
+    assert health.json()["healthy"] is False
+    assert [finding["rule"] for finding in guidance_report["violations"]] == ["guidance-oversized"]
+    assert context.json()["readiness"] == "incomplete"
+    assert "guidance-oversized" in {diagnostic["code"] for diagnostic in context.json()["receipt"]["diagnostics"]}
 
 
 @pytest.mark.django_db

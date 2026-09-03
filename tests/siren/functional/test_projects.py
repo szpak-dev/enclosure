@@ -211,3 +211,53 @@ def test_siren_exposes_operating_contract_lifecycle(
     assert context["Content-Type"] == SIREN_MEDIA_TYPE
     assert context.json()["properties"]["receipt"]["items"][0]["record_id"] == record_id
     assert context.json()["properties"]["receipt"]["stop_condition"] == "selected-guidance-and-checks"
+
+
+@pytest.mark.django_db
+def test_siren_exposes_guidance_relationship_identity(
+    client: Client,
+    registered_project: tuple[str, Path, str],
+) -> None:
+    project_id, _, record_id = registered_project
+    project = client.get(f"/siren/projects/{project_id}").json()
+    relationships_link = next(
+        link
+        for link in project["links"]
+        if link["href"] == f"http://testserver/siren/projects/{project_id}/guidance-relationships"
+    )
+    relationships = client.get(urlsplit(relationships_link["href"]).path)
+    actions = {action["name"]: action for action in relationships.json()["actions"]}
+    replace_action = actions["replace_guidance_relationships"]
+
+    assert relationships_link["rel"] == ["collection"]
+    assert relationships.status_code == 200
+    assert replace_action["method"] == "PUT"
+    assert [
+        control["name"] for control in replace_action["https://modwire.dev/siren/structured-form/v1"]["controls"]
+    ] == ["relationships"]
+
+    replaced = client.put(
+        urlsplit(replace_action["href"]).path,
+        data={
+            "relationships": [
+                {
+                    "source_record_id": record_id,
+                    "target_record_id": record_id,
+                    "kind": "containment",
+                }
+            ]
+        },
+        content_type="application/json",
+    )
+    found = client.get(urlsplit(relationships_link["href"]).path)
+
+    assert replaced.status_code == 200
+    assert found.status_code == 200
+    properties = found.json()["entities"][0]["properties"]
+    assert properties == {
+        "id": properties["id"],
+        "project_id": project_id,
+        "source_record_id": record_id,
+        "target_record_id": record_id,
+        "kind": "containment",
+    }

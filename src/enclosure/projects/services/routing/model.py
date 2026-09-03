@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from ..adapters.model import WorkspaceGuidance
+from ..health.model import GuidanceRequirement
 
 
 class GuidanceScope(BaseModel):
@@ -34,7 +35,7 @@ class GuidanceRouteItem(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     guidance: WorkspaceGuidance
-    requirement: Literal["mandatory", "supplemental"]
+    requirement: GuidanceRequirement
     reason: Literal["operating-contract", "task-applicable", "project-default"]
 
 

@@ -201,6 +201,22 @@ class PublicMcpClient:
             )
             return rest_response, result
 
+    async def oversized_guidance_health(self, root: Path) -> tuple[httpx2.Response, CallToolResult]:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            project_id = await self._register_example_project(
+                http_client,
+                root,
+                {"guidance": ["x" * 9000]},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            rest_response = await http_client.get(f"/api/projects/{project_id}/health-violations")
+            result = await session.call_tool(
+                "check_project_health",
+                {"project_id": project_id},
+            )
+            return rest_response, result
+
     async def _register_example_project(
         self,
         http_client: httpx2.AsyncClient,
@@ -387,6 +403,29 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
     assert "## Gating failures" in result.content[0].text
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text(
+        "class ExampleApplication:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    rest_response, result = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).oversized_guidance_health(tmp_path)
+    )
+
+    guidance_report = next(
+        report for report in rest_response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
+    )
+    assert guidance_report["violations"][0]["rule"] == "guidance-oversized"
+    assert result.is_error is True
+    assert result.structured_content["status"] == "gating-failure"
+    assert result.structured_content["failure_count"] == 1
+    assert result.structured_content["next_actions"][0].endswith("against guidance-oversized.")
+    assert "**guidance-oversized**" in result.content[0].text
 
 
 @pytest.mark.django_db(transaction=True)

@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 from ninja import Schema
 from pydantic import Field, JsonValue
 
+from ..services.health.model import GuidanceRelationshipKind, GuidanceRequirement
 from ..services.stack import DiscoveredProject
 
 ProjectId = Annotated[str, Field(description="Project identifier.")]
@@ -50,7 +51,7 @@ class WorkspaceContextDiagnostic(Schema):
 class ReceiptItem(Schema):
     record_id: str = Field(description="Durable guidance record identifier for get_record follow-up.")
     title: str = Field(description="Guidance title.")
-    requirement: Literal["mandatory", "supplemental"] = Field(
+    requirement: GuidanceRequirement = Field(
         description="Whether the item is contract-mandated or routed supplemental guidance."
     )
     reason: Literal["operating-contract", "task-applicable", "project-default"] = Field(
@@ -120,6 +121,23 @@ class GuidanceScope(Schema):
 
 class ReplaceGuidanceScopes(Schema):
     record_ids: list[str] = Field(description="Ordered optional guidance records eligible for routing.")
+
+
+class GuidanceRelationshipInput(Schema):
+    source_record_id: str = Field(description="Guidance record at the relationship source.")
+    target_record_id: str = Field(description="Guidance record at the relationship target.")
+    kind: GuidanceRelationshipKind = Field(description="Typed guidance-graph relationship.")
+
+
+class GuidanceRelationship(GuidanceRelationshipInput):
+    id: str = Field(description="Guidance-relationship identifier.")
+    project_id: ProjectId
+
+
+class ReplaceGuidanceRelationships(Schema):
+    relationships: list[GuidanceRelationshipInput] = Field(
+        description="Complete project-scoped guidance relationship set."
+    )
 
 
 class RegisterProject(Schema):
@@ -240,8 +258,8 @@ class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference
 
 
 class HealthReport(Schema):
-    healthy: bool = Field(description="Whether all gating architecture rules pass.")
-    reports: tuple[dict[str, JsonValue], ...] = Field(description="Results from gating architecture rules.")
+    healthy: bool = Field(description="Whether all gating architecture and guidance rules pass.")
+    reports: tuple[dict[str, JsonValue], ...] = Field(description="Architecture and guidance health results.")
 
 
 class InsightsReport(Schema):

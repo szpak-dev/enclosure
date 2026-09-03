@@ -2,6 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from ..health.model import GuidanceRequirement
+
 
 class WorkspaceAuthority(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -25,7 +27,7 @@ class ReceiptItem(BaseModel):
 
     record_id: str
     title: str
-    requirement: Literal["mandatory", "supplemental"]
+    requirement: GuidanceRequirement
     reason: Literal["operating-contract", "task-applicable", "project-default"]
     explanation: str
     authority: str
