@@ -19,7 +19,7 @@ Status: **{{ status }}**
 ## Gating failures
 {% for report in properties.reports %}
 {% for finding in report.violations %}
-- **{{ finding.rule_name }}** — {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }}: {{ finding.message if finding.message is defined else "Actual " ~ finding.actual ~ "; configured limit " ~ finding.limit ~ "." }}
+- **{{ finding.rule if finding.rule is defined else finding.rule_name }}** — {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }}: {{ finding.message if finding.message is defined else "Actual " ~ finding.actual ~ "; configured limit " ~ finding.limit ~ "." }}
 {% endfor %}
 {% endfor %}
 {% endif %}
@@ -28,7 +28,7 @@ Status: **{{ status }}**
 ## Advisories
 {% for report in properties.reports %}
 {% for finding in report.advisories | default([]) %}
-- **{{ finding.rule_name }}** — {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }}: {{ finding.message if finding.message is defined else "Actual " ~ finding.actual ~ "; configured limit " ~ finding.limit ~ "." }}
+- **{{ finding.rule if finding.rule is defined else finding.rule_name }}** — {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }}: {{ finding.message if finding.message is defined else "Actual " ~ finding.actual ~ "; configured limit " ~ finding.limit ~ "." }}
 {% endfor %}
 {% endfor %}
 {% endif %}
@@ -37,10 +37,10 @@ Status: **{{ status }}**
 ## Next actions
 {% for report in properties.reports %}
 {% for finding in report.violations %}
-- Review {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }} against {{ finding.rule_name }}.
+- Review {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }} against {{ finding.rule if finding.rule is defined else finding.rule_name }}.
 {% endfor %}
 {% for finding in report.advisories | default([]) %}
-- Review {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }} against {{ finding.rule_name }}.
+- Review {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }} against {{ finding.rule if finding.rule is defined else finding.rule_name }}.
 {% endfor %}
 {% endfor %}
 {% endif %}

@@ -119,6 +119,40 @@ class ProjectsController(ControllerBase):
             )
         )
 
+    @route.get(
+        "/{project_id}/guidance-relationships",
+        response=list[schemas.GuidanceRelationship],
+        operation_id="find_guidance_relationships",
+        summary="List guidance relationships",
+        description="Return the project's typed guidance-graph relationships.",
+    )
+    def find_guidance_relationships(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+    ):
+        return list(DjangoRequest.resolve(request, ProjectsService).find_guidance_relationships(project_id))
+
+    @route.put(
+        "/{project_id}/guidance-relationships",
+        response=list[schemas.GuidanceRelationship],
+        operation_id="replace_guidance_relationships",
+        summary="Replace guidance relationships",
+        description="Replace the project's complete typed guidance-graph relationship set.",
+    )
+    def replace_guidance_relationships(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.ReplaceGuidanceRelationships,
+    ):
+        return list(
+            DjangoRequest.resolve(request, ProjectsService).replace_guidance_relationships(
+                project_id,
+                tuple(relationship.model_dump(mode="python") for relationship in body.relationships),
+            )
+        )
+
     @route.post(
         "/discoveries",
         response=schemas.DiscoveredProject,
@@ -316,7 +350,7 @@ class ProjectsController(ControllerBase):
         response=schemas.HealthReport,
         operation_id="check_project_health",
         summary="Check project health",
-        description="Evaluate gating architecture rules for a registered project.",
+        description="Evaluate gating architecture rules and project-guidance integrity.",
     )
     def check_health(self, request, project_id: Annotated[str, Path(description="Project identifier.")]):
         return DjangoRequest.resolve(request, ProjectsService).check_health(project_id)

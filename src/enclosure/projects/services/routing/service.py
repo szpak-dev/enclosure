@@ -8,7 +8,7 @@ from ..adapters.records import RecordsAdapter
 from ..contracts.model import OperatingContractReference
 from .applicability import GuidanceApplicabilityService
 from .budget import GuidanceBudgetService
-from .model import GuidanceCandidate, GuidanceRoute, GuidanceRouteItem, GuidanceScope
+from .model import GuidanceCandidate, GuidanceRequirement, GuidanceRoute, GuidanceRouteItem, GuidanceScope
 from .ordering import GuidanceOrderingService
 from .repository import GuidanceScopeRepository
 
@@ -63,7 +63,7 @@ class WorkspaceRoutingService:
                 *(
                     GuidanceRouteItem(
                         guidance=guidance,
-                        requirement="mandatory",
+                        requirement=GuidanceRequirement.MANDATORY,
                         reason="operating-contract",
                     )
                     for guidance in mandatory
@@ -71,7 +71,7 @@ class WorkspaceRoutingService:
                 *(
                     GuidanceRouteItem(
                         guidance=candidate.guidance,
-                        requirement="supplemental",
+                        requirement=GuidanceRequirement.SUPPLEMENTAL,
                         reason="task-applicable" if candidate.guidance.applies_when else "project-default",
                     )
                     for candidate in budget.selected

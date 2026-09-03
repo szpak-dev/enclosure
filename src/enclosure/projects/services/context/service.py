@@ -1,4 +1,3 @@
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 from wireup import injectable
@@ -8,6 +7,8 @@ from ..contracts.model import (
     ConfiguredOperatingContractBinding,
     UnconfiguredOperatingContractBinding,
 )
+from ..health.model import GuidanceRequirement, GuidanceRule
+from ..health.validation import GuidanceHealthService
 from ..receipts.model import WorkspaceAuthority, WorkspaceContextDiagnostic
 from ..receipts.service import ContextReceiptService
 from ..routing.model import GuidanceRoute
@@ -20,6 +21,7 @@ from .model import WorkspaceContext
 class WorkspaceContextService:
     routing: WorkspaceRoutingService
     receipts: ContextReceiptService
+    guidance_health: GuidanceHealthService
     max_optional_characters: int = field(default=4096, init=False)
 
     def resolve(
@@ -69,13 +71,17 @@ class WorkspaceContextService:
             self.max_optional_characters,
         )
         guidance = tuple(item.guidance for item in route.items)
-        mandatory_guidance = tuple(item.guidance for item in route.items if item.requirement == "mandatory")
-        diagnostics = self._diagnostics(
-            record_ids,
-            mandatory_guidance,
-            guidance,
-            route.missing_mandatory_ids,
-            {reference.id: reference.revision for reference in guidance_references},
+        mandatory_guidance = tuple(
+            item.guidance for item in route.items if item.requirement == GuidanceRequirement.MANDATORY
+        )
+        diagnostics = (
+            *self._diagnostics(
+                record_ids,
+                mandatory_guidance,
+                route.missing_mandatory_ids,
+                {reference.id: reference.revision for reference in guidance_references},
+            ),
+            *self._guidance_health_diagnostics(project_id, binding),
         )
         readiness = "conflicted" if self._has_conflict(diagnostics) else "incomplete" if diagnostics else "ready"
         authority = WorkspaceAuthority(
@@ -96,7 +102,6 @@ class WorkspaceContextService:
         self,
         record_ids: tuple[str, ...],
         mandatory_guidance: tuple[WorkspaceGuidance, ...],
-        guidance: tuple[WorkspaceGuidance, ...],
         missing_ids: tuple[str, ...],
         expected_revisions: dict[str, str],
     ) -> tuple[WorkspaceContextDiagnostic, ...]:
@@ -146,22 +151,29 @@ class WorkspaceContextService:
                     guidance_ids=changed_ids,
                 )
             )
-        authorities: defaultdict[str, list[str]] = defaultdict(list)
-        for item in guidance:
-            authorities[item.authority].append(item.id)
-        for authority, guidance_ids in sorted(authorities.items()):
-            if len(guidance_ids) < 2:
-                continue
-            diagnostics.append(
-                WorkspaceContextDiagnostic(
-                    code="guidance_authority_conflict",
-                    message=(
-                        f"Multiple bound guidance records claim authority {authority!r}. Bind one effective source."
-                    ),
-                    guidance_ids=tuple(sorted(guidance_ids)),
-                )
-            )
         return tuple(diagnostics)
 
+    def _guidance_health_diagnostics(
+        self,
+        project_id: str,
+        binding: ConfiguredOperatingContractBinding,
+    ) -> tuple[WorkspaceContextDiagnostic, ...]:
+        report = self.guidance_health.check(project_id, binding)
+        return tuple(
+            WorkspaceContextDiagnostic(
+                code=(
+                    "guidance_authority_conflict"
+                    if finding.rule == GuidanceRule.AUTHORITY_CONFLICT
+                    else finding.rule.value
+                ),
+                message=finding.message,
+                guidance_ids=finding.guidance_ids,
+            )
+            for finding in report.violations
+        )
+
     def _has_conflict(self, diagnostics: tuple[WorkspaceContextDiagnostic, ...]) -> bool:
-        return any(diagnostic.code == "guidance_authority_conflict" for diagnostic in diagnostics)
+        return any(
+            diagnostic.code in {"guidance_authority_conflict", GuidanceRule.DUPLICATE_EFFECTIVE_POLICY.value}
+            for diagnostic in diagnostics
+        )

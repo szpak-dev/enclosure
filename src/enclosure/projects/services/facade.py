@@ -18,6 +18,9 @@ from .contracts.model import (
 )
 from .contracts.service import OperatingContractsService
 from .generation import GenerationResult, GenerationService
+from .health.graph import GuidanceGraphService
+from .health.model import GuidanceRelationship, GuidanceRelationshipInput
+from .health.service import ProjectHealthService
 from .registry.model import ArchitectureConfiguration, Project
 from .registry.service import RegistryService
 from .reports import HealthReport, InsightsReport, ReportsService
@@ -34,6 +37,8 @@ class ProjectsService:
     contracts: OperatingContractsService
     context: WorkspaceContextService
     generation: GenerationService
+    graph: GuidanceGraphService
+    health: ProjectHealthService
     scaffoldings: ScaffoldingsAdapter
     stack: StackDetector
     reports: ReportsService
@@ -86,6 +91,21 @@ class ProjectsService:
     ) -> tuple[GuidanceScope, ...]:
         self.registry.get(project_id)
         return self.routing.replace_scopes(project_id, record_ids)
+
+    def find_guidance_relationships(self, project_id: str) -> tuple[GuidanceRelationship, ...]:
+        self.registry.get(project_id)
+        return self.graph.find_relationships(project_id)
+
+    def replace_guidance_relationships(
+        self,
+        project_id: str,
+        relationships: tuple[Mapping[str, str], ...],
+    ) -> tuple[GuidanceRelationship, ...]:
+        self.registry.get(project_id)
+        return self.graph.replace_relationships(
+            project_id,
+            tuple(GuidanceRelationshipInput.model_validate(relationship) for relationship in relationships),
+        )
 
     def create_operating_contract(self, title: str, authority: str, provenance: str) -> OperatingContract:
         return self.contracts.create(title, authority, provenance)
@@ -190,11 +210,10 @@ class ProjectsService:
     def check_health(self, project_id: str) -> HealthReport:
         configuration = self.registry.get_current_architecture_configuration(project_id)
         project = self.registry.get(project_id)
-        return self.reports.generate_health_report(
-            project.architecture_root,
-            project.language_id,
-            configuration.boundaries_yaml,
-            configuration.shape_yaml,
+        return self.health.check(
+            project,
+            configuration,
+            self.contracts.get_binding(project_id),
         )
 
     def read_insights(self, project_id: str) -> InsightsReport:

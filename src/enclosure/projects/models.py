@@ -3,6 +3,13 @@ from django.db import models
 from ..core.models import ShortUUIDModel
 
 
+class GuidanceRelationshipKind(models.TextChoices):
+    PREREQUISITE = "prerequisite", "Prerequisite"
+    CONTAINMENT = "containment", "Containment"
+    REFINEMENT = "refinement", "Refinement"
+    ESCALATION = "escalation", "Escalation"
+
+
 class Project(ShortUUIDModel):
     root = models.CharField(max_length=1024, unique=True)
     architecture_root = models.CharField(max_length=1024)
@@ -142,5 +149,39 @@ class GuidanceScope(ShortUUIDModel):
             models.UniqueConstraint(
                 fields=("project", "position"),
                 name="projects_guidance_scope_position_unique",
+            ),
+        ]
+
+
+class GuidanceRelationship(ShortUUIDModel):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="guidance_relationships",
+    )
+    source_record = models.ForeignKey(
+        "records.Record",
+        on_delete=models.PROTECT,
+        related_name="outgoing_guidance_relationships",
+    )
+    target_record = models.ForeignKey(
+        "records.Record",
+        on_delete=models.PROTECT,
+        related_name="incoming_guidance_relationships",
+    )
+    kind = models.CharField(
+        max_length=32,
+        choices=GuidanceRelationshipKind,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("project", "source_record", "target_record", "kind"),
+                name="projects_guidance_relationship_unique",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(kind__in=GuidanceRelationshipKind.values),
+                name="projects_guidance_relationship_kind_valid",
             ),
         ]
