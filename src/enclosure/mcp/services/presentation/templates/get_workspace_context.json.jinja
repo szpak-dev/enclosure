@@ -1,39 +1,37 @@
-{% set guidance = [] %}
-{% if properties.mandatory_guidance is defined or properties.optional_guidance is defined %}
-{% for item in properties.mandatory_guidance | default([]) %}{% do guidance.append({"item": item, "kind": "mandatory"}) %}{% endfor %}
-{% for item in properties.optional_guidance | default([]) %}{% do guidance.append({"item": item, "kind": "optional"}) %}{% endfor %}
-{% else %}
-{% for item in properties.guidance %}
-{% set kind = "mandatory" if item.mandatory is defined and item.mandatory else "optional" if item.mandatory is defined else "selected" %}
-{% do guidance.append({"item": item, "kind": kind}) %}
-{% endfor %}
-{% endif %}
-{% set counts = namespace(checks=0) %}
-{% for entry in guidance %}{% set counts.checks = counts.checks + (entry.item.checks | length) %}{% endfor %}
 {
-  "is_error": {{ ((properties.readiness | default("ready")) != "ready") | tojson }},
+  "is_error": {{ (properties.readiness != "ready") | tojson }},
   "structured_content": {
     "operation_id": "get_workspace_context",
-    "status": {{ properties.readiness | default("ready") | tojson }},
+    "status": {{ properties.readiness | tojson }},
     "project_id": {{ properties.project_id | tojson }},
     "root": {{ properties.root | tojson }},
-    "authority": {{ properties.authority | tojson }},
+    "authority": {{ properties.receipt.authority | tojson }},
     "bootstrap": {
       "uri": {{ bootstrap.uri | tojson }},
       "release": {{ bootstrap.release | tojson }},
       "revision": {{ bootstrap.revision | tojson }}
     },
-    "guidance": [
-      {% for entry in guidance %}{
-        "id": {{ entry.item.id | tojson }},
-        "title": {{ entry.item.title | tojson }},
-        "kind": {{ entry.kind | tojson }},
-        "check_count": {{ entry.item.checks | length }}
+    "items": [
+      {% for item in properties.receipt["items"] %}{
+        "record_id": {{ item.record_id | tojson }},
+        "title": {{ item.title | tojson }},
+        "requirement": {{ item.requirement | tojson }},
+        "reason": {{ item.reason | tojson }},
+        "explanation": {{ item.explanation | tojson }},
+        "authority": {{ item.authority | tojson }},
+        "revision": {{ item.revision | tojson }},
+        "checks": {{ item.checks | tojson }},
+        "follow_up": {
+          "operation_id": "get_record",
+          "arguments": {"record_id": {{ item.record_id | tojson }}}
+        }
       }{% if not loop.last %},{% endif %}{% endfor %}
     ],
-    "guidance_count": {{ guidance | length }},
-    "check_count": {{ counts.checks }},
-    "omissions": {{ properties.omissions | default([]) | tojson }},
-    "diagnostics": {{ properties.diagnostics | default([]) | tojson }}
+    "required_checks": {{ properties.receipt.required_checks | tojson }},
+    "budget": {{ properties.receipt.budget | tojson }},
+    "coverage": {{ properties.receipt.coverage | tojson }},
+    "omissions": {{ properties.receipt.omissions | tojson }},
+    "diagnostics": {{ properties.receipt.diagnostics | tojson }},
+    "stop_condition": {{ properties.receipt.stop_condition | tojson }}
   }
 }

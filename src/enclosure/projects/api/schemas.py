@@ -38,6 +38,7 @@ class WorkspaceAuthority(Schema):
     kind: Literal["project-operating-contract"] = Field(description="Authority mechanism used for this response.")
     id: str = Field(description="Stable identifier of the effective authority.")
     revision: str = Field(description="Deterministic revision of the effective authority.")
+    provenance: str = Field(description="Origin of the effective operating contract.")
 
 
 class WorkspaceContextDiagnostic(Schema):
@@ -46,19 +47,68 @@ class WorkspaceContextDiagnostic(Schema):
     guidance_ids: list[str] = Field(description="Bound guidance records affected by the diagnostic.")
 
 
+class ReceiptItem(Schema):
+    record_id: str = Field(description="Durable guidance record identifier for get_record follow-up.")
+    title: str = Field(description="Guidance title.")
+    requirement: Literal["mandatory", "supplemental"] = Field(
+        description="Whether the item is contract-mandated or routed supplemental guidance."
+    )
+    reason: Literal["operating-contract", "task-applicable", "project-default"] = Field(
+        description="Stable selection reason."
+    )
+    explanation: str = Field(description="Stable human-readable explanation of the selection reason.")
+    authority: str = Field(description="Authority claimed by the selected guidance.")
+    revision: str = Field(description="Selected guidance revision.")
+    checks: list[str] = Field(description="Checks contributed by the selected guidance.")
+
+
+class ContextBudget(Schema):
+    used_optional_characters: int = Field(
+        description="Characters consumed by minified serialized selected supplemental guidance."
+    )
+    optional_character_limit: int = Field(
+        description="Maximum minified serialized characters available to supplemental guidance."
+    )
+
+
+class ContextCoverage(Schema):
+    status: Literal["complete", "partial"] = Field(description="Whether selection has omissions or diagnostics.")
+    selected_count: int = Field(description="Number of selected guidance items.")
+    omitted_count: int = Field(description="Number of omitted supplemental guidance items.")
+    diagnostic_count: int = Field(description="Number of context diagnostics.")
+
+
+class ContextOmission(Schema):
+    code: Literal["optional-budget-exhausted"] = Field(description="Stable omission reason code.")
+    guidance_ids: list[str] = Field(description="Supplemental guidance records omitted by the context budget.")
+    message: str = Field(description="Human-readable omission explanation.")
+
+
+class ContextReceipt(Schema):
+    authority: WorkspaceAuthority = Field(description="Authority and revision used to resolve this response.")
+    items: list[ReceiptItem] = Field(description="Selection receipt in effective guidance order.")
+    required_checks: list[str] = Field(description="Ordered, de-duplicated checks required before handoff.")
+    budget: ContextBudget = Field(description="Supplemental guidance budget accounting.")
+    coverage: ContextCoverage = Field(description="Selection coverage summary.")
+    omissions: list[ContextOmission] = Field(description="Explicit supplemental-guidance omissions.")
+    diagnostics: list[WorkspaceContextDiagnostic] = Field(
+        description="Stable reasons the response is incomplete or conflicted."
+    )
+    stop_condition: Literal["selected-guidance-and-checks", "resolve-context-gaps"] = Field(
+        description="Condition the agent must satisfy before continuing."
+    )
+
+
 class WorkspaceContext(Schema):
     project_id: ProjectId
     root: str = Field(description="Registered project root.")
     readiness: Literal["ready", "incomplete", "conflicted"] = Field(
         description="Whether the returned context is safe to treat as complete."
     )
-    authority: WorkspaceAuthority = Field(description="Authority and revision used to resolve this response.")
     guidance: list[WorkspaceGuidance] = Field(
         description="Mandatory guidance first, followed by routed optional guidance."
     )
-    diagnostics: list[WorkspaceContextDiagnostic] = Field(
-        description="Stable reasons the response is incomplete or conflicted."
-    )
+    receipt: ContextReceipt = Field(description="Deterministic explanation of selection, coverage, and checks.")
 
 
 class GuidanceScope(Schema):

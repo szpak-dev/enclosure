@@ -8,7 +8,7 @@ from ..adapters.records import RecordsAdapter
 from ..contracts.model import OperatingContractReference
 from .applicability import GuidanceApplicabilityService
 from .budget import GuidanceBudgetService
-from .model import GuidanceCandidate, GuidanceRoute, GuidanceScope
+from .model import GuidanceCandidate, GuidanceRoute, GuidanceRouteItem, GuidanceScope
 from .ordering import GuidanceOrderingService
 from .repository import GuidanceScopeRepository
 
@@ -57,10 +57,30 @@ class WorkspaceRoutingService:
             task,
         )
         ordered = self.ordering.order(applicable, ranking)
-        selected = self.budget.select(ordered, max_optional_characters)
+        budget = self.budget.select(ordered, max_optional_characters)
         return GuidanceRoute(
-            guidance=(*mandatory, *(candidate.guidance for candidate in selected)),
+            items=(
+                *(
+                    GuidanceRouteItem(
+                        guidance=guidance,
+                        requirement="mandatory",
+                        reason="operating-contract",
+                    )
+                    for guidance in mandatory
+                ),
+                *(
+                    GuidanceRouteItem(
+                        guidance=candidate.guidance,
+                        requirement="supplemental",
+                        reason="task-applicable" if candidate.guidance.applies_when else "project-default",
+                    )
+                    for candidate in budget.selected
+                ),
+            ),
             missing_mandatory_ids=mandatory_resolution.missing_ids,
+            omitted_optional_ids=budget.omitted_ids,
+            used_optional_characters=budget.used_characters,
+            optional_character_limit=budget.limit_characters,
         )
 
     def _scope(self, scope: models.GuidanceScope) -> GuidanceScope:

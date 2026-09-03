@@ -413,16 +413,38 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     assert rest_response.status_code == 200
     assert result.is_error is False
     assert markdown.count("# Enclosure") == 1
-    assert markdown.index("# Enclosure") < markdown.index("## Project guidance")
+    assert markdown.index("# Enclosure") < markdown.index("## Selected guidance")
     assert markdown.count("Example operating guidance") == 1
     assert markdown.count("Run the example check.") == 1
     assert receipt["project_id"] == rest_response.json()["project_id"]
     assert receipt["root"] == rest_response.json()["root"]
     assert receipt["status"] == "ready"
-    assert receipt["guidance_count"] == 1
-    assert receipt["check_count"] == 1
-    assert "summary" not in receipt["guidance"][0]
-    assert "guidance" not in receipt["guidance"][0]
+    assert receipt["authority"] == rest_response.json()["receipt"]["authority"]
+    assert receipt["items"][0] == {
+        **rest_response.json()["receipt"]["items"][0],
+        "follow_up": {
+            "operation_id": "get_record",
+            "arguments": {"record_id": rest_response.json()["receipt"]["items"][0]["record_id"]},
+        },
+    }
+    assert receipt["required_checks"] == ["Run the example check."]
+    assert receipt["coverage"] == {
+        "status": "complete",
+        "selected_count": 1,
+        "omitted_count": 0,
+        "diagnostic_count": 0,
+    }
+    assert receipt["stop_condition"] == "selected-guidance-and-checks"
+    assert "summary" not in receipt["items"][0]
+    assert "guidance" not in receipt["items"][0]
+    follow_up = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).call_tool(
+            receipt["items"][0]["follow_up"]["operation_id"],
+            receipt["items"][0]["follow_up"]["arguments"],
+        )
+    )
+    assert follow_up.is_error is False
+    assert follow_up.structured_content["properties"]["title"] == "Example operating guidance"
     assert len(markdown.encode("utf-8")) <= 16_384
     assert len(json.dumps(receipt).encode("utf-8")) <= 8_192
 
@@ -441,6 +463,8 @@ def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> No
     assert result.structured_content["status"] == "incomplete"
     assert result.structured_content["authority"]["kind"] == "project-operating-contract"
     assert result.structured_content["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
+    assert result.structured_content["coverage"]["status"] == "partial"
+    assert result.structured_content["stop_condition"] == "resolve-context-gaps"
     assert "Readiness: **incomplete**" in result.content[0].text
 
 

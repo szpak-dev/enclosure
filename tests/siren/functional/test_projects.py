@@ -129,11 +129,14 @@ def test_siren_exposes_operating_contract_lifecycle(
     client: Client,
     registered_project: tuple[str, Path, str],
 ) -> None:
-    project_id, _, record_id = registered_project
+    project_id, project_root, record_id = registered_project
     root = client.get("/siren/").json()
     create_action = next(action for action in root["actions"] if action["name"] == "create_operating_contract")
+    context_action = next(action for action in root["actions"] if action["name"] == "get_workspace_context")
     assert create_action["method"] == "POST"
     assert [field["name"] for field in create_action["fields"]] == ["title", "authority", "provenance"]
+    assert context_action["method"] == "POST"
+    assert [field["name"] for field in context_action["fields"]] == ["root", "task"]
 
     created = client.post(
         urlsplit(create_action["href"]).path,
@@ -198,3 +201,13 @@ def test_siren_exposes_operating_contract_lifecycle(
     fetched = client.get(urlsplit(project_actions["get_project_operating_contract_binding"]["href"]).path)
     assert fetched.status_code == 200
     assert fetched.json()["properties"] == replaced.json()["properties"]
+
+    context = client.post(
+        urlsplit(context_action["href"]).path,
+        data={"root": str(project_root), "task": "Apply project guidance"},
+        content_type="application/json",
+    )
+    assert context.status_code == 200
+    assert context["Content-Type"] == SIREN_MEDIA_TYPE
+    assert context.json()["properties"]["receipt"]["items"][0]["record_id"] == record_id
+    assert context.json()["properties"]["receipt"]["stop_condition"] == "selected-guidance-and-checks"

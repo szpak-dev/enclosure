@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from wireup import injectable
 
-from .model import GuidanceCandidate
+from .model import GuidanceBudget, GuidanceCandidate
 
 
 @injectable
@@ -12,7 +12,7 @@ class GuidanceBudgetService:
         self,
         candidates: tuple[GuidanceCandidate, ...],
         max_characters: int,
-    ) -> tuple[GuidanceCandidate, ...]:
+    ) -> GuidanceBudget:
         selected = []
         used = 0
         for candidate in candidates:
@@ -21,4 +21,12 @@ class GuidanceBudgetService:
                 break
             selected.append(candidate)
             used += characters
-        return tuple(selected)
+        selected_ids = {candidate.guidance.id for candidate in selected}
+        return GuidanceBudget(
+            selected=tuple(selected),
+            omitted_ids=tuple(
+                candidate.guidance.id for candidate in candidates if candidate.guidance.id not in selected_ids
+            ),
+            used_characters=used,
+            limit_characters=max_characters,
+        )

@@ -3,22 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from ..adapters.model import WorkspaceGuidance
-
-
-class WorkspaceAuthority(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    kind: Literal["project-operating-contract"]
-    id: str
-    revision: str
-
-
-class WorkspaceContextDiagnostic(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    code: str
-    message: str
-    guidance_ids: tuple[str, ...]
+from ..receipts.model import ContextReceipt
 
 
 class WorkspaceContext(BaseModel):
@@ -27,6 +12,5 @@ class WorkspaceContext(BaseModel):
     project_id: str
     root: str
     readiness: Literal["ready", "incomplete", "conflicted"]
-    authority: WorkspaceAuthority
     guidance: tuple[WorkspaceGuidance, ...]
-    diagnostics: tuple[WorkspaceContextDiagnostic, ...]
+    receipt: ContextReceipt
