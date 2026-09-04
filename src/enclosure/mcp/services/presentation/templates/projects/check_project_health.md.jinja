@@ -1,46 +1,32 @@
-{% set counts = namespace(failures=0, advisories=0) %}
-{% for report in properties.reports %}
-{% set counts.failures = counts.failures + (report.violations | length) %}
-{% set counts.advisories = counts.advisories + (report.advisories | default([]) | length) %}
-{% endfor %}
-{% set status = "gating-failure" if not properties.healthy else "advisory" if counts.advisories else "healthy" %}
 # Project health
 
-Status: **{{ status }}**
+Status: **{{ data.outcome }}**
 
-{% if status == "healthy" %}All {{ properties.reports | length }} gating reports passed.{% elif status == "advisory" %}Gating checks passed with {{ counts.advisories }} advisory findings.{% else %}{{ counts.failures }} gating failures require attention.{% endif %}
+{% if data.outcome == "healthy" %}All {{ data.reports | length }} gating reports passed.{% elif data.outcome == "advisory" %}Gating checks passed with {{ data.advisory_count }} advisory findings.{% else %}{{ data.failure_count }} gating failures require attention.{% endif %}
 
 ## Reports
-{% for report in properties.reports %}
-- {{ report.metadata.title }}: {{ report.violations | length }} failures, {{ report.advisories | default([]) | length }} advisories
+{% for report in data.reports %}
+- {{ report.title }}: {{ report.failure_count }} failures, {{ report.advisory_count }} advisories
 {% endfor %}
-{% if counts.failures %}
+{% if data.failures %}
 
 ## Gating failures
-{% for report in properties.reports %}
-{% for finding in report.violations %}
-- **{{ finding.rule if finding.rule is defined else finding.rule_name }}** — {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }}: {{ finding.message if finding.message is defined else "Actual " ~ finding.actual ~ "; configured limit " ~ finding.limit ~ "." }}
-{% endfor %}
+{% for finding in data.failures %}
+- **{{ finding.rule }}** — {{ finding.target }}: {{ finding.message }}
 {% endfor %}
 {% endif %}
-{% if counts.advisories %}
+{% if data.advisories %}
 
 ## Advisories
-{% for report in properties.reports %}
-{% for finding in report.advisories | default([]) %}
-- **{{ finding.rule if finding.rule is defined else finding.rule_name }}** — {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }}: {{ finding.message if finding.message is defined else "Actual " ~ finding.actual ~ "; configured limit " ~ finding.limit ~ "." }}
-{% endfor %}
+{% for finding in data.advisories %}
+- **{{ finding.rule }}** — {{ finding.target }}: {{ finding.message }}
 {% endfor %}
 {% endif %}
-{% if counts.failures or counts.advisories %}
+{% if data.next_actions %}
 
 ## Next actions
-{% for report in properties.reports %}
-{% for finding in report.violations %}
-- Review {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }} against {{ finding.rule if finding.rule is defined else finding.rule_name }}.
-{% endfor %}
-{% for finding in report.advisories | default([]) %}
-- Review {{ finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") }} against {{ finding.rule if finding.rule is defined else finding.rule_name }}.
-{% endfor %}
+{% for action in data.next_actions %}
+- {{ action }}
 {% endfor %}
 {% endif %}
+{% include "projects/partials/navigation.md.jinja" %}

@@ -4,7 +4,7 @@ from wireup import injectable
 
 from ..contracts.model import ConfiguredOperatingContractBinding, UnconfiguredOperatingContractBinding
 from ..registry.model import ArchitectureConfiguration, Project
-from ..reports.model import HealthReport
+from ..reports.model import HealthReport, HealthReportSet
 from ..reports.service import ReportsService
 from ..workspaces.model import WorkspaceBinding
 from .validation import GuidanceHealthService
@@ -13,7 +13,7 @@ from .validation import GuidanceHealthService
 @injectable
 @dataclass(frozen=True)
 class ProjectHealthService:
-    architecture: ReportsService
+    reports: ReportsService
     guidance: GuidanceHealthService
 
     def check(
@@ -23,14 +23,16 @@ class ProjectHealthService:
         configuration: ArchitectureConfiguration,
         binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
     ) -> HealthReport:
-        architecture = self.architecture.generate_health_report(
+        architecture = self.reports.generate_health_report(
             workspace.architecture_root,
             project.language_id,
             configuration.boundaries_yaml,
             configuration.shape_yaml,
         )
         guidance = self.guidance.check(project.id, binding)
-        return HealthReport(
-            healthy=architecture.healthy and guidance.healthy,
-            reports=(*architecture.reports, guidance.model_dump(mode="json")),
+        return self.reports.summarize_health_report(
+            HealthReportSet(
+                healthy=architecture.healthy and guidance.healthy,
+                reports=(*architecture.reports, guidance.model_dump(mode="json")),
+            )
         )

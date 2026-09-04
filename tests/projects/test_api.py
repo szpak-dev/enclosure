@@ -942,11 +942,8 @@ def test_reports_conflicting_guidance_authority(
             "guidance_ids": sorted([first["id"], second["id"]]),
         }
     ]
-    guidance_report = next(
-        report for report in health.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
-    )
     assert health.json()["healthy"] is False
-    assert [finding["rule"] for finding in guidance_report["violations"]] == ["authority-conflict"]
+    assert [finding["rule"] for finding in health.json()["failures"]] == ["authority-conflict"]
 
 
 @pytest.mark.django_db
@@ -1038,9 +1035,78 @@ def test_updates_registered_project(
     assert configuration.json() == {
         "id": references[0]["id"],
         "project_id": project["id"],
+        "revision": references[0]["revision"],
         "boundaries_yaml": BOUNDARIES_YAML,
         "shape_yaml": UNHEALTHY_SHAPE_YAML,
     }
+
+
+@pytest.mark.django_db
+def test_reads_revision_pinned_architecture_configuration_content(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    project_id = resolution["project"]["id"]
+    reference = client.get(f"/api/projects/{project_id}/architecture-configurations").json()[0]
+
+    response = client.get(
+        f"/api/projects/{project_id}/architecture-configurations/{reference['id']}/content",
+        data={
+            "document": "boundaries_yaml",
+            "expected_revision": reference["revision"],
+            "offset": 0,
+            "limit": 12,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "project_id": project_id,
+        "configuration_id": reference["id"],
+        "revision": reference["revision"],
+        "document": "boundaries_yaml",
+        "offset": 0,
+        "limit": 12,
+        "total_characters": len(BOUNDARIES_YAML),
+        "content": BOUNDARIES_YAML[:12],
+        "has_more": True,
+        "next_offset": 12,
+    }
+
+    stale = client.get(
+        f"/api/projects/{project_id}/architecture-configurations/{reference['id']}/content",
+        data={
+            "document": "boundaries_yaml",
+            "expected_revision": "stale",
+            "offset": 0,
+            "limit": 12,
+        },
+    )
+    assert stale.status_code == 422
+    assert stale.json() == {"detail": "Architecture configuration changed; get it again before reading content."}
+
+    for offset, limit, detail in (
+        (-1, 12, "Architecture configuration content offset is outside the document."),
+        (0, 1025, "Architecture configuration content limit must be between 1 and 1024."),
+    ):
+        invalid = client.get(
+            f"/api/projects/{project_id}/architecture-configurations/{reference['id']}/content",
+            data={
+                "document": "boundaries_yaml",
+                "expected_revision": reference["revision"],
+                "offset": offset,
+                "limit": limit,
+            },
+        )
+        assert invalid.status_code == 422
+        assert invalid.json() == {"detail": detail}
 
 
 @pytest.mark.django_db
@@ -1273,13 +1339,11 @@ def test_health_contains_only_gating_reports(
 
     assert response.status_code == 200
     assert response.json()["healthy"] is True
+    assert response.json()["outcome"] == "healthy"
     assert response.json()["reports"]
-    assert all("violations" in report for report in response.json()["reports"])
-    assert all(not report["violations"] for report in response.json()["reports"])
-    guidance_report = next(
-        report for report in response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
-    )
-    assert guidance_report["advisories"] == []
+    assert all(report["failure_count"] == 0 for report in response.json()["reports"])
+    guidance_report = next(report for report in response.json()["reports"] if report["id"] == "guidance-graph")
+    assert guidance_report["advisory_count"] == 0
 
 
 @pytest.mark.django_db
@@ -1361,18 +1425,15 @@ def test_health_reports_malformed_guidance_graph_and_blocks_ready_context(
     assert client.get(f"/api/projects/{project['id']}/guidance-relationships").json() == relationships.json()
     assert health.status_code == 200
     assert health.json()["healthy"] is False
-    guidance_report = next(
-        report for report in health.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
-    )
-    rules = {finding["rule"] for finding in guidance_report["violations"]}
+    rules = {finding["rule"] for finding in health.json()["failures"]}
     assert {
         "ambiguous-entry-point",
         "dangling-relationship",
         "guidance-cycle",
         "invalid-refinement",
     } <= rules
-    assert all(finding["guidance_ids"] for finding in guidance_report["violations"])
-    assert all(finding["remediation"] for finding in guidance_report["violations"])
+    assert all(finding["related_ids"] for finding in health.json()["failures"])
+    assert all(finding["remediation"] for finding in health.json()["failures"])
     assert context.status_code == 200
     assert context.json()["readiness"] == "incomplete"
     assert "guidance-cycle" in {diagnostic["code"] for diagnostic in context.json()["receipt"]["diagnostics"]}
@@ -1411,13 +1472,10 @@ def test_health_keeps_unreachable_oversized_optional_guidance_advisory(
 
     response = client.get(f"/api/projects/{project['id']}/workspaces/{workspace['id']}/health-violations")
 
-    guidance_report = next(
-        report for report in response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
-    )
     assert response.status_code == 200
     assert response.json()["healthy"] is True
-    assert guidance_report["violations"] == []
-    assert {finding["rule"] for finding in guidance_report["advisories"]} == {
+    assert response.json()["failures"] == []
+    assert {finding["rule"] for finding in response.json()["advisories"]} == {
         "optional-budget-exceeded",
         "unreachable-guidance",
     }
@@ -1456,11 +1514,8 @@ def test_health_blocks_oversized_required_guidance(
         content_type="application/json",
     )
 
-    guidance_report = next(
-        report for report in health.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
-    )
     assert health.json()["healthy"] is False
-    assert [finding["rule"] for finding in guidance_report["violations"]] == ["guidance-oversized"]
+    assert [finding["rule"] for finding in health.json()["failures"]] == ["guidance-oversized"]
     assert context.json()["readiness"] == "incomplete"
     assert "guidance-oversized" in {diagnostic["code"] for diagnostic in context.json()["receipt"]["diagnostics"]}
 
@@ -1487,7 +1542,7 @@ def test_health_fails_when_architecture_has_a_shape_violation(
 
     assert response.status_code == 200
     assert response.json()["healthy"] is False
-    assert any(report["violations"] for report in response.json()["reports"])
+    assert response.json()["failure_count"] > 0
 
 
 @pytest.mark.django_db
@@ -1508,7 +1563,45 @@ def test_insights_contains_only_non_gating_reports(
 
     assert response.status_code == 200
     assert response.json()["reports"]
-    assert all("violations" not in report for report in response.json()["reports"])
+    assert response.json()["sections"]
+    assert all("metadata" in report for report in response.json()["reports"])
+
+    section = response.json()["sections"][0]
+    page = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/insights/pages",
+        data={
+            "path": section["path"],
+            "expected_revision": response.json()["revision"],
+            "offset": 0,
+            "limit": 1,
+        },
+    )
+    assert page.status_code == 200
+    assert page.json()["project_id"] == resolution["project"]["id"]
+    assert page.json()["workspace_id"] == resolution["workspace"]["id"]
+    assert page.json()["revision"] == response.json()["revision"]
+    assert page.json()["path"] == section["path"]
+    assert page.json()["total"] == section["total"]
+    assert len(page.json()["items"]) == 1
+
+    stale = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/insights/pages",
+        data={"path": section["path"], "expected_revision": "stale", "offset": 0, "limit": 1},
+    )
+    assert stale.status_code == 422
+    assert stale.json() == {"detail": "Project insights changed; read them again before requesting a page."}
+
+    oversized = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/insights/pages",
+        data={
+            "path": section["path"],
+            "expected_revision": response.json()["revision"],
+            "offset": 0,
+            "limit": 26,
+        },
+    )
+    assert oversized.status_code == 422
+    assert oversized.json() == {"detail": "Project insight page limit must be between 1 and 25."}
 
 
 @pytest.mark.django_db

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Literal
 
 from wireup import injectable
 
@@ -11,6 +10,7 @@ from .model import (
     OperatingContract,
     OperatingContractReference,
     OperatingContractRevision,
+    OperatingContractUpdatePolicy,
     UnconfiguredOperatingContractBinding,
 )
 from .repository import OperatingContractRepository
@@ -87,7 +87,7 @@ class OperatingContractsService:
         project_id: str,
         contract_id: str,
         version: int,
-        update_policy: Literal["pinned", "follow-latest"],
+        update_policy: OperatingContractUpdatePolicy,
     ) -> ConfiguredOperatingContractBinding:
         revision = self.repository.get_revision(contract_id, version)
         self.repository.create_binding(project_id, revision, update_policy)
@@ -98,7 +98,7 @@ class OperatingContractsService:
         project_id: str,
         contract_id: str,
         version: int,
-        update_policy: Literal["pinned", "follow-latest"],
+        update_policy: OperatingContractUpdatePolicy,
     ) -> ConfiguredOperatingContractBinding:
         revision = self.repository.get_revision(contract_id, version)
         self.repository.replace_binding(project_id, revision, update_policy)
@@ -125,7 +125,7 @@ class OperatingContractsService:
             provenance="project-registration",
         )
         revision = self.publish(contract.id, record_ids, ())
-        return self.bind(project_id, contract.id, revision.version, "follow-latest")
+        return self.bind(project_id, contract.id, revision.version, OperatingContractUpdatePolicy.FOLLOW_LATEST)
 
     def _configured_binding(self, project_id: str) -> ConfiguredOperatingContractBinding:
         binding = self.repository.get_binding(project_id)

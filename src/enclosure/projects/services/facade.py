@@ -1,7 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 from django.db import transaction
 from pydantic import JsonValue
@@ -16,6 +15,7 @@ from .contracts.model import (
     OperatingContract,
     OperatingContractReference,
     OperatingContractRevision,
+    OperatingContractUpdatePolicy,
     UnconfiguredOperatingContractBinding,
 )
 from .contracts.service import OperatingContractsService
@@ -23,10 +23,16 @@ from .generation import GenerationResult, GenerationService
 from .health.graph import GuidanceGraphService
 from .health.model import GuidanceRelationship, GuidanceRelationshipInput
 from .health.service import ProjectHealthService
-from .registry.model import ArchitectureConfiguration, Project
+from .registry.model import (
+    ArchitectureConfiguration,
+    ArchitectureConfigurationContent,
+    ArchitectureConfigurationDocument,
+    Project,
+)
 from .registry.service import RegistryService
-from .reports import HealthReport, InsightsReport, ReportsService
 from .reports.adapters import ArchitectureAdapter
+from .reports.model import HealthReport, InsightPage, InsightReportSet, InsightSource, InsightsReport
+from .reports.service import ReportsService
 from .routing.model import GuidanceScope
 from .routing.service import WorkspaceRoutingService
 from .stack import DetectedStack, DiscoveredProject, StackDetector
@@ -83,6 +89,24 @@ class ProjectsService:
         configuration_id: str,
     ) -> ArchitectureConfiguration:
         return self.registry.get_architecture_configuration(project_id, configuration_id)
+
+    def read_project_architecture_configuration_content(
+        self,
+        project_id: str,
+        configuration_id: str,
+        document: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> ArchitectureConfigurationContent:
+        return self.registry.read_architecture_configuration_content(
+            project_id,
+            configuration_id,
+            ArchitectureConfigurationDocument(document),
+            expected_revision,
+            offset,
+            limit,
+        )
 
     def find_workspaces(self, project_id: str) -> tuple[WorkspaceBinding, ...]:
         return self.workspaces.find(project_id)
@@ -179,20 +203,30 @@ class ProjectsService:
         project_id: str,
         contract_id: str,
         version: int,
-        update_policy: Literal["pinned", "follow-latest"],
+        update_policy: str,
     ) -> ConfiguredOperatingContractBinding:
         self.registry.get(project_id)
-        return self.contracts.bind(project_id, contract_id, version, update_policy)
+        return self.contracts.bind(
+            project_id,
+            contract_id,
+            version,
+            OperatingContractUpdatePolicy(update_policy),
+        )
 
     def replace_project_operating_contract_binding(
         self,
         project_id: str,
         contract_id: str,
         version: int,
-        update_policy: Literal["pinned", "follow-latest"],
+        update_policy: str,
     ) -> ConfiguredOperatingContractBinding:
         self.registry.get(project_id)
-        return self.contracts.replace_binding(project_id, contract_id, version, update_policy)
+        return self.contracts.replace_binding(
+            project_id,
+            contract_id,
+            version,
+            OperatingContractUpdatePolicy(update_policy),
+        )
 
     def get_project_operating_contract_binding(
         self,
@@ -218,22 +252,27 @@ class ProjectsService:
     @transaction.atomic
     def register_project(
         self,
-        discovery: DiscoveredProject,
+        discovery: Mapping[str, object],
         architecture_root: str,
         boundaries_yaml: str,
         shape_yaml: str,
         scaffolding_id: str,
         record_ids: list[str],
     ) -> WorkspaceResolution:
+        discovered_project = DiscoveredProject.model_validate(discovery)
         self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
         project = self.registry.register(
-            self._project_data(self._project_title(discovery.root), discovery.stack, scaffolding_id),
+            self._project_data(
+                self._project_title(discovered_project.root),
+                discovered_project.stack,
+                scaffolding_id,
+            ),
             boundaries_yaml,
             shape_yaml,
         )
         workspace = self.workspaces.bind(
             project.id,
-            WorkspaceLocation(root=discovery.root, architecture_root=architecture_root),
+            WorkspaceLocation(root=discovered_project.root, architecture_root=architecture_root),
         )
         self.contracts.bootstrap(project.id, tuple(record_ids))
         return WorkspaceResolution(project=project, workspace=workspace)
@@ -242,16 +281,17 @@ class ProjectsService:
         self,
         project_id: str,
         title: str,
-        stack: DetectedStack,
+        stack: Mapping[str, object],
         boundaries_yaml: str,
         shape_yaml: str,
         scaffolding_id: str,
     ) -> Project:
+        detected_stack = DetectedStack.model_validate(stack)
         normalized_title = self._validate_title(title)
         self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
         return self.registry.update(
             project_id,
-            self._project_data(normalized_title, stack, scaffolding_id),
+            self._project_data(normalized_title, detected_stack, scaffolding_id),
             boundaries_yaml,
             shape_yaml,
         )
@@ -267,14 +307,38 @@ class ProjectsService:
         )
 
     def read_insights(self, project_id: str, workspace_id: str) -> InsightsReport:
+        return self.reports.summarize_insights_report(self._generate_insights_report(project_id, workspace_id))
+
+    def _generate_insights_report(self, project_id: str, workspace_id: str) -> InsightReportSet:
         configuration = self.registry.get_current_architecture_configuration(project_id)
         project = self.registry.get(project_id)
         workspace = self.workspaces.get(project_id, workspace_id)
         return self.reports.generate_insights_report(
-            workspace.architecture_root,
-            project.language_id,
-            configuration.boundaries_yaml,
-            configuration.shape_yaml,
+            InsightSource(
+                project_id=project_id,
+                workspace_id=workspace_id,
+                architecture_root=workspace.architecture_root,
+                language=project.language_id,
+                boundaries_yaml=configuration.boundaries_yaml,
+                shape_yaml=configuration.shape_yaml,
+            )
+        )
+
+    def read_insight_page(
+        self,
+        project_id: str,
+        workspace_id: str,
+        path: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> InsightPage:
+        return self.reports.read_insight_page(
+            self._generate_insights_report(project_id, workspace_id),
+            path,
+            expected_revision,
+            offset,
+            limit,
         )
 
     def _validate_project(

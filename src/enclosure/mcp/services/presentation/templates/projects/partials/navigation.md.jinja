@@ -1,0 +1,14 @@
+{% if data.actions | default([]) %}
+
+## Available actions
+{% for action in data.actions %}
+- `{{ action.name }}` — {{ action.method }} `{{ action.href }}`
+{% endfor %}
+{% endif %}
+{% if data.links | default([]) %}
+
+## Links
+{% for link in data.links %}
+- {{ link.rel | join(", ") }} — `{{ link.href }}`
+{% endfor %}
+{% endif %}

@@ -221,6 +221,64 @@ class PublicMcpClient:
             )
             return rest_response, result
 
+    async def project_insights(self, root: Path) -> tuple[CallToolResult, CallToolResult]:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            project_id, workspace_id = await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            overview = await session.call_tool(
+                "read_project_insights",
+                {"project_id": project_id, "workspace_id": workspace_id},
+            )
+            section = overview.structured_content["data"]["sections"][0]
+            page = await session.call_tool(
+                "read_project_insight_page",
+                {
+                    "project_id": project_id,
+                    "workspace_id": workspace_id,
+                    "path": section["path"],
+                    "expected_revision": overview.structured_content["data"]["revision"],
+                    "offset": 0,
+                    "limit": 1,
+                },
+            )
+            return overview, page
+
+    async def project_configuration_content(self, root: Path) -> tuple[CallToolResult, CallToolResult]:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            project_id, _ = await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            configurations = await session.call_tool(
+                "find_project_architecture_configurations",
+                {"project_id": project_id},
+            )
+            reference = configurations.structured_content["data"]["items"][0]
+            configuration = await session.call_tool(
+                "get_project_architecture_configuration",
+                {"project_id": project_id, "configuration_id": reference["id"]},
+            )
+            content = await session.call_tool(
+                "read_project_architecture_configuration_content",
+                {
+                    "project_id": project_id,
+                    "configuration_id": reference["id"],
+                    "document": "boundaries_yaml",
+                    "expected_revision": reference["revision"],
+                    "offset": 0,
+                    "limit": 12,
+                },
+            )
+            return configuration, content
+
     async def workspace_rebinding(
         self,
         root: Path,
@@ -379,7 +437,7 @@ def test_reports_projected_application_errors() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
-def test_reports_workspace_budget_overflow_as_incomplete(tmp_path: Path) -> None:
+def test_bounds_oversized_workspace_guidance_before_rendering(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
         "class ExampleApplication:\n    pass\n",
@@ -397,7 +455,12 @@ def test_reports_workspace_budget_overflow_as_incomplete(tmp_path: Path) -> None
 
     assert result.is_error is True
     assert result.structured_content["status"] == "error"
-    assert result.structured_content["data"]["reason"] == "presentation_budget_exceeded"
+    assert result.structured_content["data"]["readiness"] == "incomplete"
+    projected_guidance = result.structured_content["data"]["guidance"][0]["guidance"][0]
+    assert isinstance(projected_guidance, str)
+    assert projected_guidance.startswith("Example mandatory directive.")
+    assert projected_guidance.endswith("...")
+    assert len(projected_guidance) == 512
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
@@ -429,6 +492,8 @@ def test_lists_the_siren_catalogue() -> None:
     assert "get_workspace_context" in tools
     assert "create_operating_contract" in tools
     assert "get_project_operating_contract_binding" in tools
+    assert "read_project_architecture_configuration_content" in tools
+    assert "read_project_insight_page" in tools
     assert tools["get_language"].title == "Get a language"
     assert tools["get_language"].input_schema["required"] == ["language_id"]
     assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
@@ -464,14 +529,14 @@ def test_rebinds_a_workspace_through_public_mcp(tmp_path: Path) -> None:
     )
 
     assert bound.is_error is False
-    assert bound.structured_content["status"] == "incomplete"
+    assert bound.structured_content["status"] == "ok"
     assert stale.is_error is False
     assert stale.structured_content["data"]["state"] == "missing_root"
     assert replaced.is_error is False
     assert replaced.structured_content["data"]["revision"] == 2
     assert replaced.structured_content["data"]["root"] == str(relocated)
     assert resolved.is_error is False
-    assert resolved.structured_content["status"] == "incomplete"
+    assert resolved.structured_content["status"] == "ok"
     assert rest_resolution.status_code == 200
     assert rest_resolution.json()["workspace"]["revision"] == 2
     assert rest_resolution.json()["workspace"]["root"] == str(relocated)
@@ -492,7 +557,7 @@ def test_creates_operating_contract_through_public_mcp() -> None:
     )
 
     assert result.is_error is False
-    assert result.structured_content["status"] == "incomplete"
+    assert result.structured_content["status"] == "ok"
     assert result.structured_content["data"]["title"] == "Example operating contract"
     assert result.structured_content["data"]["authority"] == "example:operating-contract"
 
@@ -535,10 +600,7 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
         PublicMcpClient(PublicCompositeApplication()).oversized_guidance_health(tmp_path)
     )
 
-    guidance_report = next(
-        report for report in rest_response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
-    )
-    assert guidance_report["violations"][0]["rule"] == "guidance-oversized"
+    assert rest_response.json()["failures"][0]["rule"] == "guidance-oversized"
     assert result.is_error is True
     assert result.structured_content["status"] == "error"
     assert result.structured_content["data"]["outcome"] == "gating-failure"
@@ -554,20 +616,22 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
         "class ExampleApplication:\n    pass\n",
         encoding="utf-8",
     )
+    directives = [f"Preserve example behavior {index}." for index in range(26)]
     rest_response, result = asyncio.run(
         PublicMcpClient(PublicCompositeApplication()).workspace_context(
             tmp_path,
             {
                 "summary": "Example guidance summary.",
                 "applies_when": ["Changing example source."],
-                "guidance": ["Preserve example behavior."],
+                "guidance": directives,
                 "checks": ["Run the example check."],
             },
         )
     )
     markdown = result.content[0].text
     envelope = result.structured_content
-    receipt = envelope["data"]
+    data = envelope["data"]
+    receipt = data["receipt"]
 
     assert rest_response.status_code == 200
     assert result.is_error is False
@@ -576,15 +640,14 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     assert markdown.index("# Enclosure") < markdown.index("## Selected guidance")
     assert markdown.count("Example operating guidance") == 1
     assert markdown.count("Run the example check.") == 1
-    assert receipt["project_id"] == rest_response.json()["project_id"]
-    assert receipt["root"] == rest_response.json()["root"]
-    assert receipt["readiness"] == "ready"
+    assert data["project_id"] == rest_response.json()["project_id"]
+    assert data["root"] == rest_response.json()["root"]
+    assert data["readiness"] == "ready"
     assert receipt["authority"] == rest_response.json()["receipt"]["authority"]
     assert receipt["items"][0] == rest_response.json()["receipt"]["items"][0]
-    assert envelope["follow_ups"][0] == {
-        "operation_id": "get_record",
-        "arguments": {"record_id": rest_response.json()["receipt"]["items"][0]["record_id"]},
-    }
+    assert data["guidance"][0]["guidance"] == directives
+    assert directives[-1] in markdown
+    assert envelope["follow_ups"] == []
     assert receipt["required_checks"] == ["Run the example check."]
     assert receipt["coverage"] == {
         "status": "complete",
@@ -595,17 +658,8 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     assert receipt["stop_condition"] == "selected-guidance-and-checks"
     assert "summary" not in receipt["items"][0]
     assert "guidance" not in receipt["items"][0]
-    follow_up = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).call_tool(
-            envelope["follow_ups"][0]["operation_id"],
-            envelope["follow_ups"][0]["arguments"],
-        )
-    )
-    assert follow_up.is_error is False
-    assert follow_up.structured_content["status"] == "incomplete"
-    assert follow_up.structured_content["data"]["title"] == "Example operating guidance"
     assert len(markdown.encode("utf-8")) <= 16_384
-    assert len(json.dumps(receipt).encode("utf-8")) <= 8_192
+    assert len(json.dumps(data).encode("utf-8")) <= 8_192
 
 
 @pytest.mark.django_db(transaction=True)
@@ -621,10 +675,11 @@ def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> No
     assert result.is_error is True
     assert result.structured_content["status"] == "error"
     assert result.structured_content["data"]["readiness"] == "incomplete"
-    assert result.structured_content["data"]["authority"]["kind"] == "project-operating-contract"
-    assert result.structured_content["data"]["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
-    assert result.structured_content["data"]["coverage"]["status"] == "partial"
-    assert result.structured_content["data"]["stop_condition"] == "resolve-context-gaps"
+    receipt = result.structured_content["data"]["receipt"]
+    assert receipt["authority"]["kind"] == "project-operating-contract"
+    assert receipt["diagnostics"][0]["code"] == "mandatory_contract_unconfigured"
+    assert receipt["coverage"]["status"] == "partial"
+    assert receipt["stop_condition"] == "resolve-context-gaps"
     assert "Readiness: **incomplete**" in result.content[0].text
 
 
@@ -649,6 +704,53 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert result.structured_content["data"]["failure_count"] == 0
     assert result.structured_content["data"]["advisory_count"] == 0
     assert "Status: **healthy**" in result.content[0].text
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_complete_project_insights_with_bounded_pages_available(tmp_path: Path) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text(
+        "class ExampleApplication:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    overview, page = asyncio.run(PublicMcpClient(PublicCompositeApplication()).project_insights(tmp_path))
+    data = overview.structured_content["data"]
+
+    assert overview.is_error is False
+    assert overview.structured_content["status"] == "ok"
+    assert data["reports"]
+    assert data["sections"]
+    assert all("metadata" in report for report in data["reports"])
+    assert all(set(section) == {"path", "total"} for section in data["sections"])
+    assert page.is_error is False
+    assert page.structured_content["data"]["revision"] == data["revision"]
+    assert page.structured_content["data"]["path"] == data["sections"][0]["path"]
+    assert len(page.structured_content["data"]["items"]) == 1
+    assert len(overview.content[0].text.encode("utf-8")) <= 16_384
+    assert len(json.dumps(overview.structured_content).encode("utf-8")) <= 8_192
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_bounded_configuration_content_from_a_siren_action(tmp_path: Path) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text(
+        "class ExampleApplication:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    configuration, content = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).project_configuration_content(tmp_path)
+    )
+
+    actions = {action["name"] for action in configuration.structured_content["data"]["actions"]}
+    assert "read_project_architecture_configuration_content" in actions
+    assert content.is_error is False
+    assert content.structured_content["status"] == "ok"
+    assert content.structured_content["data"]["content"] == EXAMPLE_BOUNDARIES_YAML[:12]
+    assert content.structured_content["data"]["next_offset"] == 12
+    assert len(content.content[0].text.encode("utf-8")) <= 16_384
+    assert len(json.dumps(content.structured_content).encode("utf-8")) <= 8_192
 
 
 def test_serves_rest_and_mcp_from_the_composite_application() -> None:

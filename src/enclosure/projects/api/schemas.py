@@ -3,16 +3,23 @@ from typing import Annotated, Literal
 from ninja import Schema
 from pydantic import Field, JsonValue
 
-from ..services.health.model import GuidanceRelationshipKind, GuidanceRequirement
-from ..services.stack import DetectedStack, DiscoveredProject
-from ..services.workspaces import WorkspaceState
-
 ProjectId = Annotated[str, Field(description="Project identifier.")]
 WorkspaceId = Annotated[str, Field(description="Workspace-binding identifier.")]
 
 
 class DiscoverProject(Schema):
     root: str = Field(description="Absolute path to the project directory.")
+
+
+class DetectedStack(Schema):
+    language: str = Field(description="Detected programming-language identifier.")
+    language_version: str = Field(description="Detected programming-language version, when available.")
+    package_manager: str = Field(description="Detected package-manager identifier.")
+
+
+class DiscoveredProject(Schema):
+    root: str = Field(description="Absolute path to the project directory.")
+    stack: DetectedStack = Field(description="Technology stack detected in the project directory.")
 
 
 class FindProjectByRoot(Schema):
@@ -53,7 +60,7 @@ class WorkspaceContextDiagnostic(Schema):
 class ReceiptItem(Schema):
     record_id: str = Field(description="Durable guidance record identifier for get_record follow-up.")
     title: str = Field(description="Guidance title.")
-    requirement: GuidanceRequirement = Field(
+    requirement: Literal["mandatory", "supplemental"] = Field(
         description="Whether the item is contract-mandated or routed supplemental guidance."
     )
     reason: Literal["operating-contract", "task-applicable", "project-default"] = Field(
@@ -128,7 +135,9 @@ class ReplaceGuidanceScopes(Schema):
 class GuidanceRelationshipInput(Schema):
     source_record_id: str = Field(description="Guidance record at the relationship source.")
     target_record_id: str = Field(description="Guidance record at the relationship target.")
-    kind: GuidanceRelationshipKind = Field(description="Typed guidance-graph relationship.")
+    kind: Literal["prerequisite", "containment", "refinement", "escalation"] = Field(
+        description="Typed guidance-graph relationship."
+    )
 
 
 class GuidanceRelationship(GuidanceRelationshipInput):
@@ -273,7 +282,9 @@ class WorkspaceBinding(WriteWorkspaceBinding):
 
 class WorkspaceStatus(Schema):
     workspace: WorkspaceBinding = Field(description="Inspected local workspace binding.")
-    state: WorkspaceState = Field(description="Availability derived from the local filesystem.")
+    state: Literal["available", "missing_root", "missing_architecture_root"] = Field(
+        description="Availability derived from the local filesystem."
+    )
 
 
 class WorkspaceResolution(Schema):
@@ -284,6 +295,7 @@ class WorkspaceResolution(Schema):
 class ProjectArchitectureConfigurationReference(Schema):
     id: str = Field(description="Architecture configuration identifier within the project.")
     project_id: ProjectId
+    revision: str = Field(description="Deterministic revision of the architecture configuration.")
 
 
 class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference):
@@ -291,10 +303,96 @@ class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
 
 
+class ReadArchitectureConfigurationContent(Schema):
+    document: Literal["boundaries_yaml", "shape_yaml"] = Field(
+        description="Architecture configuration document to read."
+    )
+    expected_revision: str = Field(description="Configuration revision on which this read is based.")
+    offset: int = Field(description="Character offset at which the bounded read starts.")
+    limit: int = Field(description="Maximum characters returned by the bounded read.")
+
+
+class ArchitectureConfigurationContent(Schema):
+    project_id: ProjectId
+    configuration_id: str = Field(description="Architecture configuration identifier within the project.")
+    revision: str = Field(description="Deterministic revision of the architecture configuration.")
+    document: Literal["boundaries_yaml", "shape_yaml"] = Field(
+        description="Architecture configuration document that was read."
+    )
+    offset: int = Field(description="Character offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
+    total_characters: int = Field(description="Total characters in the selected document.", ge=0)
+    content: str = Field(description="Bounded configuration content.")
+    has_more: bool = Field(description="Whether another bounded page remains.")
+    next_offset: int = Field(description="Character offset for the next read.", ge=0)
+
+
+class HealthFinding(Schema):
+    rule: str = Field(description="Rule that produced the finding.")
+    target: str = Field(description="Project area affected by the finding.")
+    message: str = Field(description="Actionable explanation of the finding.")
+    related_ids: tuple[str, ...] = Field(description="Stable identifiers related to the finding.")
+    remediation: str = Field(description="Remediation category supplied by the owning health rule.")
+    next_action: str = Field(description="Deterministic remediation instruction.")
+
+
+class HealthReportSummary(Schema):
+    id: str = Field(description="Stable health-report identifier.")
+    title: str = Field(description="Human-readable health-report title.")
+    failure_count: int = Field(description="Number of gating failures.", ge=0)
+    advisory_count: int = Field(description="Number of advisory findings.", ge=0)
+
+
 class HealthReport(Schema):
+    outcome: Literal["healthy", "advisory", "gating-failure"] = Field(description="Overall health outcome.")
     healthy: bool = Field(description="Whether all gating architecture and guidance rules pass.")
-    reports: tuple[dict[str, JsonValue], ...] = Field(description="Architecture and guidance health results.")
+    reports: tuple[HealthReportSummary, ...] = Field(description="Compact architecture and guidance report summaries.")
+    failure_count: int = Field(description="Total gating failures.", ge=0)
+    advisory_count: int = Field(description="Total advisory findings.", ge=0)
+    targets: tuple[str, ...] = Field(description="Distinct project areas affected by findings.")
+    next_actions: tuple[str, ...] = Field(description="Distinct deterministic remediation instructions.")
+    failures: tuple[HealthFinding, ...] = Field(description="Normalized gating findings.")
+    advisories: tuple[HealthFinding, ...] = Field(description="Normalized advisory findings.")
+
+
+class InsightSection(Schema):
+    path: str = Field(description="Absolute JSON pointer for a bounded page operation.")
+    total: int = Field(description="Number of items available at this path.", ge=0)
+
+
+class InsightFinding(Schema):
+    kind: Literal["hotspot", "cluster"] = Field(description="Kind of high-pressure architecture finding.")
+    area: str = Field(description="Source file or cluster affected by the finding.")
+    pressure_score: float = Field(description="Relative architecture pressure score.")
+    incoming_count: int = Field(description="Incoming dependency count.", ge=0)
+    outgoing_count: int = Field(description="Outgoing dependency count.", ge=0)
 
 
 class InsightsReport(Schema):
-    reports: tuple[dict[str, JsonValue], ...] = Field(description="Results from non-gating architecture rules.")
+    project_id: ProjectId
+    workspace_id: WorkspaceId
+    revision: str = Field(description="Deterministic revision of the complete insights report.")
+    reports: tuple[dict[str, JsonValue], ...] = Field(description="Complete non-gating architecture reports.")
+    sections: tuple[InsightSection, ...] = Field(description="Collections available through bounded page reads.")
+    affected_areas: tuple[str, ...] = Field(description="Distinct areas represented by the highest-priority findings.")
+    top_findings: tuple[InsightFinding, ...] = Field(description="Highest-priority architecture findings.")
+
+
+class ReadInsightPage(Schema):
+    path: str = Field(description="Absolute JSON pointer identifying an insight collection.", pattern=r"/")
+    expected_revision: str = Field(description="Insights revision on which this read is based.")
+    offset: int = Field(description="Item offset at which the bounded page starts.")
+    limit: int = Field(description="Maximum items returned by the bounded page.")
+
+
+class InsightPage(Schema):
+    project_id: ProjectId
+    workspace_id: WorkspaceId
+    revision: str = Field(description="Deterministic revision of the complete insights report.")
+    path: str = Field(description="Absolute JSON pointer identifying the paged insight collection.")
+    offset: int = Field(description="Item offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1)
+    total: int = Field(description="Total items in the selected collection.", ge=0)
+    items: tuple[JsonValue, ...] = Field(description="Bounded projected insight items.")
+    has_more: bool = Field(description="Whether another page remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)

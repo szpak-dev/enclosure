@@ -1,37 +1,4 @@
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{% set items = [] %}
-{% set follow_ups = [] %}
-{% for item in properties.receipt["items"] %}
-{% do items.append({
-  "record_id": item.record_id,
-  "title": item.title,
-  "requirement": item.requirement,
-  "reason": item.reason,
-  "explanation": item.explanation,
-  "authority": item.authority,
-  "revision": item.revision,
-  "checks": item.checks
-}) %}
-{% do follow_ups.append({"operation_id": "get_record", "arguments": {"record_id": item.record_id}}) %}
-{% endfor %}
-{% set data = {
-  "project_id": properties.project_id,
-  "root": properties.root,
-  "readiness": properties.readiness,
-  "authority": properties.receipt.authority,
-  "bootstrap": {
-    "uri": bootstrap.uri,
-    "release": bootstrap.release,
-    "revision": bootstrap.revision
-  },
-  "items": items,
-  "required_checks": properties.receipt.required_checks,
-  "budget": properties.receipt.budget,
-  "coverage": properties.receipt.coverage,
-  "omissions": properties.receipt.omissions,
-  "diagnostics": properties.receipt.diagnostics,
-  "stop_condition": properties.receipt.stop_condition
-} %}
-{% set status = "ok" if properties.readiness == "ready" else "error" %}
-{% set summary = "Workspace context is ready." if properties.readiness == "ready" else "Workspace context is incomplete." %}
-{{ envelope(operation_id, status, summary, data, follow_ups) }}
+{% set status = "ok" if data.readiness == "ready" else "error" %}
+{% set summary = "Workspace context is ready." if data.readiness == "ready" else "Workspace context is incomplete." %}
+{{ envelope(operation_id, status, summary, data, []) }}

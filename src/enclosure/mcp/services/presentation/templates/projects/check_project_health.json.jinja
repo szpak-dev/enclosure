@@ -1,42 +1,4 @@
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{% set counts = namespace(failures=0, advisories=0) %}
-{% set targets = [] %}
-{% set actions = [] %}
-{% for report in properties.reports %}
-{% set counts.failures = counts.failures + (report.violations | length) %}
-{% set counts.advisories = counts.advisories + (report.advisories | default([]) | length) %}
-{% for finding in report.violations %}
-{% set target = finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") %}
-{% if target not in targets %}{% do targets.append(target) %}{% endif %}
-{% set action = "Review " ~ target ~ " against " ~ (finding.rule if finding.rule is defined else finding.rule_name) ~ "." %}
-{% if action not in actions %}{% do actions.append(action) %}{% endif %}
-{% endfor %}
-{% for finding in report.advisories | default([]) %}
-{% set target = finding.source_id if finding.source_id is defined else finding.path | default([report.metadata.id]) | join(" → ") %}
-{% if target not in targets %}{% do targets.append(target) %}{% endif %}
-{% set action = "Review " ~ target ~ " against " ~ (finding.rule if finding.rule is defined else finding.rule_name) ~ "." %}
-{% if action not in actions %}{% do actions.append(action) %}{% endif %}
-{% endfor %}
-{% endfor %}
-{% set outcome = "gating-failure" if not properties.healthy else "advisory" if counts.advisories else "healthy" %}
-{% set reports = [] %}
-{% for report in properties.reports %}
-{% do reports.append({
-  "id": report.metadata.id,
-  "title": report.metadata.title,
-  "failure_count": report.violations | length,
-  "advisory_count": report.advisories | default([]) | length
-}) %}
-{% endfor %}
-{% set data = {
-  "outcome": outcome,
-  "healthy": properties.healthy,
-  "reports": reports,
-  "failure_count": counts.failures,
-  "advisory_count": counts.advisories,
-  "targets": targets,
-  "next_actions": actions
-} %}
-{% set status = "error" if not properties.healthy else "ok" %}
-{% set summary = "Project health has gating failures." if not properties.healthy else "Project health checks passed." %}
+{% set status = "error" if not data.healthy else "ok" %}
+{% set summary = "Project health has gating failures." if not data.healthy else "Project health checks passed." %}
 {{ envelope(operation_id, status, summary, data, []) }}
