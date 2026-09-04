@@ -1,3 +1,4 @@
+{% from "shared/partials/envelope.json.jinja" import envelope with context %}
 {% set counts = namespace(failures=0, advisories=0) %}
 {% set targets = [] %}
 {% set actions = [] %}
@@ -17,24 +18,25 @@
 {% if action not in actions %}{% do actions.append(action) %}{% endif %}
 {% endfor %}
 {% endfor %}
-{% set status = "gating-failure" if not properties.healthy else "advisory" if counts.advisories else "healthy" %}
-{
-  "is_error": {{ (not properties.healthy) | tojson }},
-  "structured_content": {
-    "operation_id": "check_project_health",
-    "status": {{ status | tojson }},
-    "healthy": {{ properties.healthy | tojson }},
-    "reports": [
-      {% for report in properties.reports %}{
-        "id": {{ report.metadata.id | tojson }},
-        "title": {{ report.metadata.title | tojson }},
-        "failure_count": {{ report.violations | length }},
-        "advisory_count": {{ report.advisories | default([]) | length }}
-      }{% if not loop.last %},{% endif %}{% endfor %}
-    ],
-    "failure_count": {{ counts.failures }},
-    "advisory_count": {{ counts.advisories }},
-    "targets": {{ targets | tojson }},
-    "next_actions": {{ actions | tojson }}
-  }
-}
+{% set outcome = "gating-failure" if not properties.healthy else "advisory" if counts.advisories else "healthy" %}
+{% set reports = [] %}
+{% for report in properties.reports %}
+{% do reports.append({
+  "id": report.metadata.id,
+  "title": report.metadata.title,
+  "failure_count": report.violations | length,
+  "advisory_count": report.advisories | default([]) | length
+}) %}
+{% endfor %}
+{% set data = {
+  "outcome": outcome,
+  "healthy": properties.healthy,
+  "reports": reports,
+  "failure_count": counts.failures,
+  "advisory_count": counts.advisories,
+  "targets": targets,
+  "next_actions": actions
+} %}
+{% set status = "error" if not properties.healthy else "ok" %}
+{% set summary = "Project health has gating failures." if not properties.healthy else "Project health checks passed." %}
+{{ envelope(operation_id, status, summary, data, []) }}

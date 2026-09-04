@@ -1,0 +1,9 @@
+{% macro envelope(operation_id, status, summary, data, follow_ups) -%}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": {{ status | tojson }},
+  "summary": {{ summary | tojson }},
+  "data": {{ data | tojson }},
+  "follow_ups": {{ follow_ups | tojson }}
+}
+{%- endmacro %}

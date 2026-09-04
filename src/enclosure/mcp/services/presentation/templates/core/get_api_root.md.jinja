@@ -1,0 +1,10 @@
+{% from "shared/partials/collection.md.jinja" import references with context %}
+{% set entry_points = [] %}
+{% for link in document.links if "self" not in link.rel %}
+{% do entry_points.append({"title": link.title, "href": link.href}) %}
+{% endfor %}
+# {{ properties.title }}
+
+Version: `{{ properties.version }}`
+
+{{ references("Entry points", entry_points) }}

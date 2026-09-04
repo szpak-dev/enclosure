@@ -1,0 +1,7 @@
+{% macro receipt(title, status, summary) -%}
+# {{ title }}
+
+Status: **{{ status }}**
+
+{{ summary }}
+{%- endmacro %}
