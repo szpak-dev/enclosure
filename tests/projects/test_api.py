@@ -200,13 +200,21 @@ def test_registers_discovered_project(
 
     assert response.status_code == 201
     assert response.json() == {
-        "id": response.json()["id"],
-        "root": str(tmp_path),
-        "architecture_root": str(tmp_path),
-        "language_id": "python",
-        "language_version": "",
-        "package_manager_id": "uv",
-        "scaffolding_id": dependencies["scaffolding_id"],
+        "project": {
+            "id": response.json()["project"]["id"],
+            "title": tmp_path.name,
+            "language_id": "python",
+            "language_version": "",
+            "package_manager_id": "uv",
+            "scaffolding_id": dependencies["scaffolding_id"],
+        },
+        "workspace": {
+            "id": response.json()["workspace"]["id"],
+            "project_id": response.json()["project"]["id"],
+            "root": str(tmp_path),
+            "architecture_root": str(tmp_path),
+            "revision": 1,
+        },
     }
 
 
@@ -272,7 +280,7 @@ def test_publishes_and_binds_versioned_operating_contract(
     payload["record_ids"] = []
     project_response = client.post("/api/projects", data=payload, content_type="application/json")
     assert project_response.status_code == 201
-    project = project_response.json()
+    project = project_response.json()["project"]
 
     unconfigured = client.get(f"/api/projects/{project['id']}/operating-contract-binding")
     assert unconfigured.status_code == 409
@@ -343,6 +351,8 @@ def test_lists_and_fetches_registered_projects(
         content_type="application/json",
     )
     assert created.status_code == 201
+    resolution = created.json()
+    project = resolution["project"]
 
     listed = client.get("/api/projects")
     found = client.post(
@@ -350,14 +360,188 @@ def test_lists_and_fetches_registered_projects(
         data={"root": str(tmp_path)},
         content_type="application/json",
     )
-    fetched = client.get(f"/api/projects/{created.json()['id']}")
+    resolved = client.post(
+        "/api/projects/workspace-resolutions",
+        data={"root": str(tmp_path)},
+        content_type="application/json",
+    )
+    fetched = client.get(f"/api/projects/{project['id']}")
 
     assert listed.status_code == 200
-    assert listed.json() == [{"id": created.json()["id"], "root": str(tmp_path)}]
+    assert listed.json() == [{"id": project["id"], "title": project["title"]}]
     assert found.status_code == 200
-    assert found.json() == {"id": created.json()["id"], "root": str(tmp_path)}
+    assert found.json() == project
+    assert resolved.status_code == 200
+    assert resolved.json() == resolution
     assert fetched.status_code == 200
-    assert fetched.json() == created.json()
+    assert fetched.json() == project
+
+
+@pytest.mark.django_db
+def test_binds_multiple_worktrees_and_uses_the_selected_workspace(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    main = tmp_path / "main"
+    feature = tmp_path / "feature"
+    main.mkdir()
+    feature.mkdir()
+    python_project(main)
+    python_project(feature)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, main), dependencies),
+        content_type="application/json",
+    ).json()
+    project = resolution["project"]
+
+    bound = client.post(
+        f"/api/projects/{project['id']}/workspaces",
+        data={"root": str(feature), "architecture_root": str(feature)},
+        content_type="application/json",
+    )
+    resolved = client.post(
+        "/api/projects/workspace-resolutions",
+        data={"root": str(feature)},
+        content_type="application/json",
+    )
+    generated = client.post(
+        f"/api/projects/{project['id']}/workspaces/{bound.json()['id']}/source-generations",
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+    workspaces = client.get(f"/api/projects/{project['id']}/workspaces")
+    fetched = client.get(f"/api/projects/{project['id']}/workspaces/{bound.json()['id']}")
+    deleted = client.delete(
+        f"/api/projects/{project['id']}/workspaces/{bound.json()['id']}",
+        data={"expected_revision": 1},
+        content_type="application/json",
+    )
+
+    assert bound.status_code == 201
+    assert bound.json() == {
+        "id": bound.json()["id"],
+        "project_id": project["id"],
+        "root": str(feature),
+        "architecture_root": str(feature),
+        "revision": 1,
+    }
+    assert resolved.status_code == 200
+    assert resolved.json() == {"project": project, "workspace": bound.json()}
+    assert workspaces.json() == [
+        bound.json(),
+        resolution["workspace"],
+    ]
+    assert fetched.json() == bound.json()
+    assert generated.status_code == 200
+    assert (feature / "generated" / "src" / "package" / "__init__.py").is_file()
+    assert not (main / "generated").exists()
+    assert deleted.status_code == 204
+    assert client.get(f"/api/projects/{project['id']}/workspaces").json() == [resolution["workspace"]]
+
+
+@pytest.mark.django_db
+def test_rebinds_a_moved_workspace_without_changing_project_identity_or_title(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    original = tmp_path / "original-checkout"
+    relocated = tmp_path / "relocated-checkout"
+    original.mkdir()
+    python_project(original)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, original), dependencies),
+        content_type="application/json",
+    ).json()
+    project = resolution["project"]
+    workspace = resolution["workspace"]
+    original.rename(relocated)
+
+    stale = client.get(f"/api/projects/{project['id']}/workspaces/{workspace['id']}/status")
+    replaced = client.put(
+        f"/api/projects/{project['id']}/workspaces/{workspace['id']}",
+        data={
+            "root": str(relocated),
+            "architecture_root": str(relocated),
+            "expected_revision": 1,
+        },
+        content_type="application/json",
+    )
+    conflicted = client.put(
+        f"/api/projects/{project['id']}/workspaces/{workspace['id']}",
+        data={
+            "root": str(original),
+            "architecture_root": str(original),
+            "expected_revision": 1,
+        },
+        content_type="application/json",
+    )
+    resolved = client.post(
+        "/api/projects/workspace-resolutions",
+        data={"root": str(relocated)},
+        content_type="application/json",
+    )
+    context = client.post(
+        "/api/projects/workspace-contexts",
+        data={"root": str(relocated), "task": "Continue after moving the checkout"},
+        content_type="application/json",
+    )
+
+    assert stale.status_code == 200
+    assert stale.json()["state"] == "missing_root"
+    assert replaced.status_code == 200
+    assert replaced.json() == {
+        **workspace,
+        "root": str(relocated),
+        "architecture_root": str(relocated),
+        "revision": 2,
+    }
+    assert conflicted.status_code == 422
+    assert conflicted.json() == {
+        "detail": f"Workspace {workspace['id']!r} revision conflict: expected 1, current revision is 2."
+    }
+    assert resolved.json() == {"project": project, "workspace": replaced.json()}
+    assert resolved.json()["project"]["title"] == "original-checkout"
+    assert context.status_code == 200
+    assert context.json()["project_id"] == project["id"]
+    assert context.json()["guidance"][0]["id"] == dependencies["record_id"]
+
+
+@pytest.mark.django_db
+def test_rejects_a_workspace_root_already_bound_to_another_project(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    python_project(first_root)
+    python_project(second_root)
+    first = client.post(
+        "/api/projects",
+        data=registration(discover(client, first_root), dependencies),
+        content_type="application/json",
+    ).json()
+    second = client.post(
+        "/api/projects",
+        data=registration(discover(client, second_root), dependencies),
+        content_type="application/json",
+    ).json()
+
+    conflict = client.post(
+        f"/api/projects/{second['project']['id']}/workspaces",
+        data={"root": str(first_root), "architecture_root": str(first_root)},
+        content_type="application/json",
+    )
+
+    assert first["project"]["id"] != second["project"]["id"]
+    assert conflict.status_code == 422
+    assert conflict.json() == {"detail": f"Workspace root is already bound: {first_root}"}
 
 
 @pytest.mark.django_db
@@ -371,7 +555,7 @@ def test_gets_ready_workspace_context_from_linked_records(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
-    ).json()
+    ).json()["project"]
 
     response = client.post(
         "/api/projects/workspace-contexts",
@@ -521,7 +705,7 @@ def test_routes_scoped_guidance_for_representative_tasks(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
-    ).json()
+    ).json()["project"]
     replaced = client.put(
         f"/api/projects/{project['id']}/guidance-scopes",
         data={"record_ids": [universal.json()["id"], database.json()["id"], python.json()["id"]]},
@@ -602,7 +786,7 @@ def test_routes_optional_guidance_by_fallback_order_within_budget(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
-    ).json()
+    ).json()["project"]
     scoped = client.put(
         f"/api/projects/{project['id']}/guidance-scopes",
         data={"record_ids": [first.json()["id"], second.json()["id"]]},
@@ -740,12 +924,14 @@ def test_reports_conflicting_guidance_authority(
         data={"root": str(tmp_path), "task": "Change project source safely"},
         content_type="application/json",
     )
-    project = client.post(
-        "/api/projects/root-search-results",
+    resolution = client.post(
+        "/api/projects/workspace-resolutions",
         data={"root": str(tmp_path)},
         content_type="application/json",
     ).json()
-    health = client.get(f"/api/projects/{project['id']}/health-violations")
+    project = resolution["project"]
+    workspace = resolution["workspace"]
+    health = client.get(f"/api/projects/{project['id']}/workspaces/{workspace['id']}/health-violations")
 
     assert response.status_code == 200
     assert response.json()["readiness"] == "conflicted"
@@ -824,33 +1010,34 @@ def test_updates_registered_project(
     payload = registration(discover(client, tmp_path), dependencies)
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
+    project = created.json()["project"]
 
-    payload["architecture_root"] = str(tmp_path / "src")
-    payload["shape_yaml"] = UNHEALTHY_SHAPE_YAML
+    update = {
+        "title": "Renamed project",
+        "stack": payload["discovery"]["stack"],
+        "boundaries_yaml": payload["boundaries_yaml"],
+        "shape_yaml": UNHEALTHY_SHAPE_YAML,
+        "scaffolding_id": payload["scaffolding_id"],
+    }
     updated = client.put(
-        f"/api/projects/{created.json()['id']}",
-        data=payload,
+        f"/api/projects/{project['id']}",
+        data=update,
         content_type="application/json",
     )
 
     assert updated.status_code == 200
-    assert updated.json() == {
-        **created.json(),
-        "architecture_root": str(tmp_path / "src"),
-    }
-    assert client.get(f"/api/projects/{created.json()['id']}").json() == updated.json()
-    configurations = client.get(f"/api/projects/{created.json()['id']}/architecture-configurations")
+    assert updated.json() == {**project, "title": "Renamed project"}
+    assert client.get(f"/api/projects/{project['id']}").json() == updated.json()
+    configurations = client.get(f"/api/projects/{project['id']}/architecture-configurations")
     assert configurations.status_code == 200
     references = configurations.json()
     assert len(references) == 1
-    assert references[0]["project_id"] == created.json()["id"]
-    configuration = client.get(
-        f"/api/projects/{created.json()['id']}/architecture-configurations/{references[0]['id']}"
-    )
+    assert references[0]["project_id"] == project["id"]
+    configuration = client.get(f"/api/projects/{project['id']}/architecture-configurations/{references[0]['id']}")
     assert configuration.status_code == 200
     assert configuration.json() == {
         "id": references[0]["id"],
-        "project_id": created.json()["id"],
+        "project_id": project["id"],
         "boundaries_yaml": BOUNDARIES_YAML,
         "shape_yaml": UNHEALTHY_SHAPE_YAML,
     }
@@ -863,7 +1050,7 @@ def test_generates_project_source_from_associated_scaffolding(
     tmp_path: Path,
 ) -> None:
     python_project(tmp_path)
-    created = client.post(
+    resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
@@ -873,7 +1060,7 @@ def test_generates_project_source_from_associated_scaffolding(
     target.write_text("existing", encoding="utf-8")
 
     response = client.post(
-        f"/api/projects/{created['id']}/source-generations",
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/source-generations",
         data={"destination": "generated", "parameters": {}},
         content_type="application/json",
     )
@@ -898,7 +1085,7 @@ def test_generation_respects_create_if_missing(
         content_type="application/json",
     )
     assert updated.status_code == 200
-    created = client.post(
+    resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
@@ -908,7 +1095,7 @@ def test_generation_respects_create_if_missing(
     target.write_text("existing", encoding="utf-8")
 
     response = client.post(
-        f"/api/projects/{created['id']}/source-generations",
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/source-generations",
         data={"destination": "generated", "parameters": {}},
         content_type="application/json",
     )
@@ -925,7 +1112,7 @@ def test_generation_rejects_destination_outside_project_root(
     tmp_path: Path,
 ) -> None:
     python_project(tmp_path)
-    created = client.post(
+    resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
@@ -933,7 +1120,7 @@ def test_generation_rejects_destination_outside_project_root(
     outside = tmp_path.parent / f"{tmp_path.name}-outside"
 
     response = client.post(
-        f"/api/projects/{created['id']}/source-generations",
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/source-generations",
         data={"destination": f"../{outside.name}", "parameters": {}},
         content_type="application/json",
     )
@@ -961,7 +1148,13 @@ def test_update_project_returns_not_found(
 
     response = client.put(
         "/api/projects/missing",
-        data=registration(discover(client, tmp_path), dependencies),
+        data={
+            "title": "Missing project",
+            "stack": discover(client, tmp_path)["stack"],
+            "boundaries_yaml": BOUNDARIES_YAML,
+            "shape_yaml": HEALTHY_SHAPE_YAML,
+            "scaffolding_id": dependencies["scaffolding_id"],
+        },
         content_type="application/json",
     )
 
@@ -1040,7 +1233,7 @@ def test_registration_rejects_duplicate_project_root(
     duplicate = client.post("/api/projects", data=payload, content_type="application/json")
 
     assert duplicate.status_code == 422
-    assert duplicate.json() == {"detail": "A project with this root already exists."}
+    assert duplicate.json() == {"detail": f"Workspace root is already bound: {tmp_path}"}
 
 
 @pytest.mark.django_db
@@ -1072,8 +1265,11 @@ def test_health_contains_only_gating_reports(
     payload = registration(discover(client, tmp_path), dependencies)
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
+    resolution = created.json()
 
-    response = client.get(f"/api/projects/{created.json()['id']}/health-violations")
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
 
     assert response.status_code == 200
     assert response.json()["healthy"] is True
@@ -1115,11 +1311,13 @@ def test_health_reports_malformed_guidance_graph_and_blocks_ready_context(
         content_type="application/json",
     ).json()
     python_project(tmp_path)
-    project = client.post(
+    resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    project = resolution["project"]
+    workspace = resolution["workspace"]
     scoped = client.put(
         f"/api/projects/{project['id']}/guidance-scopes",
         data={"record_ids": [supplemental["id"]]},
@@ -1149,7 +1347,7 @@ def test_health_reports_malformed_guidance_graph_and_blocks_ready_context(
         content_type="application/json",
     )
 
-    health = client.get(f"/api/projects/{project['id']}/health-violations")
+    health = client.get(f"/api/projects/{project['id']}/workspaces/{workspace['id']}/health-violations")
     context = client.post(
         "/api/projects/workspace-contexts",
         data={"root": str(tmp_path), "task": "Change Python typing"},
@@ -1198,18 +1396,20 @@ def test_health_keeps_unreachable_oversized_optional_guidance_advisory(
         content_type="application/json",
     ).json()
     python_project(tmp_path)
-    project = client.post(
+    resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    project = resolution["project"]
+    workspace = resolution["workspace"]
     client.put(
         f"/api/projects/{project['id']}/guidance-scopes",
         data={"record_ids": [optional["id"]]},
         content_type="application/json",
     )
 
-    response = client.get(f"/api/projects/{project['id']}/health-violations")
+    response = client.get(f"/api/projects/{project['id']}/workspaces/{workspace['id']}/health-violations")
 
     guidance_report = next(
         report for report in response.json()["reports"] if report["metadata"]["id"] == "guidance-graph"
@@ -1241,13 +1441,15 @@ def test_health_blocks_oversized_required_guidance(
         content_type="application/json",
     )
     python_project(tmp_path)
-    project = client.post(
+    resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    project = resolution["project"]
+    workspace = resolution["workspace"]
 
-    health = client.get(f"/api/projects/{project['id']}/health-violations")
+    health = client.get(f"/api/projects/{project['id']}/workspaces/{workspace['id']}/health-violations")
     context = client.post(
         "/api/projects/workspace-contexts",
         data={"root": str(tmp_path), "task": "Change project source safely"},
@@ -1277,8 +1479,11 @@ def test_health_fails_when_architecture_has_a_shape_violation(
     )
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
+    resolution = created.json()
 
-    response = client.get(f"/api/projects/{created.json()['id']}/health-violations")
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
 
     assert response.status_code == 200
     assert response.json()["healthy"] is False
@@ -1295,8 +1500,11 @@ def test_insights_contains_only_non_gating_reports(
     payload = registration(discover(client, tmp_path), dependencies)
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
+    resolution = created.json()
 
-    response = client.get(f"/api/projects/{created.json()['id']}/insights")
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/insights"
+    )
 
     assert response.status_code == 200
     assert response.json()["reports"]
@@ -1306,7 +1514,7 @@ def test_insights_contains_only_non_gating_reports(
 @pytest.mark.django_db
 @pytest.mark.parametrize("report", ["health-violations", "insights"])
 def test_reports_return_not_found_for_missing_project(client: Client, report: str) -> None:
-    response = client.get(f"/api/projects/missing/{report}")
+    response = client.get(f"/api/projects/missing/workspaces/missing-workspace/{report}")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Resource not found."}

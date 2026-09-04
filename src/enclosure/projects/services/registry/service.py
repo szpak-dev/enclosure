@@ -19,9 +19,6 @@ class RegistryService:
     def get(self, project_id: str) -> Project:
         return self._project(self.repository.get(project_id))
 
-    def get_by_root(self, root: str) -> Project:
-        return self._project(self.repository.get_by_root(root))
-
     def find_architecture_configurations(
         self,
         project_id: str,
@@ -61,8 +58,7 @@ class RegistryService:
     def _project(self, project: models.Project) -> Project:
         return Project(
             id=project.id,
-            root=project.root,
-            architecture_root=project.architecture_root,
+            title=project.title,
             language_id=project.language_id,
             language_version=project.language_version,
             package_manager_id=project.package_manager_id,

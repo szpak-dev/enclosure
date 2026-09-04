@@ -1,11 +1,13 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from django.db import transaction
 from pydantic import JsonValue
 from wireup import injectable
 
+from ..errors import ProjectsError
 from .adapters import ScaffoldingsAdapter
 from .context.model import WorkspaceContext
 from .context.service import WorkspaceContextService
@@ -27,7 +29,14 @@ from .reports import HealthReport, InsightsReport, ReportsService
 from .reports.adapters import ArchitectureAdapter
 from .routing.model import GuidanceScope
 from .routing.service import WorkspaceRoutingService
-from .stack import DiscoveredProject, StackDetector
+from .stack import DetectedStack, DiscoveredProject, StackDetector
+from .workspaces import (
+    WorkspaceBinding,
+    WorkspaceLocation,
+    WorkspaceResolution,
+    WorkspaceService,
+    WorkspaceStatus,
+)
 
 
 @injectable
@@ -44,6 +53,7 @@ class ProjectsService:
     reports: ReportsService
     registry: RegistryService
     routing: WorkspaceRoutingService
+    workspaces: WorkspaceService
 
     def discover_project(self, root: str) -> DiscoveredProject:
         stack = self.stack.detect(root)
@@ -53,7 +63,10 @@ class ProjectsService:
         return self.registry.find_all()
 
     def find_project_by_root(self, root: str) -> Project:
-        return self.registry.get_by_root(root)
+        return self.resolve_workspace(root).project
+
+    def resolve_workspace(self, root: str) -> WorkspaceResolution:
+        return self.workspaces.resolve(root)
 
     def get_project(self, project_id: str) -> Project:
         return self.registry.get(project_id)
@@ -71,12 +84,45 @@ class ProjectsService:
     ) -> ArchitectureConfiguration:
         return self.registry.get_architecture_configuration(project_id, configuration_id)
 
+    def find_workspaces(self, project_id: str) -> tuple[WorkspaceBinding, ...]:
+        return self.workspaces.find(project_id)
+
+    def get_workspace(self, project_id: str, workspace_id: str) -> WorkspaceBinding:
+        return self.workspaces.get(project_id, workspace_id)
+
+    def bind_workspace(self, project_id: str, root: str, architecture_root: str) -> WorkspaceBinding:
+        return self.workspaces.bind(
+            project_id,
+            WorkspaceLocation(root=root, architecture_root=architecture_root),
+        )
+
+    def replace_workspace(
+        self,
+        project_id: str,
+        workspace_id: str,
+        root: str,
+        architecture_root: str,
+        expected_revision: int,
+    ) -> WorkspaceBinding:
+        return self.workspaces.replace(
+            project_id,
+            workspace_id,
+            WorkspaceLocation(root=root, architecture_root=architecture_root),
+            expected_revision,
+        )
+
+    def inspect_workspace(self, project_id: str, workspace_id: str) -> WorkspaceStatus:
+        return self.workspaces.inspect(project_id, workspace_id)
+
+    def delete_workspace(self, project_id: str, workspace_id: str, expected_revision: int) -> None:
+        self.workspaces.delete(project_id, workspace_id, expected_revision)
+
     def get_workspace_context(self, root: str, task: str) -> WorkspaceContext:
-        project = self.registry.get_by_root(root)
+        resolution = self.resolve_workspace(root)
         return self.context.resolve(
-            project.id,
-            project.root,
-            self.contracts.get_binding(project.id),
+            resolution.project.id,
+            resolution.workspace.root,
+            self.contracts.get_binding(resolution.project.id),
             task,
         )
 
@@ -158,10 +204,16 @@ class ProjectsService:
     def generate_source(
         self,
         project_id: str,
+        workspace_id: str,
         destination: str,
         parameters: dict[str, JsonValue],
     ) -> GenerationResult:
-        return self.generation.generate(project_id, destination, parameters)
+        return self.generation.generate(
+            self.registry.get(project_id),
+            self.workspaces.get(project_id, workspace_id),
+            destination,
+            parameters,
+        )
 
     @transaction.atomic
     def register_project(
@@ -172,55 +224,54 @@ class ProjectsService:
         shape_yaml: str,
         scaffolding_id: str,
         record_ids: list[str],
-    ) -> Project:
+    ) -> WorkspaceResolution:
         self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
         project = self.registry.register(
-            self._project_data(
-                discovery,
-                architecture_root,
-                scaffolding_id,
-            ),
+            self._project_data(self._project_title(discovery.root), discovery.stack, scaffolding_id),
             boundaries_yaml,
             shape_yaml,
         )
+        workspace = self.workspaces.bind(
+            project.id,
+            WorkspaceLocation(root=discovery.root, architecture_root=architecture_root),
+        )
         self.contracts.bootstrap(project.id, tuple(record_ids))
-        return project
+        return WorkspaceResolution(project=project, workspace=workspace)
 
     def update_project(
         self,
         project_id: str,
-        discovery: DiscoveredProject,
-        architecture_root: str,
+        title: str,
+        stack: DetectedStack,
         boundaries_yaml: str,
         shape_yaml: str,
         scaffolding_id: str,
     ) -> Project:
+        normalized_title = self._validate_title(title)
         self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
         return self.registry.update(
             project_id,
-            self._project_data(
-                discovery,
-                architecture_root,
-                scaffolding_id,
-            ),
+            self._project_data(normalized_title, stack, scaffolding_id),
             boundaries_yaml,
             shape_yaml,
         )
 
-    def check_health(self, project_id: str) -> HealthReport:
+    def check_health(self, project_id: str, workspace_id: str) -> HealthReport:
         configuration = self.registry.get_current_architecture_configuration(project_id)
         project = self.registry.get(project_id)
         return self.health.check(
             project,
+            self.workspaces.get(project_id, workspace_id),
             configuration,
             self.contracts.get_binding(project_id),
         )
 
-    def read_insights(self, project_id: str) -> InsightsReport:
+    def read_insights(self, project_id: str, workspace_id: str) -> InsightsReport:
         configuration = self.registry.get_current_architecture_configuration(project_id)
         project = self.registry.get(project_id)
+        workspace = self.workspaces.get(project_id, workspace_id)
         return self.reports.generate_insights_report(
-            project.architecture_root,
+            workspace.architecture_root,
             project.language_id,
             configuration.boundaries_yaml,
             configuration.shape_yaml,
@@ -237,15 +288,25 @@ class ProjectsService:
 
     def _project_data(
         self,
-        discovery: DiscoveredProject,
-        architecture_root: str,
+        title: str,
+        stack: DetectedStack,
         scaffolding_id: str,
     ) -> dict[str, str]:
         return {
-            "root": discovery.root,
-            "architecture_root": architecture_root,
-            "language_id": discovery.stack.language,
-            "language_version": discovery.stack.language_version,
-            "package_manager_id": discovery.stack.package_manager,
+            "title": title,
+            "language_id": stack.language,
+            "language_version": stack.language_version,
+            "package_manager_id": stack.package_manager,
             "scaffolding_id": scaffolding_id,
         }
+
+    def _project_title(self, root: str) -> str:
+        return self._validate_title(Path(root).expanduser().resolve().name)
+
+    def _validate_title(self, title: str) -> str:
+        normalized = title.strip()
+        if not normalized:
+            raise ProjectsError("Project title is required.")
+        if len(normalized) > 255:
+            raise ProjectsError("Project title must not exceed 255 characters.")
+        return normalized

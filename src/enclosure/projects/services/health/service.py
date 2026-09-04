@@ -6,6 +6,7 @@ from ..contracts.model import ConfiguredOperatingContractBinding, UnconfiguredOp
 from ..registry.model import ArchitectureConfiguration, Project
 from ..reports.model import HealthReport
 from ..reports.service import ReportsService
+from ..workspaces.model import WorkspaceBinding
 from .validation import GuidanceHealthService
 
 
@@ -18,11 +19,12 @@ class ProjectHealthService:
     def check(
         self,
         project: Project,
+        workspace: WorkspaceBinding,
         configuration: ArchitectureConfiguration,
         binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
     ) -> HealthReport:
         architecture = self.architecture.generate_health_report(
-            project.architecture_root,
+            workspace.architecture_root,
             project.language_id,
             configuration.boundaries_yaml,
             configuration.shape_yaml,

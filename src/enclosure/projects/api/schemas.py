@@ -4,9 +4,11 @@ from ninja import Schema
 from pydantic import Field, JsonValue
 
 from ..services.health.model import GuidanceRelationshipKind, GuidanceRequirement
-from ..services.stack import DiscoveredProject
+from ..services.stack import DetectedStack, DiscoveredProject
+from ..services.workspaces import WorkspaceState
 
 ProjectId = Annotated[str, Field(description="Project identifier.")]
+WorkspaceId = Annotated[str, Field(description="Workspace-binding identifier.")]
 
 
 class DiscoverProject(Schema):
@@ -152,8 +154,8 @@ class RegisterProject(Schema):
 
 
 class UpdateProject(Schema):
-    discovery: DiscoveredProject = Field(description="Detected project root and technology stack.")
-    architecture_root: str = Field(description="Absolute path analyzed by the architecture rules.")
+    title: str = Field(description="Editable logical project title.", min_length=1, max_length=255)
+    stack: DetectedStack = Field(description="Detected technology stack for the logical project.")
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
@@ -234,17 +236,49 @@ class GeneratedProjectSource(Schema):
 
 class ProjectReference(Schema):
     id: ProjectId
-    root: str = Field(description="Absolute path to the project directory.")
+    title: str = Field(description="Editable logical project title.")
 
 
 class Project(Schema):
     id: ProjectId
-    root: str = Field(description="Absolute path to the project directory.")
-    architecture_root: str = Field(description="Absolute path analyzed by the architecture rules.")
+    title: str = Field(description="Editable logical project title.")
     language_id: str = Field(description="Detected programming-language identifier.")
     language_version: str = Field(description="Detected programming-language version, when available.")
     package_manager_id: str = Field(description="Detected package-manager identifier.")
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
+
+
+class WriteWorkspaceBinding(Schema):
+    root: str = Field(description="Absolute path to the local project checkout.", min_length=1, max_length=1024)
+    architecture_root: str = Field(
+        description="Absolute local path analyzed by the architecture rules.",
+        min_length=1,
+        max_length=1024,
+    )
+
+
+class ReplaceWorkspaceBinding(WriteWorkspaceBinding):
+    expected_revision: int = Field(description="Current workspace revision used for conflict detection.", ge=1)
+
+
+class DeleteWorkspaceBinding(Schema):
+    expected_revision: int = Field(description="Current workspace revision used for conflict detection.", ge=1)
+
+
+class WorkspaceBinding(WriteWorkspaceBinding):
+    id: WorkspaceId
+    project_id: ProjectId
+    revision: int = Field(description="Optimistic-concurrency revision.", ge=1)
+
+
+class WorkspaceStatus(Schema):
+    workspace: WorkspaceBinding = Field(description="Inspected local workspace binding.")
+    state: WorkspaceState = Field(description="Availability derived from the local filesystem.")
+
+
+class WorkspaceResolution(Schema):
+    project: Project = Field(description="Portable logical project.")
+    workspace: WorkspaceBinding = Field(description="Exact normalized local workspace binding.")
 
 
 class ProjectArchitectureConfigurationReference(Schema):

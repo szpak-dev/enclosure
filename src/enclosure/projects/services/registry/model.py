@@ -5,8 +5,7 @@ class Project(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: str
-    root: str
-    architecture_root: str
+    title: str
     language_id: str
     language_version: str
     package_manager_id: str

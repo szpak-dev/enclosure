@@ -11,12 +11,22 @@ class GuidanceRelationshipKind(models.TextChoices):
 
 
 class Project(ShortUUIDModel):
-    root = models.CharField(max_length=1024, unique=True)
-    architecture_root = models.CharField(max_length=1024)
+    title = models.CharField(max_length=255)
     language_id = models.CharField(max_length=32)
     language_version = models.CharField(max_length=32)
     package_manager_id = models.CharField(max_length=32)
     scaffolding_id = models.CharField(max_length=22)
+
+
+class WorkspaceBinding(ShortUUIDModel):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="workspace_bindings",
+    )
+    root = models.CharField(max_length=1024, unique=True)
+    architecture_root = models.CharField(max_length=1024)
+    revision = models.PositiveIntegerField(default=1)
 
 
 class ProjectArchitectureConfiguration(ShortUUIDModel):
