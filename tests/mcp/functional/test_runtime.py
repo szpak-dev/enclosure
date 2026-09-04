@@ -188,34 +188,79 @@ class PublicMcpClient:
     ) -> tuple[httpx2.Response, CallToolResult]:
         async with self.session() as (session, http_client):
             await session.initialize()
-            project_id = await self._register_example_project(
+            project_id, workspace_id = await self._register_example_project(
                 http_client,
                 root,
                 {"summary": "Example project guidance."},
                 shape_yaml,
             )
-            rest_response = await http_client.get(f"/api/projects/{project_id}/health-violations")
+            rest_response = await http_client.get(
+                f"/api/projects/{project_id}/workspaces/{workspace_id}/health-violations"
+            )
             result = await session.call_tool(
                 "check_project_health",
-                {"project_id": project_id},
+                {"project_id": project_id, "workspace_id": workspace_id},
             )
             return rest_response, result
 
     async def oversized_guidance_health(self, root: Path) -> tuple[httpx2.Response, CallToolResult]:
         async with self.session() as (session, http_client):
             await session.initialize()
-            project_id = await self._register_example_project(
+            project_id, workspace_id = await self._register_example_project(
                 http_client,
                 root,
                 {"guidance": ["x" * 9000]},
                 EXAMPLE_HEALTHY_SHAPE_YAML,
             )
-            rest_response = await http_client.get(f"/api/projects/{project_id}/health-violations")
+            rest_response = await http_client.get(
+                f"/api/projects/{project_id}/workspaces/{workspace_id}/health-violations"
+            )
             result = await session.call_tool(
                 "check_project_health",
-                {"project_id": project_id},
+                {"project_id": project_id, "workspace_id": workspace_id},
             )
             return rest_response, result
+
+    async def workspace_rebinding(
+        self,
+        root: Path,
+        worktree: Path,
+        relocated: Path,
+    ) -> tuple[CallToolResult, CallToolResult, CallToolResult, CallToolResult]:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            project_id, _ = await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            bound = await session.call_tool(
+                "bind_workspace",
+                {
+                    "project_id": project_id,
+                    "root": str(worktree),
+                    "architecture_root": str(worktree),
+                },
+            )
+            workspace_id = bound.structured_content["properties"]["id"]
+            worktree.rename(relocated)
+            stale = await session.call_tool(
+                "inspect_workspace",
+                {"project_id": project_id, "workspace_id": workspace_id},
+            )
+            replaced = await session.call_tool(
+                "replace_workspace",
+                {
+                    "project_id": project_id,
+                    "workspace_id": workspace_id,
+                    "root": str(relocated),
+                    "architecture_root": str(relocated),
+                    "expected_revision": 1,
+                },
+            )
+            resolved = await session.call_tool("resolve_workspace", {"root": str(relocated)})
+            return bound, stale, replaced, resolved
 
     async def _register_example_project(
         self,
@@ -224,7 +269,7 @@ class PublicMcpClient:
         guidance: Mapping[str, Any],
         shape_yaml: str,
         bind_guidance: bool = True,
-    ) -> str:
+    ) -> tuple[str, str]:
         category = await http_client.post(
             "/api/records/categories",
             json={
@@ -286,7 +331,8 @@ class PublicMcpClient:
             },
         )
         project.raise_for_status()
-        return project.json()["id"]
+        resolution = project.json()
+        return resolution["project"]["id"], resolution["workspace"]["id"]
 
 
 def test_reports_invalid_tool_arguments() -> None:
@@ -353,6 +399,10 @@ def test_lists_the_siren_catalogue() -> None:
 
     assert "find_languages" in tools
     assert "find_project_by_root" in tools
+    assert "resolve_workspace" in tools
+    assert "bind_workspace" in tools
+    assert "replace_workspace" in tools
+    assert "inspect_workspace" in tools
     assert "get_workspace_context" in tools
     assert "create_operating_contract" in tools
     assert "get_project_operating_contract_binding" in tools
@@ -360,6 +410,32 @@ def test_lists_the_siren_catalogue() -> None:
     assert tools["get_language"].input_schema["required"] == ["language_id"]
     assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
     assert tools["find_project_by_root"].input_schema["required"] == ["root"]
+    assert tools["check_project_health"].input_schema["required"] == ["project_id", "workspace_id"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_rebinds_a_workspace_through_public_mcp(tmp_path: Path) -> None:
+    root = tmp_path / "main"
+    worktree = tmp_path / "feature"
+    relocated = tmp_path / "relocated-feature"
+    root.mkdir()
+    worktree.mkdir()
+    (root / "uv.lock").write_text("", encoding="utf-8")
+    (root / "example_app.py").write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
+
+    bound, stale, replaced, resolved = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).workspace_rebinding(root, worktree, relocated)
+    )
+
+    assert bound.is_error is False
+    assert stale.is_error is False
+    assert stale.structured_content["properties"]["state"] == "missing_root"
+    assert replaced.is_error is False
+    assert replaced.structured_content["properties"]["revision"] == 2
+    assert replaced.structured_content["properties"]["root"] == str(relocated)
+    assert resolved.is_error is False
+    assert resolved.structured_content["properties"]["workspace"] == replaced.structured_content["properties"]
+    assert resolved.structured_content["properties"]["project"]["title"] == "main"
 
 
 @pytest.mark.django_db(transaction=True)

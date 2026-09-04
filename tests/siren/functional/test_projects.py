@@ -13,7 +13,7 @@ def client() -> Client:
 
 
 @pytest.fixture
-def registered_project(tmp_path: Path) -> tuple[str, Path, str]:
+def registered_project(tmp_path: Path) -> tuple[str, str, Path, str]:
     setup = Client()
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "app.py").write_text("", encoding="utf-8")
@@ -63,7 +63,7 @@ def registered_project(tmp_path: Path) -> tuple[str, Path, str]:
         data={"root": str(tmp_path)},
         content_type="application/json",
     ).json()
-    project = setup.post(
+    resolution = setup.post(
         "/api/projects",
         data={
             "discovery": discovery,
@@ -75,16 +75,17 @@ def registered_project(tmp_path: Path) -> tuple[str, Path, str]:
         },
         content_type="application/json",
     ).json()
-    return project["id"], tmp_path, record["id"]
+    return resolution["project"]["id"], resolution["workspace"]["id"], tmp_path, record["id"]
 
 
 @pytest.mark.django_db
 def test_siren_generates_project_source(
     client: Client,
-    registered_project: tuple[str, Path, str],
+    registered_project: tuple[str, str, Path, str],
 ) -> None:
-    project_id, root, _ = registered_project
+    project_id, workspace_id, root, _ = registered_project
     details = client.get(f"/siren/projects/{project_id}")
+    workspace_details = client.get(f"/siren/projects/{project_id}/workspaces/{workspace_id}")
 
     assert details.status_code == 200
     configurations_link = next(
@@ -104,8 +105,12 @@ def test_siren_generates_project_source(
         "boundaries_yaml": "boundaries: {}\n",
         "shape_yaml": "shape:\n  realms:\n    - name: project\n      match: '*'\n",
     }
-    action = next(action for action in details.json()["actions"] if action["name"] == "generate_project_source")
-    assert action["href"] == f"http://testserver/siren/projects/{project_id}/source-generations"
+    action = next(
+        action for action in workspace_details.json()["actions"] if action["name"] == "generate_project_source"
+    )
+    assert action["href"] == (
+        f"http://testserver/siren/projects/{project_id}/workspaces/{workspace_id}/source-generations"
+    )
     assert action["method"] == "POST"
     assert [field["name"] for field in action["fields"]] == ["destination"]
     structured_form = action["https://modwire.dev/siren/structured-form/v1"]
@@ -127,9 +132,9 @@ def test_siren_generates_project_source(
 @pytest.mark.django_db
 def test_siren_exposes_operating_contract_lifecycle(
     client: Client,
-    registered_project: tuple[str, Path, str],
+    registered_project: tuple[str, str, Path, str],
 ) -> None:
-    project_id, project_root, record_id = registered_project
+    project_id, _, project_root, record_id = registered_project
     root = client.get("/siren/").json()
     create_action = next(action for action in root["actions"] if action["name"] == "create_operating_contract")
     context_action = next(action for action in root["actions"] if action["name"] == "get_workspace_context")
@@ -216,9 +221,9 @@ def test_siren_exposes_operating_contract_lifecycle(
 @pytest.mark.django_db
 def test_siren_exposes_guidance_relationship_identity(
     client: Client,
-    registered_project: tuple[str, Path, str],
+    registered_project: tuple[str, str, Path, str],
 ) -> None:
-    project_id, _, record_id = registered_project
+    project_id, _, _, record_id = registered_project
     project = client.get(f"/siren/projects/{project_id}").json()
     relationships_link = next(
         link

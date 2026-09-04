@@ -43,6 +43,19 @@ function collection(title?: string): Entity {
 }
 
 describe("Siren labels", () => {
+  it("shows titled resources with their identifiers", () => {
+    expect(
+      collectionItemLabel(
+        item(
+          { id: "project-42", title: "Enclosure" },
+          { title: "Project Reference" },
+        ),
+        0,
+        true,
+      ),
+    ).toBe("Enclosure (project-42)");
+  });
+
   it("keeps meaningful projected collection titles", () => {
     expect(collectionLabel(collection("Available categories"))).toBe(
       "Available categories",

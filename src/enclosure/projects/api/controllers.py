@@ -175,7 +175,7 @@ class ProjectsController(ControllerBase):
 
     @route.post(
         "/root-search-results",
-        response=schemas.ProjectReference,
+        response=schemas.Project,
         operation_id="find_project_by_root",
         summary="Find a project by root",
         description="Find a registered project by its exact root path.",
@@ -184,14 +184,24 @@ class ProjectsController(ControllerBase):
         return DjangoRequest.resolve(request, ProjectsService).find_project_by_root(body.root)
 
     @route.post(
+        "/workspace-resolutions",
+        response=schemas.WorkspaceResolution,
+        operation_id="resolve_workspace",
+        summary="Resolve a workspace",
+        description="Resolve an exact normalized local root to its workspace binding and logical project.",
+    )
+    def resolve_workspace(self, request, body: schemas.FindProjectByRoot):
+        return DjangoRequest.resolve(request, ProjectsService).resolve_workspace(body.root)
+
+    @route.post(
         "",
-        response={201: schemas.Project},
+        response={201: schemas.WorkspaceResolution},
         operation_id="register_project",
         summary="Register a project",
         description="Register a discovered project with its architecture configuration and supporting records.",
     )
     def register(self, request, body: schemas.RegisterProject):
-        project = DjangoRequest.resolve(request, ProjectsService).register_project(
+        resolution = DjangoRequest.resolve(request, ProjectsService).register_project(
             body.discovery,
             body.architecture_root,
             body.boundaries_yaml,
@@ -199,7 +209,7 @@ class ProjectsController(ControllerBase):
             body.scaffolding_id,
             body.record_ids,
         )
-        return Status(201, project)
+        return Status(201, resolution)
 
     @route.post(
         "/{project_id}/operating-contract-bindings",
@@ -263,7 +273,7 @@ class ProjectsController(ControllerBase):
         )
 
     @route.post(
-        "/{project_id}/source-generations",
+        "/{project_id}/workspaces/{workspace_id}/source-generations",
         response=schemas.GeneratedProjectSource,
         operation_id="generate_project_source",
         summary="Generate project source",
@@ -273,10 +283,12 @@ class ProjectsController(ControllerBase):
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
         body: schemas.GenerateProjectSource,
     ):
         return DjangoRequest.resolve(request, ProjectsService).generate_source(
             project_id,
+            workspace_id,
             body.destination,
             body.parameters,
         )
@@ -323,6 +335,113 @@ class ProjectsController(ControllerBase):
     def get(self, request, project_id: Annotated[str, Path(description="Project identifier.")]):
         return DjangoRequest.resolve(request, ProjectsService).get_project(project_id)
 
+    @route.get(
+        "/{project_id}/workspaces",
+        response=list[schemas.WorkspaceBinding],
+        operation_id="find_workspaces",
+        summary="List project workspaces",
+        description="Return every explicit local workspace binding for the logical project.",
+    )
+    def find_workspaces(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+    ):
+        return list(DjangoRequest.resolve(request, ProjectsService).find_workspaces(project_id))
+
+    @route.post(
+        "/{project_id}/workspaces",
+        response={201: schemas.WorkspaceBinding},
+        operation_id="bind_workspace",
+        summary="Bind a workspace",
+        description="Explicitly associate a normalized local checkout with the logical project.",
+    )
+    def bind_workspace(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.WriteWorkspaceBinding,
+    ):
+        workspace = DjangoRequest.resolve(request, ProjectsService).bind_workspace(
+            project_id,
+            body.root,
+            body.architecture_root,
+        )
+        return Status(201, workspace)
+
+    @route.get(
+        "/{project_id}/workspaces/{workspace_id}",
+        response=schemas.WorkspaceBinding,
+        operation_id="get_workspace",
+        summary="Get a workspace binding",
+        description="Return one project-scoped local workspace binding.",
+    )
+    def get_workspace(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).get_workspace(project_id, workspace_id)
+
+    @route.put(
+        "/{project_id}/workspaces/{workspace_id}",
+        response=schemas.WorkspaceBinding,
+        operation_id="replace_workspace",
+        summary="Replace a workspace binding",
+        description="Move or rebind a local workspace using optimistic concurrency.",
+    )
+    def replace_workspace(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+        body: schemas.ReplaceWorkspaceBinding,
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).replace_workspace(
+            project_id,
+            workspace_id,
+            body.root,
+            body.architecture_root,
+            body.expected_revision,
+        )
+
+    @route.delete(
+        "/{project_id}/workspaces/{workspace_id}",
+        response={204: None},
+        operation_id="delete_workspace",
+        summary="Delete a workspace binding",
+        description="Remove a project workspace using optimistic concurrency.",
+    )
+    def delete_workspace(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+        body: schemas.DeleteWorkspaceBinding,
+    ):
+        DjangoRequest.resolve(request, ProjectsService).delete_workspace(
+            project_id,
+            workspace_id,
+            body.expected_revision,
+        )
+        return Status(204, None)
+
+    @route.get(
+        "/{project_id}/workspaces/{workspace_id}/status",
+        response=schemas.WorkspaceStatus,
+        operation_id="inspect_workspace",
+        summary="Inspect a workspace",
+        description="Derive current local workspace availability without persisting filesystem state.",
+    )
+    def inspect_workspace(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).inspect_workspace(project_id, workspace_id)
+
     @route.put(
         "/{project_id}",
         response=schemas.Project,
@@ -338,29 +457,39 @@ class ProjectsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, ProjectsService).update_project(
             project_id,
-            body.discovery,
-            body.architecture_root,
+            body.title,
+            body.stack,
             body.boundaries_yaml,
             body.shape_yaml,
             body.scaffolding_id,
         )
 
     @route.get(
-        "/{project_id}/health-violations",
+        "/{project_id}/workspaces/{workspace_id}/health-violations",
         response=schemas.HealthReport,
         operation_id="check_project_health",
         summary="Check project health",
         description="Evaluate gating architecture rules and project-guidance integrity.",
     )
-    def check_health(self, request, project_id: Annotated[str, Path(description="Project identifier.")]):
-        return DjangoRequest.resolve(request, ProjectsService).check_health(project_id)
+    def check_health(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).check_health(project_id, workspace_id)
 
     @route.get(
-        "/{project_id}/insights",
+        "/{project_id}/workspaces/{workspace_id}/insights",
         response=schemas.InsightsReport,
         operation_id="read_project_insights",
         summary="Read project insights",
         description="Evaluate non-gating architecture rules for a registered project.",
     )
-    def read_insights(self, request, project_id: Annotated[str, Path(description="Project identifier.")]):
-        return DjangoRequest.resolve(request, ProjectsService).read_insights(project_id)
+    def read_insights(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).read_insights(project_id, workspace_id)

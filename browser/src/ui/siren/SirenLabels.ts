@@ -127,6 +127,9 @@ export function collectionItemLabel(
   index: number,
   ambiguousTitle: boolean,
 ): string {
+  const itemProperties = properties(item);
+  if (itemProperties.title && itemProperties.id)
+    return `${itemProperties.title} (${itemProperties.id})`;
   const projected = itemTitle(item);
   if (projected && !ambiguousTitle) return projected;
   const identity = identifyingProperty(item);
