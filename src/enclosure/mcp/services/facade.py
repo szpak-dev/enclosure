@@ -18,7 +18,9 @@ class McpService:
         return self.bootstrap.instructions()
 
     def catalogue(self) -> ToolCatalogue:
-        return self.operations.catalogue()
+        catalogue = self.operations.catalogue()
+        self.presentation.strategies(catalogue)
+        return catalogue
 
     def invoke(self, invocation: ToolInvocation) -> McpPresentation:
         document = self.operations.invoke(invocation)

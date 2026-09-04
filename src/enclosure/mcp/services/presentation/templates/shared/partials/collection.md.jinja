@@ -1,0 +1,8 @@
+{% macro references(title, items) -%}
+## {{ title }}
+{% for item in items %}
+- **{{ item.title }}** — `{{ item.href }}`
+{% else %}
+- None
+{% endfor %}
+{%- endmacro %}

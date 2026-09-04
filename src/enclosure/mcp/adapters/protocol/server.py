@@ -95,6 +95,6 @@ class McpProtocolServer:
         )
         return CallToolResult(
             content=[TextContent(type="text", text=result.markdown)],
-            structured_content=dict(result.structured_content),
-            is_error=result.is_error,
+            structured_content=result.structured_content.model_dump(mode="json"),
+            is_error=result.is_error(),
         )

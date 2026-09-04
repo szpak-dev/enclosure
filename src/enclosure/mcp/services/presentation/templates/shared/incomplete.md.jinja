@@ -1,0 +1,8 @@
+# Bounded operation receipt
+
+{{ summary }}
+
+Operation: `{{ operation_id }}`
+{% for name, value in data.items() if name not in ["classes", "reason"] %}
+- {{ name }}: `{{ value }}`
+{% endfor %}

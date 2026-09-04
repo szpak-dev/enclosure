@@ -1,0 +1,11 @@
+{% from "shared/partials/envelope.json.jinja" import envelope with context %}
+{% set entry_points = [] %}
+{% for link in document.links if "self" not in link.rel %}
+{% do entry_points.append({"title": link.title, "href": link.href}) %}
+{% endfor %}
+{% set data = {
+  "title": properties.title,
+  "version": properties.version,
+  "entry_points": entry_points
+} %}
+{{ envelope(operation_id, "ok", "The Enclosure API is available.", data, []) }}

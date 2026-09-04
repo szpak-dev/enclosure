@@ -51,6 +51,13 @@ dev = [
 package = false
 cache-dir = ".dev/uv-cache"
 
+[tool.setuptools.package-data]
+"enclosure.mcp" = ["resources/*.md"]
+"enclosure.mcp.services.presentation" = [
+    "templates/*/*.jinja",
+    "templates/shared/partials/*.jinja",
+]
+
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
 DJANGO_SETTINGS_MODULE = "enclosure.core.settings"

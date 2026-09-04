@@ -1,0 +1,2 @@
+class PresentationTemplateNotFound(Exception):
+    pass
