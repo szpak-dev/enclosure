@@ -1,0 +1,27 @@
+# Project architecture insights
+
+- Project: `{{ data.project_id }}`
+- Workspace: `{{ data.workspace_id }}`
+- Revision: `{{ data.revision }}`
+
+{% for report in data.reports %}
+
+```json
+{{ report | tojson(indent=2) }}
+```
+{% endfor %}
+{% if data.top_findings %}
+
+## Highest-priority findings
+{% for finding in data.top_findings %}
+- **{{ finding.kind }}** `{{ finding.area }}` — pressure {{ finding.pressure_score }} ({{ finding.incoming_count }} incoming, {{ finding.outgoing_count }} outgoing)
+{% endfor %}
+{% endif %}
+{% if data.sections %}
+
+## Sections available for bounded reads
+{% for section in data.sections %}
+- `{{ section.path }}` — {{ section.total }} items
+{% endfor %}
+{% endif %}
+{% include "projects/partials/navigation.md.jinja" %}

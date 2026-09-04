@@ -2,18 +2,18 @@
 
 # Workspace context
 
-- Project: `{{ properties.project_id }}`
-- Root: `{{ properties.root }}`
-- Readiness: **{{ properties.readiness }}**
-- Authority: `{{ properties.receipt.authority.kind }}:{{ properties.receipt.authority.id }}`
-- Revision: `{{ properties.receipt.authority.revision }}`
-- Provenance: `{{ properties.receipt.authority.provenance }}`
-- Coverage: **{{ properties.receipt.coverage.status }}** ({{ properties.receipt.coverage.selected_count }} selected, {{ properties.receipt.coverage.omitted_count }} omitted, {{ properties.receipt.coverage.diagnostic_count }} diagnostics)
-- Serialized supplemental guidance budget: {{ properties.receipt.budget.used_optional_characters }}/{{ properties.receipt.budget.optional_character_limit }} characters
+- Project: `{{ data.project_id }}`
+- Root: `{{ data.root }}`
+- Readiness: **{{ data.readiness }}**
+- Authority: `{{ data.receipt.authority.kind }}:{{ data.receipt.authority.id }}`
+- Revision: `{{ data.receipt.authority.revision }}`
+- Provenance: `{{ data.receipt.authority.provenance }}`
+- Coverage: **{{ data.receipt.coverage.status }}** ({{ data.receipt.coverage.selected_count }} selected, {{ data.receipt.coverage.omitted_count }} omitted, {{ data.receipt.coverage.diagnostic_count }} diagnostics)
+- Serialized supplemental guidance budget: {{ data.receipt.budget.used_optional_characters }}/{{ data.receipt.budget.optional_character_limit }} characters
 
 ## Selected guidance
-{% for guidance in properties.guidance %}
-{% set item = properties.receipt["items"][loop.index0] %}
+{% for guidance in data.guidance %}
+{% set item = data.receipt["items"][loop.index0] %}
 
 ### {{ guidance.title }}
 
@@ -22,7 +22,6 @@
 - Record: `{{ item.record_id }}`
 - Guidance authority: `{{ item.authority }}`
 - Guidance revision: `{{ item.revision }}`
-- Follow-up: `get_record(record_id="{{ item.record_id }}")`
 
 {{ guidance.summary }}
 {% if guidance.applies_when %}
@@ -40,28 +39,29 @@
 {% endfor %}
 {% endif %}
 {% endfor %}
-{% if properties.receipt.required_checks %}
+{% if data.receipt.required_checks %}
 
 ## Required checks
-{% for check in properties.receipt.required_checks %}
+{% for check in data.receipt.required_checks %}
 - {{ check }}
 {% endfor %}
 {% endif %}
-{% if properties.receipt.omissions %}
+{% if data.receipt.omissions %}
 
 ## Omissions
-{% for omission in properties.receipt.omissions %}
+{% for omission in data.receipt.omissions %}
 - `{{ omission.code }}`: {{ omission.message }} Records: {% for guidance_id in omission.guidance_ids %}`{{ guidance_id }}`{% if not loop.last %}, {% endif %}{% endfor %}
 {% endfor %}
 {% endif %}
-{% if properties.receipt.diagnostics %}
+{% if data.receipt.diagnostics %}
 
 ## Diagnostics
-{% for diagnostic in properties.receipt.diagnostics %}
+{% for diagnostic in data.receipt.diagnostics %}
 - `{{ diagnostic.code }}`: {{ diagnostic.message }}{% if diagnostic.guidance_ids %} Records: {% for guidance_id in diagnostic.guidance_ids %}`{{ guidance_id }}`{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
 {% endfor %}
 {% endif %}
 
 ## Stop condition
 
-`{{ properties.receipt.stop_condition }}`
+`{{ data.receipt.stop_condition }}`
+{% include "projects/partials/navigation.md.jinja" %}

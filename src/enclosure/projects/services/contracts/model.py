@@ -1,6 +1,12 @@
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+
+class OperatingContractUpdatePolicy(StrEnum):
+    PINNED = "pinned"
+    FOLLOW_LATEST = "follow-latest"
 
 
 class OperatingContract(BaseModel):
@@ -36,7 +42,7 @@ class ConfiguredOperatingContractBinding(BaseModel):
     state: Literal["configured"] = "configured"
     project_id: str
     contract: OperatingContract
-    update_policy: Literal["pinned", "follow-latest"]
+    update_policy: OperatingContractUpdatePolicy
     bound_revision: int
     effective_revision: OperatingContractRevision
 

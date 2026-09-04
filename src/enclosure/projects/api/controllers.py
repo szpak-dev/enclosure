@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from modwire_hex.django import DjangoRequest
-from ninja import Path, Status
+from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, route
 
 from ..services import ProjectsService
@@ -202,7 +202,7 @@ class ProjectsController(ControllerBase):
     )
     def register(self, request, body: schemas.RegisterProject):
         resolution = DjangoRequest.resolve(request, ProjectsService).register_project(
-            body.discovery,
+            body.discovery.model_dump(mode="python"),
             body.architecture_root,
             body.boundaries_yaml,
             body.shape_yaml,
@@ -323,6 +323,29 @@ class ProjectsController(ControllerBase):
         return DjangoRequest.resolve(request, ProjectsService).get_project_architecture_configuration(
             project_id,
             configuration_id,
+        )
+
+    @route.get(
+        "/{project_id}/architecture-configurations/{configuration_id}/content",
+        response=schemas.ArchitectureConfigurationContent,
+        operation_id="read_project_architecture_configuration_content",
+        summary="Read architecture configuration content",
+        description="Read one bounded page from a revision-pinned architecture configuration document.",
+    )
+    def read_architecture_configuration_content(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        configuration_id: Annotated[str, Path(description="Architecture configuration identifier.")],
+        query: Query[schemas.ReadArchitectureConfigurationContent],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).read_project_architecture_configuration_content(
+            project_id,
+            configuration_id,
+            query.document,
+            query.expected_revision,
+            query.offset,
+            query.limit,
         )
 
     @route.get(
@@ -458,7 +481,7 @@ class ProjectsController(ControllerBase):
         return DjangoRequest.resolve(request, ProjectsService).update_project(
             project_id,
             body.title,
-            body.stack,
+            body.stack.model_dump(mode="python"),
             body.boundaries_yaml,
             body.shape_yaml,
             body.scaffolding_id,
@@ -493,3 +516,26 @@ class ProjectsController(ControllerBase):
         workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
     ):
         return DjangoRequest.resolve(request, ProjectsService).read_insights(project_id, workspace_id)
+
+    @route.get(
+        "/{project_id}/workspaces/{workspace_id}/insights/pages",
+        response=schemas.InsightPage,
+        operation_id="read_project_insight_page",
+        summary="Read a project insight page",
+        description="Read one bounded projected collection from a revision-pinned project insights report.",
+    )
+    def read_insight_page(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+        query: Query[schemas.ReadInsightPage],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).read_insight_page(
+            project_id,
+            workspace_id,
+            query.path,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )

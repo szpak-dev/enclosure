@@ -102,6 +102,7 @@ def test_siren_generates_project_source(
     assert configuration.json()["properties"] == {
         "id": configuration_link["href"].split("/")[-1],
         "project_id": project_id,
+        "revision": configurations.json()["entities"][0]["properties"]["revision"],
         "boundaries_yaml": "boundaries: {}\n",
         "shape_yaml": "shape:\n  realms:\n    - name: project\n      match: '*'\n",
     }

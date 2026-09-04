@@ -1,0 +1,15 @@
+# Architecture configuration content
+
+- Project: `{{ data.project_id }}`
+- Configuration: `{{ data.configuration_id }}`
+- Document: `{{ data.document }}`
+- Revision: `{{ data.revision }}`
+- Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}
+
+```yaml
+{{ data.content }}
+```
+{% if data.has_more %}
+Continue with the bounded content operation at offset {{ data.next_offset }} using the same revision.
+{% endif %}
+{% include "projects/partials/navigation.md.jinja" %}

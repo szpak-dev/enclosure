@@ -17,6 +17,7 @@ from .model import (
     PresentationStatus,
     PresentationTemplate,
 )
+from .projection import SirenProjectionService
 from .repository import PresentationTemplateRepository
 
 
@@ -26,6 +27,7 @@ class PresentationService:
     bootstrap: AgentBootstrapService
     templates: TemplateService
     repository: PresentationTemplateRepository
+    projection: SirenProjectionService
 
     MAX_TEXT_BYTES: ClassVar[int] = 16_384
     MAX_STRUCTURED_BYTES: ClassVar[int] = 8_192
@@ -61,16 +63,13 @@ class PresentationService:
             properties = {}
         context = {
             "bootstrap": self.bootstrap.load(),
-            "document": document.document,
+            "data": self.projection.project(document),
             "operation_id": document.operation_id,
-            "properties": properties,
             "summary": document.detail or document.title or "Enclosure result",
         }
-        markdown = self.templates.render(
-            template.package,
-            template.markdown_path,
-            context,
-        ).strip()
+        if template.application != "projects":
+            context["document"] = document.document
+            context["properties"] = properties
         envelope = PresentationEnvelope.model_validate(
             json.loads(
                 self.templates.render(
@@ -80,6 +79,11 @@ class PresentationService:
                 )
             )
         )
+        markdown = self.templates.render(
+            template.package,
+            template.markdown_path,
+            context,
+        ).strip()
         if envelope.operation_id != document.operation_id:
             raise ValueError("The presentation envelope does not match the invoked operation.")
         return self._bounded(markdown, envelope)

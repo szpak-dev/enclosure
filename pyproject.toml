@@ -55,6 +55,7 @@ cache-dir = ".dev/uv-cache"
 "enclosure.mcp" = ["resources/*.md"]
 "enclosure.mcp.services.presentation" = [
     "templates/*/*.jinja",
+    "templates/projects/partials/*.jinja",
     "templates/shared/partials/*.jinja",
 ]
 

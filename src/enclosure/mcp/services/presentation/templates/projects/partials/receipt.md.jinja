@@ -1,0 +1,9 @@
+# {{ title }}
+
+Status: **ok**
+
+{{ summary }}
+{% for field, value in data.items() if field not in ["actions", "links"] %}
+- {{ field | replace("_", " ") | title }}: `{{ value | tojson }}`
+{% endfor %}
+{% include "projects/partials/navigation.md.jinja" %}
