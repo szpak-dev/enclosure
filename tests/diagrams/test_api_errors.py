@@ -63,7 +63,7 @@ def test_invalid_command_arguments_return_domain_error() -> None:
 
 
 @pytest.mark.django_db
-def test_version_one_snapshot_returns_domain_error_without_conversion() -> None:
+def test_legacy_snapshot_returns_domain_error_without_implicit_conversion() -> None:
     client = Client()
     diagram = create_diagram(client)
     diagram_model = apps.get_model("diagrams", "Diagram")
@@ -82,7 +82,7 @@ def test_version_one_snapshot_returns_domain_error_without_conversion() -> None:
     )
 
     assert response.status_code == 422
-    assert response.json() == {"detail": "Unsupported snapshot version '1'; expected version '2'."}
+    assert response.json() == {"detail": "Unsupported snapshot version '1'; expected version '4'."}
 
 
 @pytest.mark.django_db
