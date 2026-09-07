@@ -139,6 +139,73 @@ class PublicMcpClient:
             )
             return rest_response, result
 
+    async def diagram_presentations(self) -> dict[str, CallToolResult]:
+        async with self.session() as (session, _):
+            await session.initialize()
+            results = {}
+
+            async def call(name: str, arguments: Mapping[str, Any]) -> CallToolResult:
+                result = await session.call_tool(name, arguments)
+                results[name] = result
+                return result
+
+            await call("find_diagram_kinds", {})
+            await call("get_diagram_kind", {"kind": "flowchart"})
+            await call("get_diagram_command_schema", {"kind": "flowchart", "operation": "update_element"})
+            created_set = await call(
+                "create_diagram_set",
+                {"title": "MCP diagrams", "description": "Diagram presentation verification."},
+            )
+            diagram_set_id = created_set.structured_content["data"]["id"]
+            await call("find_diagram_sets", {})
+            await call("get_diagram_set", {"diagram_set_id": diagram_set_id})
+            await call(
+                "update_diagram_set",
+                {"diagram_set_id": diagram_set_id, "title": "Updated MCP diagrams"},
+            )
+            created_diagram = await call(
+                "create_diagram",
+                {"diagram_set_id": diagram_set_id, "title": "MCP flow", "kind": "flowchart"},
+            )
+            diagram_id = created_diagram.structured_content["data"]["id"]
+            await call("find_diagram_set_diagrams", {"diagram_set_id": diagram_set_id})
+            await call(
+                "get_diagram_set_diagram",
+                {"diagram_set_id": diagram_set_id, "diagram_id": diagram_id},
+            )
+            await call("find_diagrams", {})
+            await call("get_diagram", {"diagram_id": diagram_id})
+            applied = await call(
+                "apply_diagram_command",
+                {
+                    "diagram_id": diagram_id,
+                    "expected_revision": 1,
+                    "operation": "add_start",
+                    "arguments": {"id": "start", "label": "Start"},
+                },
+            )
+            updated = await call(
+                "update_diagram",
+                {
+                    "diagram_id": diagram_id,
+                    "expected_revision": applied.structured_content["data"]["revision"],
+                    "title": "Updated MCP flow",
+                },
+            )
+            await call(
+                "read_diagram_content",
+                {
+                    "diagram_id": diagram_id,
+                    "document": "snapshot",
+                    "expected_revision": updated.structured_content["data"]["revision"],
+                    "offset": 0,
+                    "limit": 32,
+                },
+            )
+            await call("delete_diagram", {"diagram_id": diagram_id})
+            await call("delete_diagram_set", {"diagram_set_id": diagram_set_id})
+            return results
+
     async def workspace_context(
         self,
         root: Path,
@@ -751,6 +818,123 @@ def test_presents_bounded_configuration_content_from_a_siren_action(tmp_path: Pa
     assert content.structured_content["data"]["next_offset"] == 12
     assert len(content.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(content.structured_content).encode("utf-8")) <= 8_192
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_every_diagram_operation_from_siren_documents() -> None:
+    results = asyncio.run(PublicMcpClient(PublicCompositeApplication()).diagram_presentations())
+
+    assert set(results) == {
+        "apply_diagram_command",
+        "create_diagram",
+        "create_diagram_set",
+        "delete_diagram",
+        "delete_diagram_set",
+        "find_diagram_kinds",
+        "find_diagram_set_diagrams",
+        "find_diagram_sets",
+        "find_diagrams",
+        "get_diagram",
+        "get_diagram_command_schema",
+        "get_diagram_kind",
+        "get_diagram_set",
+        "get_diagram_set_diagram",
+        "read_diagram_content",
+        "update_diagram",
+        "update_diagram_set",
+    }
+    for operation, result in results.items():
+        assert result.is_error is False, operation
+        assert result.structured_content["status"] == "ok", operation
+        assert result.structured_content["data"].get("reason") != "presentation_incomplete", operation
+        assert len(result.content[0].text.encode("utf-8")) <= 16_384, operation
+        assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192, operation
+
+    kinds = results["find_diagram_kinds"].structured_content["data"]
+    assert kinds["count"] > 1
+    assert all({"id", "name", "href"} <= item.keys() for item in kinds["items"])
+
+    diagram_kind = results["get_diagram_kind"].structured_content["data"]
+    assert diagram_kind["id"] == "flowchart"
+    assert "add_start" in diagram_kind["commands"]["keys"]
+
+    command = results["get_diagram_command_schema"].structured_content["data"]
+    assert command["kind"] == "flowchart"
+    assert command["operation"] == "update_element"
+    assert command["arguments_schema"]["oneOf"]
+
+    references = results["find_diagrams"].structured_content["data"]["items"]
+    assert len(references) == 1
+    assert set(references[0]) == {"href", "id", "kind", "revision", "title"}
+
+    applied = results["apply_diagram_command"].structured_content["data"]
+    updated = results["update_diagram"].structured_content["data"]
+    assert applied["revision"] == 2
+    assert updated["revision"] == 3
+
+    content = results["read_diagram_content"].structured_content["data"]
+    assert content["diagram_id"] == applied["id"]
+    assert content["document"] == "snapshot"
+    assert content["revision"] == 3
+    assert content["offset"] == 0
+    assert content["next_offset"] == 32
+    assert content["has_more"] is True
+    assert len(content["content"]) == 32
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up() -> None:
+    from enclosure.diagrams.models import Diagram, DiagramSet
+
+    diagram_set = DiagramSet.objects.create(title="Large diagrams", description="Siren projection boundary.")
+    source = "flowchart TD\n" + "x" * 12_000
+    snapshot = {
+        "kind": "flowchart",
+        "draft": False,
+        "version": 4,
+        "elements": [{"id": f"node-{index}", "label": "x" * 2_000} for index in range(20)],
+        "relations": [],
+        "annotations": [],
+        "properties": {},
+        "configuration": {"wrap": True},
+    }
+    diagram = Diagram.objects.create(
+        diagram_set=diagram_set,
+        title="Large flow",
+        kind="flowchart",
+        snapshot=snapshot,
+        source=source,
+    )
+    client = PublicMcpClient(PublicCompositeApplication())
+
+    result = asyncio.run(client.call_tool("get_diagram", {"diagram_id": diagram.id}))
+    data = result.structured_content["data"]
+    action_names = {action["name"] for action in data["actions"]}
+
+    assert result.is_error is False
+    assert result.structured_content["status"] == "ok"
+    assert data["source"] == f"{source[:509]}..."
+    assert data["snapshot"]["kind"] == "flowchart"
+    assert data["snapshot"]["draft"] is False
+    assert data["snapshot"]["elements"] == {"summary": "collection", "count": 20}
+    assert "read_diagram_content" in action_names
+    assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
+
+    content = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).call_tool(
+            "read_diagram_content",
+            {
+                "diagram_id": diagram.id,
+                "document": "source",
+                "expected_revision": 1,
+                "offset": 1024,
+                "limit": 512,
+            },
+        )
+    )
+    assert content.structured_content["status"] == "ok"
+    assert content.structured_content["data"]["content"] == source[1024:1536]
+    assert content.structured_content["data"]["next_offset"] == 1536
 
 
 def test_serves_rest_and_mcp_from_the_composite_application() -> None:

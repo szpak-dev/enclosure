@@ -6,6 +6,7 @@ from wireup import injectable
 
 from ..models import Diagram, DiagramSet
 from .catalog import DiagramCatalogService
+from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
 from .diagram_sets import DiagramSetService
 from .editing import DiagramEditingService
 
@@ -14,6 +15,7 @@ from .editing import DiagramEditingService
 @dataclass(frozen=True)
 class DiagramsService:
     catalog: DiagramCatalogService
+    content: DiagramContentService
     diagram_sets: DiagramSetService
     editing: DiagramEditingService
 
@@ -46,6 +48,22 @@ class DiagramsService:
 
     def get_diagram(self, id: str) -> Diagram:
         return self.editing.get(id)
+
+    def read_diagram_content(
+        self,
+        id: str,
+        document: str,
+        expected_revision: int,
+        offset: int,
+        limit: int,
+    ) -> DiagramContentPage:
+        return self.content.read(
+            id,
+            DiagramContentDocument(document),
+            expected_revision,
+            offset,
+            limit,
+        )
 
     def update_diagram(self, id: str, expected_revision: int, title: str) -> Diagram:
         return self.editing.rename(id, expected_revision, title)

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from ninja import Schema
 from pydantic import ConfigDict, Field, JsonValue
@@ -76,12 +76,15 @@ class ApplyDiagramCommand(StrictSchema):
     arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
 
 
-class DiagramSummary(Schema):
+class DiagramReference(Schema):
     id: DiagramId
-    diagram_set_id: DiagramSetId
     title: str = Field(description="Human-readable diagram title.")
     kind: DiagramKindId
     revision: int = Field(description="Current optimistic-concurrency revision.", ge=1)
+
+
+class DiagramSummary(DiagramReference):
+    diagram_set_id: DiagramSetId
     created_at: datetime = Field(description="Time at which the diagram was created.")
     updated_at: datetime = Field(description="Time at which the diagram was last updated.")
 
@@ -89,6 +92,25 @@ class DiagramSummary(Schema):
 class Diagram(DiagramSummary):
     snapshot: dict[str, JsonValue] = Field(description="Canonical versioned Mermaiden snapshot.")
     source: str = Field(description="Mermaid source generated from the canonical snapshot.")
+
+
+class ReadDiagramContent(Schema):
+    document: Literal["source", "snapshot"] = Field(description="Diagram document to read.")
+    expected_revision: int = Field(description="Diagram revision on which this read is based.", ge=1)
+    offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
+    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1, le=512)
+
+
+class DiagramContent(Schema):
+    diagram_id: DiagramId
+    revision: int = Field(description="Diagram revision used for this read.", ge=1)
+    document: Literal["source", "snapshot"] = Field(description="Diagram document that was read.")
+    offset: int = Field(description="Character offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
+    total_characters: int = Field(description="Total characters in the selected document.", ge=0)
+    content: str = Field(description="Bounded diagram content.")
+    has_more: bool = Field(description="Whether another bounded page remains.")
+    next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
 class DiagramSetSummary(Schema):

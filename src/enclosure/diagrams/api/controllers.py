@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from modwire_hex.django import DjangoRequest
-from ninja import Path, Status
+from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, route
 
 from ..services import DiagramsService
@@ -138,7 +138,7 @@ class DiagramSetsController(ControllerBase):
 
     @route.get(
         "/{diagram_set_id}/diagrams",
-        response=list[schemas.DiagramSummary],
+        response=list[schemas.DiagramReference],
         operation_id="find_diagram_set_diagrams",
         summary="List diagrams in a diagram set",
         description="Return summaries for the diagrams belonging to one diagram set.",
@@ -173,13 +173,34 @@ class DiagramSetsController(ControllerBase):
 class DiagramsController(ControllerBase):
     @route.get(
         "",
-        response=list[schemas.DiagramSummary],
+        response=list[schemas.DiagramReference],
         operation_id="find_diagrams",
         summary="List diagrams",
         description="Return all diagram summaries.",
     )
     def find_all(self, request):
         return DjangoRequest.resolve(request, DiagramsService).find_all_diagrams()
+
+    @route.get(
+        "/{diagram_id}/content",
+        response=schemas.DiagramContent,
+        operation_id="read_diagram_content",
+        summary="Read diagram content",
+        description="Read one revision-pinned bounded page from a diagram's source or canonical snapshot.",
+    )
+    def read_content(
+        self,
+        request,
+        diagram_id: Annotated[str, Path(description="Diagram identifier.")],
+        query: Query[schemas.ReadDiagramContent],
+    ):
+        return DjangoRequest.resolve(request, DiagramsService).read_diagram_content(
+            diagram_id,
+            query.document,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )
 
     @route.get(
         "/{diagram_id}",

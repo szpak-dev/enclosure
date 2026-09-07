@@ -1,0 +1,3 @@
+{% set summary = "Diagram deleted." %}
+{% from "shared/partials/envelope.json.jinja" import envelope with context %}
+{{ envelope(operation_id, "ok", summary, data, []) }}

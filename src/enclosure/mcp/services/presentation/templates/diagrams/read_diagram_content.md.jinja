@@ -1,0 +1,27 @@
+# Diagram content
+
+- Diagram: `{{ data.diagram_id }}`
+- Document: `{{ data.document }}`
+- Revision: `{{ data.revision }}`
+- Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}
+
+```
+{{ data.content }}
+```
+{% if data.has_more %}
+Continue at offset {{ data.next_offset }} using the same revision.
+{% endif %}
+{% if data.actions | default([]) %}
+
+## Available actions
+{% for action in data.actions %}
+- `{{ action.name }}` — {{ action.method }} `{{ action.href }}`
+{% endfor %}
+{% endif %}
+{% if data.links | default([]) %}
+
+## Links
+{% for link in data.links %}
+- {{ link.rel | join(", ") }} — `{{ link.href }}`
+{% endfor %}
+{% endif %}
