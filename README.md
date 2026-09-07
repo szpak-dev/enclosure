@@ -52,7 +52,8 @@ Hard-refresh the browser after rebuilding to discard a cached bundle.
 The Compose runtime exposes MCP at `http://127.0.0.1:8666/mcp` and keeps the
 server running as `enclosure-mcp`. Configure `.env` as needed:
 
-- `ENCLOSURE_IMAGE` selects `latest` or an exact immutable release tag.
+- `ENCLOSURE_IMAGE` requires an exact immutable SemVer release tag. Do not use
+  the moving `latest` tag for the machine-wide runtime.
 - `ENCLOSURE_PROJECTS_DIR` selects the host projects directory mounted into
   the container at the same absolute path.
 
