@@ -1,0 +1,7 @@
+# Record search results
+
+{% for record in data['items'] %}
+- `{{ record.id }}` — {{ record.title }} — {{ record.category.title }}
+{% else %}
+- None
+{% endfor %}

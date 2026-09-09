@@ -1,0 +1,7 @@
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Record tag created.",
+  "data": {"id": {{ data.id | tojson }}, "name": {{ data.name | tojson }}},
+  "follow_ups": [{"operation_id": "get_record_tag", "arguments": {"tag_id": {{ data.id | tojson }}}}]
+}

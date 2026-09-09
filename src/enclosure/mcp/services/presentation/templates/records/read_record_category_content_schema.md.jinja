@@ -1,0 +1,14 @@
+# Record category schema content
+
+Category: `{{ data.category_id }}`
+Schema version: {{ data.schema_version }}
+Revision: `{{ data.revision }}`
+Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}
+
+```json
+{{ data.content }}
+```
+{% if data.has_more %}
+
+Continue at offset {{ data.next_offset }} with the same revision and limit {{ data.limit }}.
+{% endif %}

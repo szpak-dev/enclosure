@@ -1,8 +1,6 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from django.conf import settings
-from pydantic import JsonValue
 from sirenity import (
     SirenConfiguration,
     SirenMcpInvocation,
@@ -45,21 +43,18 @@ class SirenGatewayAdapter(SirenGateway):
             )
         )
         document = dict(result.structured_content)
-        properties = document.get("properties")
-        details = properties if isinstance(properties, Mapping) else document
+        properties = document.get("properties", document)
         return SirenDocument(
             operation_id=invocation.operation_id,
             document=document,
             is_error=result.is_error,
-            classes=self._classes(document),
-            title=self._text(document.get("title")),
-            detail=self._text(details.get("detail")),
+            classes=tuple(document.get("class", ())),
+            title=document.get("title", ""),
+            detail=properties.get("detail", ""),
         )
 
     def _configuration(self) -> SirenConfiguration:
         declaration = settings.SIRENITY
-        if isinstance(declaration, SirenConfiguration):
-            return declaration
         return siren_configuration(
             openapi=declaration["OPENAPI"],
             source_path=declaration["SOURCE_PATH"],
@@ -67,12 +62,3 @@ class SirenGatewayAdapter(SirenGateway):
             policy=declaration["POLICY"],
             profiles=tuple(declaration["PROFILES"]),
         )
-
-    def _classes(self, document: Mapping[str, JsonValue]) -> tuple[str, ...]:
-        classes = document.get("class")
-        if not isinstance(classes, list):
-            return ()
-        return tuple(value for value in classes if isinstance(value, str))
-
-    def _text(self, value: JsonValue) -> str:
-        return value if isinstance(value, str) else ""

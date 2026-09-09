@@ -1,0 +1,12 @@
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Bounded record tag references.",
+  "data": {
+    "items": {{ data['items'] | tojson }},
+    "has_more": {{ data.has_more | tojson }},
+    "next_offset": {{ data.next_offset | tojson }},
+    "limit": {{ data.limit | tojson }}
+  },
+  "follow_ups": [{% if data.has_more %}{"operation_id": "find_record_tags", "arguments": {"offset": {{ data.next_offset | tojson }}, "limit": {{ data.limit | tojson }}}}{% endif %}]
+}

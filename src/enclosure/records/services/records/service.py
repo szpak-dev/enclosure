@@ -6,7 +6,7 @@ from django.db.models import QuerySet
 from wireup import injectable
 
 from ...errors import RecordsError
-from ...models import Record
+from ...models import Record, Resource
 from .embeddings import RecordsEmbeddingsService
 from .repository import RecordRepository
 from .resource_validator import ResourceValidator
@@ -25,8 +25,11 @@ class RecordService:
     def get(self, id: str) -> Record:
         return self.repository.get(id)
 
-    def find_all(self) -> QuerySet[Record]:
-        return self.repository.find_all()
+    def get_resource(self, record_id: str, path: str) -> Resource:
+        return self.repository.get_resource(record_id, path)
+
+    def find_all(self, offset: int, limit: int) -> QuerySet[Record]:
+        return self.repository.find_all(offset, limit)
 
     def search(
         self,
@@ -53,8 +56,7 @@ class RecordService:
         self._assign_embeddings(record_data, resources)
         return self.repository.save(record_data, tag_ids, resources)
 
-    @staticmethod
-    def _snapshot(record: Record) -> dict:
+    def _snapshot(self, record: Record) -> dict:
         return {
             "title": record.title,
             "content": record.content,
@@ -71,8 +73,7 @@ class RecordService:
             ],
         }
 
-    @staticmethod
-    def _prepare(data: Mapping[str, Any]) -> tuple[dict, list[str], list[dict]]:
+    def _prepare(self, data: Mapping[str, Any]) -> tuple[dict, list[str], list[dict]]:
         record_data = {
             key: data[key]
             for key in ("id", "title", "content", "category_id", "schema_version")

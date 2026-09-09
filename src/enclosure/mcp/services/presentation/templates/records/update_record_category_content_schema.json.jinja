@@ -1,0 +1,7 @@
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Record category schema published.",
+  "data": {{ data | tojson }},
+  "follow_ups": [{"operation_id": "read_record_category_content_schema", "arguments": {"category_id": {{ data.category_id | tojson }}, "schema_version": {{ data.version | tojson }}, "expected_revision": {{ data.revision | tojson }}, "offset": 0, "limit": 512}}]
+}

@@ -42,6 +42,5 @@ class RecordsEmbeddingsService:
         magnitude = math.sqrt(sum(value * value for value in vector))
         return vector if magnitude == 0 else [value / magnitude for value in vector]
 
-    @staticmethod
-    def _serialize(content: Any) -> str:
+    def _serialize(self, content: Any) -> str:
         return json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

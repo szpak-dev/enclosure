@@ -7,15 +7,11 @@ SNAKE_CASE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 HTTP_METHODS = {"delete", "get", "patch", "post", "put"}
 
 
-def find_operation_ids(value: object) -> Iterator[object]:
-    if isinstance(value, dict):
-        if "operationId" in value:
-            yield value["operationId"]
-        for child in value.values():
-            yield from find_operation_ids(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from find_operation_ids(child)
+def find_operation_ids(schema: dict) -> Iterator[object]:
+    for path in schema["paths"].values():
+        for method, operation in path.items():
+            if method in HTTP_METHODS:
+                yield operation["operationId"]
 
 
 def test_api_operation_ids_are_unique_snake_case() -> None:

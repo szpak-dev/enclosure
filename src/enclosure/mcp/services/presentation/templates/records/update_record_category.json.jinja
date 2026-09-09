@@ -1,0 +1,7 @@
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Record category updated.",
+  "data": {{ data | tojson }},
+  "follow_ups": [{"operation_id": "get_record_category", "arguments": {"category_id": {{ data.id | tojson }}}}]
+}

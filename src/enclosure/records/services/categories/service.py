@@ -25,8 +25,11 @@ class CategoryService:
     def get(self, id: str) -> Category:
         return self.repository.get(id)
 
-    def find_all(self) -> QuerySet[Category]:
-        return self.repository.find_all()
+    def get_revision(self, category_id: str, version: int) -> CategorySchemaRevision:
+        return self.repository.get_revision(category_id, version)
+
+    def find_all(self, offset: int, limit: int) -> QuerySet[Category]:
+        return self.repository.find_all().order_by("id")[offset : offset + limit + 1]
 
     def update(self, id: str, data: dict) -> Category:
         return self.repository.update(id, title=data["title"])

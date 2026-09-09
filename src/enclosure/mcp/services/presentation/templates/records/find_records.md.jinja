@@ -1,0 +1,11 @@
+# Records
+
+{% for record in data['items'] %}
+- `{{ record.id }}` — {{ record.title }} — {{ record.category.title }}
+{% else %}
+- None
+{% endfor %}
+{% if data.has_more %}
+
+Continue with `find_records(offset={{ data.next_offset }}, limit={{ data.limit }})`.
+{% endif %}

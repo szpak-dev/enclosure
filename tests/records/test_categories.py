@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 import pytest
 from django.test import Client
 
@@ -33,12 +36,15 @@ def test_create_category_starts_schema_history_at_version_one() -> None:
     category = create_category(Client())
 
     assert category["schema_version"] == 1
-    assert category["content_schema"] == {
+    content_schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         **INITIAL_SCHEMA,
     }
+    canonical = json.dumps(content_schema, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    assert category["content_schema_revision"] == hashlib.sha256(canonical.encode()).hexdigest()
+    assert category["content_schema_size_bytes"] == len(canonical.encode())
     revision = CategorySchemaRevision.objects.get(category_id=category["id"], version=1)
-    assert revision.content_schema == category["content_schema"]
+    assert revision.content_schema == content_schema
 
 
 @pytest.mark.django_db
@@ -49,16 +55,22 @@ def test_category_list_returns_references_without_content_schemas() -> None:
     response = client.get("/api/records/categories")
 
     assert response.status_code == 200
-    assert response.json() == [
-        {
-            "id": category["id"],
-            "title": category["title"],
-            "schema_version": category["schema_version"],
-        }
-    ]
+    assert response.json() == {
+        "items": [
+            {
+                "id": category["id"],
+                "title": category["title"],
+                "schema_version": category["schema_version"],
+            }
+        ],
+        "has_more": False,
+        "next_offset": 1,
+        "limit": 50,
+    }
     details = client.get(f"/api/records/categories/{category['id']}")
     assert details.status_code == 200
-    assert details.json()["content_schema"] == category["content_schema"]
+    assert "content_schema" not in details.json()
+    assert details.json()["content_schema_revision"] == category["content_schema_revision"]
 
 
 @pytest.mark.django_db
@@ -73,10 +85,14 @@ def test_update_schema_without_records_replaces_version_one() -> None:
     )
 
     assert response.status_code == 200
+    assert response.json()["category_id"] == category["id"]
     assert response.json()["version"] == 1
     stored = Category.objects.get(pk=category["id"])
     assert stored.schema_version == 1
-    assert stored.content_schema == response.json()["content_schema"]
+    assert stored.content_schema == {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        **NEXT_SCHEMA,
+    }
     assert list(stored.schema_revisions.order_by("version").values_list("version", flat=True)) == [1]
 
 
@@ -144,4 +160,7 @@ def test_invalid_schema_does_not_change_category() -> None:
     assert response.status_code == 422
     stored = Category.objects.get(pk=category["id"])
     assert stored.schema_version == category["schema_version"]
-    assert stored.content_schema == category["content_schema"]
+    assert stored.content_schema == {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        **INITIAL_SCHEMA,
+    }

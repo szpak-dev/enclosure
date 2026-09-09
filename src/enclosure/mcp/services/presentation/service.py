@@ -1,5 +1,4 @@
 import json
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -58,9 +57,6 @@ class PresentationService:
         return self.repository.find_all(tuple(tool.name for tool in catalogue.tools))
 
     def _render(self, document: SirenDocument, template: PresentationTemplate) -> McpPresentation:
-        properties = document.document.get("properties")
-        if not isinstance(properties, Mapping):
-            properties = {}
         context = {
             "bootstrap": self.bootstrap.load(),
             "data": self.projection.project(document),
@@ -69,7 +65,7 @@ class PresentationService:
         }
         if template.application != "projects":
             context["document"] = document.document
-            context["properties"] = properties
+            context["properties"] = document.document.get("properties", {})
         envelope = PresentationEnvelope.model_validate(
             json.loads(
                 self.templates.render(
@@ -102,27 +98,7 @@ class PresentationService:
         status: PresentationStatus,
         summary: str,
     ) -> McpPresentation:
-        properties = document.document.get("properties")
-        safe_data: dict[str, JsonValue] = {}
-        if isinstance(properties, Mapping):
-            for name in (
-                "id",
-                "project_id",
-                "workspace_id",
-                "title",
-                "state",
-                "status",
-                "revision",
-                "version",
-                "root",
-                "authority",
-                "provenance",
-                "created_at",
-                "updated_at",
-            ):
-                value = properties.get(name)
-                if isinstance(value, str | int | float | bool):
-                    safe_data[name] = value
+        safe_data: dict[str, JsonValue] = dict(self.projection.project(document))
         safe_data["classes"] = list(document.classes)
         safe_data["reason"] = "operation_failed" if status is PresentationStatus.ERROR else "presentation_incomplete"
         context = {
