@@ -1,0 +1,11 @@
+# Record categories
+
+{% for category in data['items'] %}
+- `{{ category.id }}` — {{ category.title }} — schema version {{ category.schema_version }}
+{% else %}
+- None
+{% endfor %}
+{% if data.has_more %}
+
+Continue with `find_record_categories(offset={{ data.next_offset }}, limit={{ data.limit }})`.
+{% endif %}

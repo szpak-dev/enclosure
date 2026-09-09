@@ -1,0 +1,11 @@
+# Record tags
+
+{% for tag in data['items'] %}
+- `{{ tag.id }}` — {{ tag.name }}
+{% else %}
+- None
+{% endfor %}
+{% if data.has_more %}
+
+Continue with `find_record_tags(offset={{ data.next_offset }}, limit={{ data.limit }})`.
+{% endif %}

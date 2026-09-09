@@ -20,7 +20,8 @@ class SirenProjectionService:
     def project(self, document: SirenDocument) -> Mapping[str, JsonValue]:
         if "collection" in document.classes:
             entities = document.document.get("entities", ())
-            data = self._collection(entities)
+            data = self._properties(document.document)
+            data.update(self._collection(entities))
         else:
             data = self._properties(document.document)
         self._navigation(document.document, data)

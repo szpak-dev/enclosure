@@ -19,8 +19,8 @@ class TagService:
     def get(self, id: str) -> Tag:
         return self.repository.get(id)
 
-    def find_all(self) -> QuerySet[Tag]:
-        return self.repository.find_all()
+    def find_all(self, offset: int, limit: int) -> QuerySet[Tag]:
+        return self.repository.find_all().order_by("id")[offset : offset + limit + 1]
 
     def update(self, id: str, data: dict) -> Tag:
         return self.repository.update(id, **data)

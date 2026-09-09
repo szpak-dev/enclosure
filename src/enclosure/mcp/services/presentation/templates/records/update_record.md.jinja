@@ -1,0 +1,7 @@
+# Record updated
+
+`{{ data.id }}` — {{ data.title }}
+
+Category: `{{ data.category.id }}` — {{ data.category.title }} (schema version {{ data.schema_version }})
+
+Resources: {{ data.resources | length }} manifest{% if data.resources | length != 1 %}s{% endif %}; bodies are available through `read_record_resource`.

@@ -1,0 +1,10 @@
+# Record created
+
+`{{ data.id }}` — {{ data.title }}
+
+Category: `{{ data.category.id }}` — {{ data.category.title }} (schema version {{ data.schema_version }})
+{% if data.tags %}
+Tags:{% for tag in data.tags %} `{{ tag.name }}`{% endfor %}
+{% endif %}
+
+Resources: {{ data.resources | length }} manifest{% if data.resources | length != 1 %}s{% endif %}; bodies are available through `read_record_resource`.

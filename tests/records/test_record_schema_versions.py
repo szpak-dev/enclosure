@@ -85,7 +85,7 @@ def test_record_responses_do_not_embed_the_category_content_schema() -> None:
 
     for response in responses:
         assert response.status_code == 200
-        record = response.json()[0] if isinstance(response.json(), list) else response.json()
+        record = response.json()["items"][0] if "items" in response.json() else response.json()
         assert "content_schema" not in record["category"]
 
 

@@ -22,20 +22,23 @@ class RecordRepository(DjangoRepository):
     def get(self, id: str) -> Record:
         return self.details().get(pk=id)
 
+    def get_resource(self, record_id: str, path: str) -> Resource:
+        return Resource.objects.get(record_id=record_id, path=path)
+
     def find(
         self,
         category_id: str | None = None,
         tag_ids: Iterable[str] | None = None,
     ) -> QuerySet[Record]:
-        records = self.find_all()
+        records = self.summaries()
         if category_id is not None:
             records = records.filter(category_id=category_id)
         for tag_id in tag_ids or ():
             records = records.filter(tags__id=tag_id)
         return records.distinct()
 
-    def find_all(self) -> QuerySet[Record]:
-        return self.summaries()
+    def find_all(self, offset: int, limit: int) -> QuerySet[Record]:
+        return self.summaries().order_by("id")[offset : offset + limit + 1]
 
     def summaries(self) -> QuerySet[Record]:
         return self.model.objects.select_related("category").prefetch_related("tags")

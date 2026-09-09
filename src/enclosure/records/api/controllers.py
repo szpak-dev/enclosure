@@ -1,8 +1,9 @@
 from typing import Annotated
 
 from modwire_hex.django import DjangoRequest
-from ninja import Path, Status
-from ninja_extra import ControllerBase, api_controller, route
+from ninja import Path, Query, Status
+from ninja_extra import ControllerBase, api_controller, http_get, route
+from sirenity import siren_pagination
 
 from ..services import RecordsService
 from . import schemas
@@ -21,15 +22,16 @@ class TagsController(ControllerBase):
         tag = DjangoRequest.resolve(request, RecordsService).create_tag(body.model_dump(mode="json"))
         return Status(201, tag)
 
-    @route.get(
-        "",
-        response=list[schemas.Tag],
+    @siren_pagination(
+        http_get,
+        response=schemas.TagPage,
         operation_id="find_record_tags",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List record tags",
-        description="Return all tags available for classifying records.",
+        description="Return one bounded page of tags available for classifying records.",
     )
-    def find_all(self, request):
-        return DjangoRequest.resolve(request, RecordsService).find_all_tags()
+    def find_all(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, RecordsService).find_tag_page(query.offset, query.limit)
 
     @route.get(
         "/{tag_id}",
@@ -78,18 +80,19 @@ class RecordsController(ControllerBase):
         description="Store a categorized, tagged record and its source resources.",
     )
     def create(self, request, body: schemas.WriteRecord):
-        record = DjangoRequest.resolve(request, RecordsService).create_record(body.model_dump(mode="json"))
+        record = DjangoRequest.resolve(request, RecordsService).create_record_detail(body.model_dump(mode="json"))
         return Status(201, record)
 
-    @route.get(
-        "",
-        response=list[schemas.RecordSummary],
+    @siren_pagination(
+        http_get,
+        response=schemas.RecordPage,
         operation_id="find_records",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List records",
-        description="Return summaries of all records.",
+        description="Return one bounded page of compact record summaries.",
     )
-    def find_all(self, request):
-        return DjangoRequest.resolve(request, RecordsService).find_all_records()
+    def find_all(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, RecordsService).find_record_page(query.offset, query.limit)
 
     @route.post(
         "/search-results",
@@ -109,18 +112,20 @@ class RecordsController(ControllerBase):
         description="Create a category whose JSON Schema validates record content.",
     )
     def create_category(self, request, body: schemas.CreateCategory):
-        category = DjangoRequest.resolve(request, RecordsService).create_category(body.model_dump(mode="json"))
+        category = DjangoRequest.resolve(request, RecordsService).create_category_detail(body.model_dump(mode="json"))
         return Status(201, category)
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "/categories",
-        response=list[schemas.CategoryReference],
+        response=schemas.CategoryPage,
         operation_id="find_record_categories",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List record categories",
-        description="Return compact references to all record categories.",
+        description="Return one bounded page of compact record category references.",
     )
-    def find_all_categories(self, request):
-        return DjangoRequest.resolve(request, RecordsService).find_all_categories()
+    def find_all_categories(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, RecordsService).find_category_page(query.offset, query.limit)
 
     @route.get(
         "/categories/{category_id}",
@@ -134,7 +139,7 @@ class RecordsController(ControllerBase):
         request,
         category_id: Annotated[str, Path(description="Record category identifier.")],
     ):
-        return DjangoRequest.resolve(request, RecordsService).get_category(category_id)
+        return DjangoRequest.resolve(request, RecordsService).get_category_detail(category_id)
 
     @route.put(
         "/categories/{category_id}",
@@ -149,7 +154,7 @@ class RecordsController(ControllerBase):
         category_id: Annotated[str, Path(description="Record category identifier.")],
         body: schemas.UpdateCategory,
     ):
-        return DjangoRequest.resolve(request, RecordsService).update_category(
+        return DjangoRequest.resolve(request, RecordsService).update_category_detail(
             category_id,
             body.model_dump(mode="json"),
         )
@@ -167,9 +172,30 @@ class RecordsController(ControllerBase):
         category_id: Annotated[str, Path(description="Record category identifier.")],
         body: schemas.UpdateCategoryContentSchema,
     ):
-        return DjangoRequest.resolve(request, RecordsService).update_category_content_schema(
+        return DjangoRequest.resolve(request, RecordsService).update_category_content_schema_receipt(
             category_id,
             body.content_schema,
+        )
+
+    @route.get(
+        "/categories/{category_id}/content-schema",
+        response=schemas.RecordCategoryContentSchema,
+        operation_id="read_record_category_content_schema",
+        summary="Read a record category content schema",
+        description="Read one bounded page from a revision-pinned category content schema.",
+    )
+    def read_category_content_schema(
+        self,
+        request,
+        category_id: Annotated[str, Path(description="Record category identifier.")],
+        query: Query[schemas.ReadRecordCategoryContentSchema],
+    ):
+        return DjangoRequest.resolve(request, RecordsService).read_record_category_content_schema(
+            category_id,
+            query.schema_version,
+            query.expected_revision,
+            query.offset,
+            query.limit,
         )
 
     @route.delete(
@@ -195,7 +221,28 @@ class RecordsController(ControllerBase):
         description="Return a record with its category, tags, content, and source resources.",
     )
     def get(self, request, record_id: Annotated[str, Path(description="Record identifier.")]):
-        return DjangoRequest.resolve(request, RecordsService).get_record(record_id)
+        return DjangoRequest.resolve(request, RecordsService).get_record_detail(record_id)
+
+    @route.get(
+        "/{record_id}/resources/content",
+        response=schemas.RecordResourceContent,
+        operation_id="read_record_resource",
+        summary="Read a record resource",
+        description="Read one bounded page from an exact revision-pinned record resource path.",
+    )
+    def read_resource(
+        self,
+        request,
+        record_id: Annotated[str, Path(description="Record identifier.")],
+        query: Query[schemas.ReadRecordResource],
+    ):
+        return DjangoRequest.resolve(request, RecordsService).read_record_resource(
+            record_id,
+            query.path,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )
 
     @route.put(
         "/{record_id}",
@@ -210,7 +257,10 @@ class RecordsController(ControllerBase):
         record_id: Annotated[str, Path(description="Record identifier.")],
         body: schemas.WriteRecord,
     ):
-        return DjangoRequest.resolve(request, RecordsService).update_record(record_id, body.model_dump(mode="json"))
+        return DjangoRequest.resolve(request, RecordsService).update_record_detail(
+            record_id,
+            body.model_dump(mode="json"),
+        )
 
     @route.delete(
         "/{record_id}",

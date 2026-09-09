@@ -206,6 +206,147 @@ class PublicMcpClient:
             await call("delete_diagram_set", {"diagram_set_id": diagram_set_id})
             return results
 
+    async def record_presentations(self) -> dict[str, CallToolResult]:
+        async with self.session() as (session, _):
+            await session.initialize()
+            results = {}
+
+            async def call(name: str, arguments: Mapping[str, Any]) -> CallToolResult:
+                result = await session.call_tool(name, arguments)
+                results[name] = result
+                return result
+
+            tag = await call("create_record_tag", {"name": "MCP primary tag"})
+            tag_id = tag.structured_content["data"]["id"]
+            await call("get_record_tag", {"tag_id": tag_id})
+            await call("update_record_tag", {"tag_id": tag_id, "name": "MCP updated tag"})
+            await call("create_record_tag", {"name": "MCP page tag"})
+            disposable_tag = await call("create_record_tag", {"name": "MCP disposable tag"})
+            await call("find_record_tags", {"offset": 0, "limit": 1})
+
+            category = await call(
+                "create_record_category",
+                {
+                    "title": "MCP primary category",
+                    "content_schema": {
+                        "type": "object",
+                        "properties": {"headline": {"type": "string"}},
+                        "required": ["headline"],
+                    },
+                },
+            )
+            category_id = category.structured_content["data"]["id"]
+            await call("get_record_category", {"category_id": category_id})
+            await call(
+                "update_record_category",
+                {"category_id": category_id, "title": "MCP updated category"},
+            )
+            schema = await call(
+                "update_record_category_content_schema",
+                {
+                    "category_id": category_id,
+                    "content_schema": {
+                        "type": "object",
+                        "properties": {
+                            "headline": {"type": "string"},
+                            "summary": {"type": "string"},
+                        },
+                        "required": ["headline"],
+                    },
+                },
+            )
+            schema_data = schema.structured_content["data"]
+            await call(
+                "read_record_category_content_schema",
+                {
+                    "category_id": category_id,
+                    "schema_version": schema_data["version"],
+                    "expected_revision": schema_data["revision"],
+                    "offset": 0,
+                    "limit": 64,
+                },
+            )
+            await call(
+                "create_record_category",
+                {"title": "MCP page category", "content_schema": {"type": "object"}},
+            )
+            disposable_category = await call(
+                "create_record_category",
+                {"title": "MCP disposable category", "content_schema": {"type": "object"}},
+            )
+            await call("find_record_categories", {"offset": 0, "limit": 1})
+
+            source = "record_source = 'bounded MCP content'\n" * 24
+            record = await call(
+                "create_record",
+                {
+                    "title": "MCP primary record",
+                    "content": {"headline": "Primary"},
+                    "category_id": category_id,
+                    "tag_ids": [tag_id],
+                    "resources": [
+                        {
+                            "path": "guidance/record.py",
+                            "language": "python",
+                            "content": source,
+                        }
+                    ],
+                },
+            )
+            record_id = record.structured_content["data"]["id"]
+            secondary_record = await session.call_tool(
+                "create_record",
+                {
+                    "title": "MCP secondary record",
+                    "content": {"headline": "Secondary"},
+                    "category_id": category_id,
+                    "tag_ids": [tag_id],
+                    "resources": [],
+                },
+            )
+            secondary_record_id = secondary_record.structured_content["data"]["id"]
+            await call("find_records", {"offset": 0, "limit": 1})
+            await call("search_records", {"query": "primary record", "limit": 2})
+            await call("get_record", {"record_id": record_id})
+            updated_record = await call(
+                "update_record",
+                {
+                    "record_id": record_id,
+                    "title": "MCP revised record",
+                    "content": {"headline": "Revised", "summary": "Verified"},
+                    "category_id": category_id,
+                    "tag_ids": [tag_id],
+                    "resources": [
+                        {
+                            "path": "guidance/record.py",
+                            "language": "python",
+                            "content": source,
+                        }
+                    ],
+                },
+            )
+            manifest = updated_record.structured_content["data"]["resources"][0]
+            await call(
+                "read_record_resource",
+                {
+                    "record_id": record_id,
+                    "path": manifest["path"],
+                    "expected_revision": manifest["revision"],
+                    "offset": 0,
+                    "limit": 64,
+                },
+            )
+            await call("delete_record", {"record_id": secondary_record_id})
+            await call(
+                "delete_record_category",
+                {"category_id": disposable_category.structured_content["data"]["id"]},
+            )
+            await call(
+                "delete_record_tag",
+                {"tag_id": disposable_tag.structured_content["data"]["id"]},
+            )
+            return results
+
     async def workspace_context(
         self,
         root: Path,
