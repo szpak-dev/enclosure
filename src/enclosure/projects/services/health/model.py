@@ -46,6 +46,15 @@ class GuidanceRelationship(GuidanceRelationshipInput):
     project_id: str
 
 
+class GuidanceRelationshipPage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[GuidanceRelationship, ...]
+    has_more: bool
+    next_offset: int
+    limit: int
+
+
 class GuidanceNode(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

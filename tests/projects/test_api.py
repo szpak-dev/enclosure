@@ -368,7 +368,7 @@ def test_lists_and_fetches_registered_projects(
     fetched = client.get(f"/api/projects/{project['id']}")
 
     assert listed.status_code == 200
-    assert listed.json() == [{"id": project["id"], "title": project["title"]}]
+    assert listed.json()["items"] == [{"id": project["id"], "title": project["title"]}]
     assert found.status_code == 200
     assert found.json() == project
     assert resolved.status_code == 200
@@ -429,7 +429,7 @@ def test_binds_multiple_worktrees_and_uses_the_selected_workspace(
     }
     assert resolved.status_code == 200
     assert resolved.json() == {"project": project, "workspace": bound.json()}
-    assert workspaces.json() == [
+    assert workspaces.json()["items"] == [
         bound.json(),
         resolution["workspace"],
     ]
@@ -438,7 +438,7 @@ def test_binds_multiple_worktrees_and_uses_the_selected_workspace(
     assert (feature / "generated" / "src" / "package" / "__init__.py").is_file()
     assert not (main / "generated").exists()
     assert deleted.status_code == 204
-    assert client.get(f"/api/projects/{project['id']}/workspaces").json() == [resolution["workspace"]]
+    assert client.get(f"/api/projects/{project['id']}/workspaces").json()["items"] == [resolution["workspace"]]
 
 
 @pytest.mark.django_db
@@ -719,7 +719,7 @@ def test_routes_scoped_guidance_for_representative_tasks(
         python.json()["id"],
     ]
     assert [scope["position"] for scope in replaced.json()] == [1, 2, 3]
-    assert client.get(f"/api/projects/{project['id']}/guidance-scopes").json() == replaced.json()
+    assert client.get(f"/api/projects/{project['id']}/guidance-scopes").json()["items"] == replaced.json()
 
     corpus = (
         ("database migration rollback", database.json()["id"]),
@@ -1027,7 +1027,7 @@ def test_updates_registered_project(
     assert client.get(f"/api/projects/{project['id']}").json() == updated.json()
     configurations = client.get(f"/api/projects/{project['id']}/architecture-configurations")
     assert configurations.status_code == 200
-    references = configurations.json()
+    references = configurations.json()["items"]
     assert len(references) == 1
     assert references[0]["project_id"] == project["id"]
     configuration = client.get(f"/api/projects/{project['id']}/architecture-configurations/{references[0]['id']}")
@@ -1054,7 +1054,7 @@ def test_reads_revision_pinned_architecture_configuration_content(
         content_type="application/json",
     ).json()
     project_id = resolution["project"]["id"]
-    reference = client.get(f"/api/projects/{project_id}/architecture-configurations").json()[0]
+    reference = client.get(f"/api/projects/{project_id}/architecture-configurations").json()["items"][0]
 
     response = client.get(
         f"/api/projects/{project_id}/architecture-configurations/{reference['id']}/content",
@@ -1422,7 +1422,7 @@ def test_health_reports_malformed_guidance_graph_and_blocks_ready_context(
     assert relationships.status_code == 200
     assert all(relationship["id"] for relationship in relationships.json())
     assert {relationship["project_id"] for relationship in relationships.json()} == {project["id"]}
-    assert client.get(f"/api/projects/{project['id']}/guidance-relationships").json() == relationships.json()
+    assert client.get(f"/api/projects/{project['id']}/guidance-relationships").json()["items"] == relationships.json()
     assert health.status_code == 200
     assert health.json()["healthy"] is False
     rules = {finding["rule"] for finding in health.json()["failures"]}
@@ -1630,3 +1630,172 @@ def test_project_commands_reject_structurally_invalid_payloads(
     response = client.post(path, data=payload, content_type="application/json")
 
     assert response.status_code == 422
+
+
+@pytest.mark.django_db
+def test_project_collections_are_deterministically_paginated(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    projects = []
+    for index in range(3):
+        root = tmp_path / f"project-{index}"
+        root.mkdir()
+        python_project(root)
+        created = client.post(
+            "/api/projects",
+            data=registration(discover(client, root), dependencies),
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        projects.append(created.json()["project"])
+    project = projects[0]
+    for index in range(2):
+        root = tmp_path / f"worktree-{index}"
+        root.mkdir()
+        python_project(root)
+        bound = client.post(
+            f"/api/projects/{project['id']}/workspaces",
+            data={"root": str(root), "architecture_root": str(root)},
+            content_type="application/json",
+        )
+        assert bound.status_code == 201
+    records = [dependencies["record_id"]]
+    for index in range(3):
+        record = client.post(
+            "/api/records",
+            data={
+                "title": f"Pagination guidance {index}",
+                "content": {},
+                "category_id": dependencies["category_id"],
+                "tag_ids": [dependencies["tag_id"]],
+                "resources": [],
+            },
+            content_type="application/json",
+        )
+        assert record.status_code == 201
+        records.append(record.json()["id"])
+    scopes = client.put(
+        f"/api/projects/{project['id']}/guidance-scopes",
+        data={"record_ids": records[1:]},
+        content_type="application/json",
+    )
+    relationships = client.put(
+        f"/api/projects/{project['id']}/guidance-relationships",
+        data={
+            "relationships": [
+                {
+                    "source_record_id": source,
+                    "target_record_id": target,
+                    "kind": "containment",
+                }
+                for source, target in zip(records[:3], records[1:], strict=True)
+            ]
+        },
+        content_type="application/json",
+    )
+    assert scopes.status_code == 200
+    assert relationships.status_code == 200
+
+    three_item_paths = (
+        "/api/projects",
+        f"/api/projects/{project['id']}/workspaces",
+        f"/api/projects/{project['id']}/guidance-scopes",
+        f"/api/projects/{project['id']}/guidance-relationships",
+    )
+    for path in three_item_paths:
+        first = client.get(path, {"offset": 0, "limit": 1})
+        intermediate = client.get(path, {"offset": 1, "limit": 1})
+        final = client.get(path, {"offset": 2, "limit": 1})
+        empty = client.get(path, {"offset": 3, "limit": 1})
+
+        assert first.status_code == 200
+        assert len(first.json()["items"]) == 1
+        assert first.json()["has_more"] is True
+        assert first.json()["next_offset"] == 1
+        assert first.json()["limit"] == 1
+        assert intermediate.status_code == 200
+        assert len(intermediate.json()["items"]) == 1
+        assert intermediate.json()["has_more"] is True
+        assert intermediate.json()["next_offset"] == 2
+        assert intermediate.json()["limit"] == 1
+        assert final.status_code == 200
+        assert len(final.json()["items"]) == 1
+        assert final.json()["has_more"] is False
+        assert final.json()["next_offset"] == 3
+        assert final.json()["limit"] == 1
+        assert empty.status_code == 200
+        assert empty.json() == {
+            "items": [],
+            "has_more": False,
+            "next_offset": 3,
+            "limit": 1,
+        }
+
+    configuration_path = f"/api/projects/{project['id']}/architecture-configurations"
+    configuration = client.get(configuration_path, {"offset": 0, "limit": 1})
+    empty_configuration = client.get(configuration_path, {"offset": 1, "limit": 1})
+
+    assert configuration.status_code == 200
+    assert len(configuration.json()["items"]) == 1
+    assert configuration.json()["has_more"] is False
+    assert configuration.json()["next_offset"] == 1
+    assert configuration.json()["limit"] == 1
+    assert empty_configuration.status_code == 200
+    assert empty_configuration.json() == {
+        "items": [],
+        "has_more": False,
+        "next_offset": 1,
+        "limit": 1,
+    }
+
+
+def test_sirenity_owns_project_collection_continuation_links() -> None:
+    schema = Client().get("/api/openapi.json").json()
+    paths = (
+        "/api/projects",
+        "/api/projects/{project_id}/workspaces",
+        "/api/projects/{project_id}/guidance-scopes",
+        "/api/projects/{project_id}/guidance-relationships",
+        "/api/projects/{project_id}/architecture-configurations",
+    )
+
+    for path in paths:
+        operation = schema["paths"][path]["get"]
+        assert operation["responses"]["200"]["links"] == {
+            "next": {
+                "operationId": operation["operationId"],
+                "parameters": {
+                    "offset": "$response.body#/next_offset",
+                    "limit": "$response.body#/limit",
+                },
+            }
+        }
+
+
+@pytest.mark.django_db
+def test_project_collection_pagination_is_bounded(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    response = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    )
+    assert response.status_code == 201
+    project_id = response.json()["project"]["id"]
+    paths = (
+        "/api/projects",
+        f"/api/projects/{project_id}/workspaces",
+        f"/api/projects/{project_id}/guidance-scopes",
+        f"/api/projects/{project_id}/guidance-relationships",
+        f"/api/projects/{project_id}/architecture-configurations",
+    )
+
+    for path in paths:
+        assert client.get(path, {"offset": -1, "limit": 10}).status_code == 422
+        assert client.get(path, {"offset": 0, "limit": 101}).status_code == 422

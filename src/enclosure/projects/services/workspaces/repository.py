@@ -20,6 +20,9 @@ class WorkspaceRepository:
     def find(self, project_id: str) -> QuerySet[models.WorkspaceBinding]:
         return self.model.objects.filter(project_id=project_id).order_by("root")
 
+    def find_page(self, project_id: str, offset: int, limit: int) -> QuerySet[models.WorkspaceBinding]:
+        return self.find(project_id)[offset : offset + limit + 1]
+
     def get(self, project_id: str, workspace_id: str) -> models.WorkspaceBinding:
         return self.model.objects.get(project_id=project_id, pk=workspace_id)
 

@@ -18,6 +18,15 @@ class WorkspaceBinding(WorkspaceLocation):
     revision: int
 
 
+class WorkspacePage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[WorkspaceBinding, ...]
+    has_more: bool
+    next_offset: int
+    limit: int
+
+
 class WorkspaceState(StrEnum):
     AVAILABLE = "available"
     MISSING_ROOT = "missing_root"

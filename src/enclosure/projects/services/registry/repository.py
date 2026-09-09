@@ -14,11 +14,22 @@ from ... import models
 class ProjectRepository(DjangoRepository):
     model: type[models.Project] = field(default=models.Project, init=False)
 
+    def find_page(self, offset: int, limit: int) -> QuerySet[models.Project]:
+        return self.find_all().order_by("id")[offset : offset + limit + 1]
+
     def find_architecture_configurations(
         self,
         project_id: str,
     ) -> QuerySet[models.ProjectArchitectureConfiguration]:
-        return models.ProjectArchitectureConfiguration.objects.filter(project_id=project_id)
+        return models.ProjectArchitectureConfiguration.objects.filter(project_id=project_id).order_by("id")
+
+    def find_architecture_configuration_page(
+        self,
+        project_id: str,
+        offset: int,
+        limit: int,
+    ) -> QuerySet[models.ProjectArchitectureConfiguration]:
+        return self.find_architecture_configurations(project_id)[offset : offset + limit + 1]
 
     def get_architecture_configuration(
         self,

@@ -4,7 +4,7 @@ from wireup import injectable
 
 from ..registry.service import RegistryService
 from .inspection import WorkspaceInspectionService
-from .model import WorkspaceBinding, WorkspaceLocation, WorkspaceResolution, WorkspaceStatus
+from .model import WorkspaceBinding, WorkspaceLocation, WorkspacePage, WorkspaceResolution, WorkspaceStatus
 from .repository import WorkspaceRepository
 
 
@@ -26,6 +26,19 @@ class WorkspaceService:
     def find(self, project_id: str) -> tuple[WorkspaceBinding, ...]:
         self.registry.get(project_id)
         return tuple(self._workspace(workspace) for workspace in self.repository.find(project_id))
+
+    def find_page(self, project_id: str, offset: int, limit: int) -> WorkspacePage:
+        self.registry.get(project_id)
+        workspaces = tuple(
+            self._workspace(workspace) for workspace in self.repository.find_page(project_id, offset, limit)
+        )
+        items = workspaces[:limit]
+        return WorkspacePage(
+            items=items,
+            has_more=len(workspaces) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
 
     def get(self, project_id: str, workspace_id: str) -> WorkspaceBinding:
         self.registry.get(project_id)

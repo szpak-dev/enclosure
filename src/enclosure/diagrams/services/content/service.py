@@ -5,7 +5,7 @@ from typing import ClassVar
 from wireup import injectable
 
 from ...errors import DiagramsError
-from ..editing import DiagramEditingService
+from ..editing.service import DiagramEditingService
 from .model import DiagramContentDocument, DiagramContentPage
 
 

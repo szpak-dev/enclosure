@@ -46,6 +46,7 @@ class SirenGatewayAdapter(SirenGateway):
         properties = document.get("properties", document)
         return SirenDocument(
             operation_id=invocation.operation_id,
+            arguments=invocation.arguments,
             document=document,
             is_error=result.is_error,
             classes=tuple(document.get("class", ())),

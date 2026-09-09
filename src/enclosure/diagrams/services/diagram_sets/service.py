@@ -7,6 +7,7 @@ from wireup import injectable
 from ...models import DiagramSet
 from ..repository import DiagramsRepository
 from ..validation import DiagramValidationService
+from .model import DiagramSetPage
 
 
 @injectable
@@ -23,6 +24,16 @@ class DiagramSetService:
 
     def find_all(self) -> QuerySet[DiagramSet]:
         return self.repository.find_all_sets()
+
+    def find_page(self, offset: int, limit: int) -> DiagramSetPage:
+        diagram_sets = tuple(self.repository.find_set_page(offset, limit))
+        items = diagram_sets[:limit]
+        return DiagramSetPage(
+            items=items,
+            has_more=len(diagram_sets) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
 
     def update(self, id: str, data: Mapping[str, object]) -> DiagramSet:
         return self.repository.update_set(id, self.validation.diagram_set(data))

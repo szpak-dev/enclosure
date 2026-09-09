@@ -1,5 +1,5 @@
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from django.test import Client
@@ -267,3 +267,125 @@ def test_siren_exposes_guidance_relationship_identity(
         "target_record_id": record_id,
         "kind": "containment",
     }
+
+
+@pytest.mark.django_db
+def test_siren_projects_bounded_project_collection_pages(
+    client: Client,
+    registered_project: tuple[str, str, Path, str],
+) -> None:
+    project_id, _, root, record_id = registered_project
+    setup = Client()
+    project = setup.get(f"/api/projects/{project_id}").json()
+    second_root = root / "second-project"
+    second_root.mkdir()
+    (second_root / "uv.lock").write_text("", encoding="utf-8")
+    (second_root / "app.py").write_text("", encoding="utf-8")
+    discovery = setup.post(
+        "/api/projects/discoveries",
+        data={"root": str(second_root)},
+        content_type="application/json",
+    )
+    assert discovery.status_code == 200
+    second_project = setup.post(
+        "/api/projects",
+        data={
+            "discovery": discovery.json(),
+            "architecture_root": str(second_root),
+            "boundaries_yaml": "boundaries: {}\n",
+            "shape_yaml": "shape:\n  realms:\n    - name: project\n      match: '*'\n",
+            "scaffolding_id": project["scaffolding_id"],
+            "record_ids": [],
+        },
+        content_type="application/json",
+    )
+    assert second_project.status_code == 201
+    for index in range(1):
+        workspace_root = root / f"worktree-{index}"
+        workspace_root.mkdir()
+        bound = setup.post(
+            f"/api/projects/{project_id}/workspaces",
+            data={"root": str(workspace_root), "architecture_root": str(workspace_root)},
+            content_type="application/json",
+        )
+        assert bound.status_code == 201
+    record = setup.get(f"/api/records/{record_id}").json()
+    records = [record_id]
+    for index in range(2):
+        created = setup.post(
+            "/api/records",
+            data={
+                "title": f"Siren page guidance {index}",
+                "content": {},
+                "category_id": record["category"]["id"],
+                "tag_ids": [tag["id"] for tag in record["tags"]],
+                "resources": [],
+            },
+            content_type="application/json",
+        )
+        assert created.status_code == 201
+        records.append(created.json()["id"])
+    scopes = setup.put(
+        f"/api/projects/{project_id}/guidance-scopes",
+        data={"record_ids": records[:2]},
+        content_type="application/json",
+    )
+    relationships = setup.put(
+        f"/api/projects/{project_id}/guidance-relationships",
+        data={
+            "relationships": [
+                {
+                    "source_record_id": source,
+                    "target_record_id": target,
+                    "kind": "containment",
+                }
+                for source, target in zip(records[:2], records[1:], strict=True)
+            ]
+        },
+        content_type="application/json",
+    )
+    assert scopes.status_code == 200
+    assert relationships.status_code == 200
+
+    paths = (
+        "/siren/projects",
+        f"/siren/projects/{project_id}/workspaces",
+        f"/siren/projects/{project_id}/guidance-scopes",
+        f"/siren/projects/{project_id}/guidance-relationships",
+    )
+    for path in paths:
+        first = client.get(path, {"offset": 0, "limit": 1})
+
+        assert first.status_code == 200
+        assert first.json()["properties"] == {
+            "has_more": True,
+            "next_offset": 1,
+            "limit": 1,
+        }
+        assert len(first.json()["entities"]) == 1
+        next_link = next(link for link in first.json()["links"] if link["rel"] == ["next"])
+        split_next = urlsplit(next_link["href"])
+        assert parse_qs(split_next.query) == {"offset": ["1"], "limit": ["1"]}
+
+        final = client.get(f"{split_next.path}?{split_next.query}")
+        assert final.status_code == 200
+        assert final.json()["properties"] == {
+            "has_more": False,
+            "next_offset": 2,
+            "limit": 1,
+        }
+        assert len(final.json()["entities"]) == 1
+        assert all(link["rel"] != ["next"] for link in final.json()["links"])
+
+    configurations = client.get(
+        f"/siren/projects/{project_id}/architecture-configurations",
+        {"offset": 0, "limit": 1},
+    )
+    assert configurations.status_code == 200
+    assert configurations.json()["properties"] == {
+        "has_more": False,
+        "next_offset": 1,
+        "limit": 1,
+    }
+    assert len(configurations.json()["entities"]) == 1
+    assert all(link["rel"] != ["next"] for link in configurations.json()["links"])

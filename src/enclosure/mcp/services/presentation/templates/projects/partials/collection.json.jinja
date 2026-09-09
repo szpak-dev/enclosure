@@ -1,2 +1,10 @@
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", summary, data, []) }}
+{% set follow_ups = [] %}
+{% if data.has_more %}
+{% set arguments = {"offset": data.next_offset, "limit": data.limit} %}
+{% if identity_name %}
+{% do arguments.update({identity_name: invocation[identity_name]}) %}
+{% endif %}
+{% do follow_ups.append({"operation_id": operation_id, "arguments": arguments}) %}
+{% endif %}
+{{ envelope(operation_id, "ok", summary, data, follow_ups) }}

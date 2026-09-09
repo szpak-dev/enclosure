@@ -2,9 +2,10 @@ from typing import Annotated
 
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
-from ninja_extra import ControllerBase, api_controller, route
+from ninja_extra import ControllerBase, api_controller, http_get, route
+from sirenity import siren_pagination
 
-from ..services import ProjectsService
+from ..services.facade import ProjectsService
 from . import schemas
 
 
@@ -85,19 +86,26 @@ class ProjectsController(ControllerBase):
     def workspace_context(self, request, body: schemas.GetWorkspaceContext):
         return DjangoRequest.resolve(request, ProjectsService).get_workspace_context(body.root, body.task)
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "/{project_id}/guidance-scopes",
-        response=list[schemas.GuidanceScope],
+        response=schemas.GuidanceScopePage,
         operation_id="find_guidance_scopes",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List guidance scopes",
-        description="Return the ordered optional guidance records eligible for this project.",
+        description="Return one bounded page of ordered optional guidance records eligible for this project.",
     )
     def find_guidance_scopes(
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
+        query: Query[schemas.FindPage],
     ):
-        return list(DjangoRequest.resolve(request, ProjectsService).find_guidance_scopes(project_id))
+        return DjangoRequest.resolve(request, ProjectsService).find_guidance_scope_page(
+            project_id,
+            query.offset,
+            query.limit,
+        )
 
     @route.put(
         "/{project_id}/guidance-scopes",
@@ -119,19 +127,26 @@ class ProjectsController(ControllerBase):
             )
         )
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "/{project_id}/guidance-relationships",
-        response=list[schemas.GuidanceRelationship],
+        response=schemas.GuidanceRelationshipPage,
         operation_id="find_guidance_relationships",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List guidance relationships",
-        description="Return the project's typed guidance-graph relationships.",
+        description="Return one bounded page of the project's typed guidance-graph relationships.",
     )
     def find_guidance_relationships(
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
+        query: Query[schemas.FindPage],
     ):
-        return list(DjangoRequest.resolve(request, ProjectsService).find_guidance_relationships(project_id))
+        return DjangoRequest.resolve(request, ProjectsService).find_guidance_relationship_page(
+            project_id,
+            query.offset,
+            query.limit,
+        )
 
     @route.put(
         "/{project_id}/guidance-relationships",
@@ -163,15 +178,17 @@ class ProjectsController(ControllerBase):
     def discover(self, request, body: schemas.DiscoverProject):
         return DjangoRequest.resolve(request, ProjectsService).discover_project(body.root)
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "",
-        response=list[schemas.ProjectReference],
+        response=schemas.ProjectPage,
         operation_id="find_projects",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List projects",
-        description="Return references to all registered projects.",
+        description="Return one bounded page of registered project references.",
     )
-    def find_all(self, request):
-        return DjangoRequest.resolve(request, ProjectsService).find_all_projects()
+    def find_all(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, ProjectsService).find_project_page(query.offset, query.limit)
 
     @route.post(
         "/root-search-results",
@@ -293,19 +310,26 @@ class ProjectsController(ControllerBase):
             body.parameters,
         )
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "/{project_id}/architecture-configurations",
-        response=list[schemas.ProjectArchitectureConfigurationReference],
+        response=schemas.ArchitectureConfigurationPage,
         operation_id="find_project_architecture_configurations",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List project architecture configurations",
-        description="Return compact references to a project's architecture configurations.",
+        description="Return one bounded page of compact architecture-configuration references.",
     )
     def find_architecture_configurations(
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
+        query: Query[schemas.FindPage],
     ):
-        return DjangoRequest.resolve(request, ProjectsService).find_project_architecture_configurations(project_id)
+        return DjangoRequest.resolve(request, ProjectsService).find_project_architecture_configuration_page(
+            project_id,
+            query.offset,
+            query.limit,
+        )
 
     @route.get(
         "/{project_id}/architecture-configurations/{configuration_id}",
@@ -358,19 +382,26 @@ class ProjectsController(ControllerBase):
     def get(self, request, project_id: Annotated[str, Path(description="Project identifier.")]):
         return DjangoRequest.resolve(request, ProjectsService).get_project(project_id)
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "/{project_id}/workspaces",
-        response=list[schemas.WorkspaceBinding],
+        response=schemas.WorkspacePage,
         operation_id="find_workspaces",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List project workspaces",
-        description="Return every explicit local workspace binding for the logical project.",
+        description="Return one bounded page of explicit local workspace bindings for the logical project.",
     )
     def find_workspaces(
         self,
         request,
         project_id: Annotated[str, Path(description="Project identifier.")],
+        query: Query[schemas.FindPage],
     ):
-        return list(DjangoRequest.resolve(request, ProjectsService).find_workspaces(project_id))
+        return DjangoRequest.resolve(request, ProjectsService).find_workspace_page(
+            project_id,
+            query.offset,
+            query.limit,
+        )
 
     @route.post(
         "/{project_id}/workspaces",

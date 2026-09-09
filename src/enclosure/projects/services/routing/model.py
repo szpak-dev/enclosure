@@ -15,6 +15,15 @@ class GuidanceScope(BaseModel):
     position: int
 
 
+class GuidanceScopePage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[GuidanceScope, ...]
+    has_more: bool
+    next_offset: int
+    limit: int
+
+
 class GuidanceCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

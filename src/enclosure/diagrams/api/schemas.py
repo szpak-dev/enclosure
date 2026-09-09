@@ -123,3 +123,22 @@ class DiagramSetSummary(Schema):
 
 class DiagramSet(DiagramSetSummary):
     pass
+
+
+class FindPage(Schema):
+    offset: int = Field(default=0, description="Item offset at which the page starts.", ge=0)
+    limit: int = Field(default=50, description="Maximum items returned by the page.", ge=1, le=100)
+
+
+class DiagramSetPage(Schema):
+    items: list[DiagramSetSummary] = Field(description="Diagram-set summaries in this bounded page.")
+    has_more: bool = Field(description="Whether another page of diagram sets remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+
+
+class DiagramPage(Schema):
+    items: list[DiagramReference] = Field(description="Diagram references in this bounded page.")
+    has_more: bool = Field(description="Whether another page of diagrams remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)

@@ -303,6 +303,48 @@ class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
 
 
+class FindPage(Schema):
+    offset: int = Field(default=0, description="Item offset at which the page starts.", ge=0)
+    limit: int = Field(default=50, description="Maximum items returned by the page.", ge=1, le=100)
+
+
+class ProjectPage(Schema):
+    items: list[ProjectReference] = Field(description="Project references in this bounded page.")
+    has_more: bool = Field(description="Whether another page of projects remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+
+
+class ArchitectureConfigurationPage(Schema):
+    items: list[ProjectArchitectureConfigurationReference] = Field(
+        description="Architecture configuration references in this bounded page."
+    )
+    has_more: bool = Field(description="Whether another page of architecture configurations remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+
+
+class WorkspacePage(Schema):
+    items: list[WorkspaceBinding] = Field(description="Workspace bindings in this bounded page.")
+    has_more: bool = Field(description="Whether another page of workspaces remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+
+
+class GuidanceScopePage(Schema):
+    items: list[GuidanceScope] = Field(description="Guidance scopes in this bounded page.")
+    has_more: bool = Field(description="Whether another page of guidance scopes remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+
+
+class GuidanceRelationshipPage(Schema):
+    items: list[GuidanceRelationship] = Field(description="Guidance relationships in this bounded page.")
+    has_more: bool = Field(description="Whether another page of guidance relationships remains.")
+    next_offset: int = Field(description="Item offset for the next page.", ge=0)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+
+
 class ReadArchitectureConfigurationContent(Schema):
     document: Literal["boundaries_yaml", "shape_yaml"] = Field(
         description="Architecture configuration document to read."

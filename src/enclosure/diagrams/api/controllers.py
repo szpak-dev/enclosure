@@ -2,9 +2,10 @@ from typing import Annotated
 
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
-from ninja_extra import ControllerBase, api_controller, route
+from ninja_extra import ControllerBase, api_controller, http_get, route
+from sirenity import siren_pagination
 
-from ..services import DiagramsService
+from ..services.facade import DiagramsService
 from . import schemas
 
 
@@ -60,15 +61,17 @@ class DiagramSetsController(ControllerBase):
         diagram_set = DjangoRequest.resolve(request, DiagramsService).create_set(body.model_dump(mode="json"))
         return Status(201, diagram_set)
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "",
-        response=list[schemas.DiagramSetSummary],
+        response=schemas.DiagramSetPage,
         operation_id="find_diagram_sets",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List diagram sets",
-        description="Return all diagram-set summaries.",
+        description="Return one bounded page of diagram-set summaries.",
     )
-    def find_all(self, request):
-        return DjangoRequest.resolve(request, DiagramsService).find_all_sets()
+    def find_all(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, DiagramsService).find_set_page(query.offset, query.limit)
 
     @route.get(
         "/{diagram_set_id}",
@@ -136,19 +139,26 @@ class DiagramSetsController(ControllerBase):
         )
         return Status(201, diagram)
 
-    @route.get(
+    @siren_pagination(
+        http_get,
         "/{diagram_set_id}/diagrams",
-        response=list[schemas.DiagramReference],
+        response=schemas.DiagramPage,
         operation_id="find_diagram_set_diagrams",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List diagrams in a diagram set",
-        description="Return summaries for the diagrams belonging to one diagram set.",
+        description="Return one bounded page of diagrams belonging to one diagram set.",
     )
     def find_diagrams(
         self,
         request,
         diagram_set_id: Annotated[str, Path(description="Diagram set identifier.")],
+        query: Query[schemas.FindPage],
     ):
-        return DjangoRequest.resolve(request, DiagramsService).find_diagrams_in_set(diagram_set_id)
+        return DjangoRequest.resolve(request, DiagramsService).find_diagram_set_page(
+            diagram_set_id,
+            query.offset,
+            query.limit,
+        )
 
     @route.get(
         "/{diagram_set_id}/diagrams/{diagram_id}",
@@ -171,15 +181,17 @@ class DiagramSetsController(ControllerBase):
 
 @api_controller("/diagrams", tags=["Diagrams"])
 class DiagramsController(ControllerBase):
-    @route.get(
+    @siren_pagination(
+        http_get,
         "",
-        response=list[schemas.DiagramReference],
+        response=schemas.DiagramPage,
         operation_id="find_diagrams",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List diagrams",
-        description="Return all diagram summaries.",
+        description="Return one bounded page of diagram summaries.",
     )
-    def find_all(self, request):
-        return DjangoRequest.resolve(request, DiagramsService).find_all_diagrams()
+    def find_all(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, DiagramsService).find_diagram_page(query.offset, query.limit)
 
     @route.get(
         "/{diagram_id}/content",

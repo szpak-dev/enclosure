@@ -15,6 +15,9 @@ class GuidanceScopeRepository:
     def find(self, project_id: str) -> QuerySet[models.GuidanceScope]:
         return self.model.objects.filter(project_id=project_id).order_by("position", "id")
 
+    def find_page(self, project_id: str, offset: int, limit: int) -> QuerySet[models.GuidanceScope]:
+        return self.find(project_id)[offset : offset + limit + 1]
+
     @transaction.atomic
     def replace(self, project_id: str, record_ids: tuple[str, ...]) -> QuerySet[models.GuidanceScope]:
         self.model.objects.filter(project_id=project_id).delete()

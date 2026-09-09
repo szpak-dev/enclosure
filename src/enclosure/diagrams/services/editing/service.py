@@ -6,10 +6,11 @@ from django.db.models import QuerySet
 from wireup import injectable
 
 from ...models import Diagram
-from ..diagram_sets import DiagramSetService
+from ..diagram_sets.service import DiagramSetService
 from ..mermaiden import MermaidenService
 from ..repository import DiagramsRepository
 from ..validation import DiagramValidationService
+from .model import DiagramPage
 
 
 @injectable
@@ -48,9 +49,30 @@ class DiagramEditingService:
     def find_all(self) -> QuerySet[Diagram]:
         return self.repository.find_all_diagrams()
 
+    def find_page(self, offset: int, limit: int) -> DiagramPage:
+        diagrams = tuple(self.repository.find_diagram_page(offset, limit))
+        items = diagrams[:limit]
+        return DiagramPage(
+            items=items,
+            has_more=len(diagrams) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
+
     def find_in_set(self, diagram_set_id: str) -> QuerySet[Diagram]:
         self.diagram_sets.get(diagram_set_id)
         return self.repository.find_diagrams_in_set(diagram_set_id)
+
+    def find_in_set_page(self, diagram_set_id: str, offset: int, limit: int) -> DiagramPage:
+        self.diagram_sets.get(diagram_set_id)
+        diagrams = tuple(self.repository.find_diagram_set_page(diagram_set_id, offset, limit))
+        items = diagrams[:limit]
+        return DiagramPage(
+            items=items,
+            has_more=len(diagrams) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
 
     def apply(
         self,
