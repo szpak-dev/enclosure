@@ -13,6 +13,7 @@ from .model import (
     GuidanceRelationship,
     GuidanceRelationshipInput,
     GuidanceRelationshipKind,
+    GuidanceRelationshipPage,
     GuidanceRequirement,
 )
 from .repository import GuidanceRelationshipRepository
@@ -27,6 +28,18 @@ class GuidanceGraphService:
 
     def find_relationships(self, project_id: str) -> tuple[GuidanceRelationship, ...]:
         return tuple(self._relationship(relationship) for relationship in self.repository.find(project_id))
+
+    def find_relationship_page(self, project_id: str, offset: int, limit: int) -> GuidanceRelationshipPage:
+        relationships = tuple(
+            self._relationship(relationship) for relationship in self.repository.find_page(project_id, offset, limit)
+        )
+        items = relationships[:limit]
+        return GuidanceRelationshipPage(
+            items=items,
+            has_more=len(relationships) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
 
     def replace_relationships(
         self,

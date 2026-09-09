@@ -1,4 +1,4 @@
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from django.test import Client
@@ -126,3 +126,52 @@ def test_siren_projects_stale_diagram_revision_as_domain_error() -> None:
         "detail": f"Diagram {diagram_id!r} revision conflict: expected 1, current revision is 2.",
         "status": 422,
     }
+
+
+@pytest.mark.django_db
+def test_siren_projects_bounded_diagram_collection_pages() -> None:
+    client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
+    diagram_sets = [
+        client.post(
+            "/siren/diagram-sets",
+            data={"title": f"Siren set {index}", "description": "Pagination."},
+            content_type="application/json",
+        ).json()["properties"]
+        for index in range(2)
+    ]
+    diagram_set_id = diagram_sets[0]["id"]
+    for index in range(2):
+        response = client.post(
+            f"/siren/diagram-sets/{diagram_set_id}/diagrams",
+            data={"title": f"Siren diagram {index}", "kind": "flowchart"},
+            content_type="application/json",
+        )
+        assert response.status_code == 201
+
+    paths = (
+        "/siren/diagram-sets",
+        "/siren/diagrams",
+        f"/siren/diagram-sets/{diagram_set_id}/diagrams",
+    )
+    for path in paths:
+        first = client.get(path, {"offset": 0, "limit": 1})
+
+        assert first.status_code == 200
+        assert first.json()["properties"] == {
+            "has_more": True,
+            "next_offset": 1,
+            "limit": 1,
+        }
+        assert len(first.json()["entities"]) == 1
+        next_link = next(link for link in first.json()["links"] if link["rel"] == ["next"])
+        assert parse_qs(urlsplit(next_link["href"]).query) == {"offset": ["1"], "limit": ["1"]}
+
+        final = client.get(urlsplit(next_link["href"]).path, {"offset": 1, "limit": 1})
+        assert final.status_code == 200
+        assert final.json()["properties"] == {
+            "has_more": False,
+            "next_offset": 2,
+            "limit": 1,
+        }
+        assert len(final.json()["entities"]) == 1
+        assert all(link["rel"] != ["next"] for link in final.json()["links"])

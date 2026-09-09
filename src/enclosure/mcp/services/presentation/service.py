@@ -60,6 +60,7 @@ class PresentationService:
         context = {
             "bootstrap": self.bootstrap.load(),
             "data": self.projection.project(document),
+            "invocation": document.arguments,
             "operation_id": document.operation_id,
             "summary": document.detail or document.title or "Enclosure result",
         }

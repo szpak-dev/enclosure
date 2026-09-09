@@ -14,6 +14,15 @@ class Project(BaseModel):
     scaffolding_id: str
 
 
+class ProjectPage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[Project, ...]
+    has_more: bool
+    next_offset: int
+    limit: int
+
+
 class ArchitectureConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -22,6 +31,15 @@ class ArchitectureConfiguration(BaseModel):
     revision: str
     boundaries_yaml: str
     shape_yaml: str
+
+
+class ArchitectureConfigurationPage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[ArchitectureConfiguration, ...]
+    has_more: bool
+    next_offset: int
+    limit: int
 
 
 class ArchitectureConfigurationDocument(StrEnum):

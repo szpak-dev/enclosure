@@ -92,14 +92,19 @@ class TestWorkspaceBindingMigration:
                 "scaffolding_id": "example-scaffolding",
             }
             assert workspaces.status_code == 200
-            assert workspaces.json() == [
-                {
-                    "id": workspaces.json()[0]["id"],
-                    "project_id": project.id,
-                    "root": "/example/migrated-project",
-                    "architecture_root": "/example/migrated-project/src",
-                    "revision": 1,
-                }
-            ]
+            assert workspaces.json() == {
+                "items": [
+                    {
+                        "id": workspaces.json()["items"][0]["id"],
+                        "project_id": project.id,
+                        "root": "/example/migrated-project",
+                        "architecture_root": "/example/migrated-project/src",
+                        "revision": 1,
+                    }
+                ],
+                "has_more": False,
+                "next_offset": 1,
+                "limit": 50,
+            }
         finally:
             MigrationExecutor(connection).migrate(self.migrate_to)

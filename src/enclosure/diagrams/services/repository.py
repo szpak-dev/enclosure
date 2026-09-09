@@ -23,7 +23,10 @@ class DiagramsRepository(DjangoRepository[Diagram]):
         return DiagramSet.objects.get(pk=id)
 
     def find_all_sets(self) -> QuerySet[DiagramSet]:
-        return DiagramSet.objects.all()
+        return DiagramSet.objects.order_by("id")
+
+    def find_set_page(self, offset: int, limit: int) -> QuerySet[DiagramSet]:
+        return self.find_all_sets()[offset : offset + limit + 1]
 
     def update_set(self, id: str, data: Mapping[str, Any]) -> DiagramSet:
         diagram_set = self.get_set(id)
@@ -45,10 +48,16 @@ class DiagramsRepository(DjangoRepository[Diagram]):
         return self.find_diagrams_in_set(diagram_set_id).get(pk=id)
 
     def find_all_diagrams(self) -> QuerySet[Diagram]:
-        return self.model.objects.select_related("diagram_set")
+        return self.model.objects.select_related("diagram_set").order_by("id")
+
+    def find_diagram_page(self, offset: int, limit: int) -> QuerySet[Diagram]:
+        return self.find_all_diagrams()[offset : offset + limit + 1]
 
     def find_diagrams_in_set(self, diagram_set_id: str) -> QuerySet[Diagram]:
         return self.find_all_diagrams().filter(diagram_set_id=diagram_set_id)
+
+    def find_diagram_set_page(self, diagram_set_id: str, offset: int, limit: int) -> QuerySet[Diagram]:
+        return self.find_diagrams_in_set(diagram_set_id)[offset : offset + limit + 1]
 
     @transaction.atomic
     def update_diagram(self, id: str, expected_revision: int, data: Mapping[str, Any]) -> Diagram:

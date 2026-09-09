@@ -16,6 +16,9 @@ class GuidanceRelationshipRepository:
     def find(self, project_id: str) -> QuerySet[models.GuidanceRelationship]:
         return self.model.objects.filter(project_id=project_id).order_by("id")
 
+    def find_page(self, project_id: str, offset: int, limit: int) -> QuerySet[models.GuidanceRelationship]:
+        return self.find(project_id)[offset : offset + limit + 1]
+
     @transaction.atomic
     def replace(
         self,

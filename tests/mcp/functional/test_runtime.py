@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import httpx2
 import pytest
+from django.test import Client
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, InitializeResult, ListToolsResult
@@ -138,6 +139,38 @@ class PublicMcpClient:
                 {"language_id": "python"},
             )
             return rest_response, result
+
+    async def collection_pages(
+        self,
+        operations: Mapping[str, Mapping[str, Any]],
+    ) -> dict[str, tuple[CallToolResult, CallToolResult, CallToolResult]]:
+        async with self.session() as (session, _):
+            await session.initialize()
+            results = {}
+            for operation, identity in operations.items():
+                first = await session.call_tool(
+                    operation,
+                    {**identity, "offset": 0, "limit": 1},
+                )
+                follow_ups = first.structured_content["follow_ups"]
+                final = (
+                    await session.call_tool(
+                        operation,
+                        follow_ups[0]["arguments"],
+                    )
+                    if follow_ups
+                    else first
+                )
+                empty = await session.call_tool(
+                    operation,
+                    {
+                        **identity,
+                        "offset": final.structured_content["data"]["next_offset"],
+                        "limit": final.structured_content["data"]["limit"],
+                    },
+                )
+                results[operation] = (first, final, empty)
+            return results
 
     async def diagram_presentations(self) -> dict[str, CallToolResult]:
         async with self.session() as (session, _):
@@ -1024,31 +1057,218 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
-def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up() -> None:
-    from enclosure.diagrams.models import Diagram, DiagramSet
-
-    diagram_set = DiagramSet.objects.create(title="Large diagrams", description="Siren projection boundary.")
-    source = "flowchart TD\n" + "x" * 12_000
-    snapshot = {
-        "kind": "flowchart",
-        "draft": False,
-        "version": 4,
-        "elements": [{"id": f"node-{index}", "label": "x" * 2_000} for index in range(20)],
-        "relations": [],
-        "annotations": [],
-        "properties": {},
-        "configuration": {"wrap": True},
-    }
-    diagram = Diagram.objects.create(
-        diagram_set=diagram_set,
-        title="Large flow",
-        kind="flowchart",
-        snapshot=snapshot,
-        source=source,
+def test_presents_project_and_diagram_collection_continuations(tmp_path: Path) -> None:
+    setup = Client()
+    category = setup.post(
+        "/api/records/categories",
+        data={"title": "MCP pagination", "content_schema": {"type": "object"}},
+        content_type="application/json",
     )
+    tag = setup.post(
+        "/api/records/tags",
+        data={"name": "mcp-pagination"},
+        content_type="application/json",
+    )
+    assert category.status_code == 201
+    assert tag.status_code == 201
+    records = []
+    for index in range(3):
+        record = setup.post(
+            "/api/records",
+            data={
+                "title": f"MCP guidance {index}",
+                "content": {},
+                "category_id": category.json()["id"],
+                "tag_ids": [tag.json()["id"]],
+                "resources": [],
+            },
+            content_type="application/json",
+        )
+        assert record.status_code == 201
+        records.append(record.json()["id"])
+    scaffolding = setup.post(
+        "/api/scaffoldings",
+        data={
+            "language_id": "python",
+            "name": "MCP pagination package",
+            "description": "MCP pagination fixture.",
+            "spec": {"language": "python", "variables": [], "templates": []},
+        },
+        content_type="application/json",
+    )
+    assert scaffolding.status_code == 201
+    projects = []
+    for index in range(2):
+        root = tmp_path / f"project-{index}"
+        root.mkdir()
+        (root / "uv.lock").write_text("", encoding="utf-8")
+        (root / "app.py").write_text("", encoding="utf-8")
+        discovery = setup.post(
+            "/api/projects/discoveries",
+            data={"root": str(root)},
+            content_type="application/json",
+        )
+        assert discovery.status_code == 200
+        project = setup.post(
+            "/api/projects",
+            data={
+                "discovery": discovery.json(),
+                "architecture_root": str(root),
+                "boundaries_yaml": EXAMPLE_BOUNDARIES_YAML,
+                "shape_yaml": EXAMPLE_HEALTHY_SHAPE_YAML,
+                "scaffolding_id": scaffolding.json()["id"],
+                "record_ids": [records[0]] if index == 0 else [],
+            },
+            content_type="application/json",
+        )
+        assert project.status_code == 201
+        projects.append(project.json()["project"])
+    project = projects[0]
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    bound = setup.post(
+        f"/api/projects/{project['id']}/workspaces",
+        data={"root": str(worktree), "architecture_root": str(worktree)},
+        content_type="application/json",
+    )
+    scopes = setup.put(
+        f"/api/projects/{project['id']}/guidance-scopes",
+        data={"record_ids": records[:2]},
+        content_type="application/json",
+    )
+    relationships = setup.put(
+        f"/api/projects/{project['id']}/guidance-relationships",
+        data={
+            "relationships": [
+                {
+                    "source_record_id": source,
+                    "target_record_id": target,
+                    "kind": "containment",
+                }
+                for source, target in zip(records[:2], records[1:], strict=True)
+            ]
+        },
+        content_type="application/json",
+    )
+    assert bound.status_code == 201
+    assert scopes.status_code == 200
+    assert relationships.status_code == 200
+    diagram_sets = []
+    for index in range(2):
+        diagram_set = setup.post(
+            "/api/diagram-sets",
+            data={"title": f"MCP set {index}", "description": "Pagination"},
+            content_type="application/json",
+        )
+        assert diagram_set.status_code == 201
+        diagram_sets.append(diagram_set.json())
+    diagram_set = diagram_sets[0]
+    for index in range(2):
+        diagram = setup.post(
+            f"/api/diagram-sets/{diagram_set['id']}/diagrams",
+            data={"title": f"MCP diagram {index}", "kind": "flowchart"},
+            content_type="application/json",
+        )
+        assert diagram.status_code == 201
+
+    identities = {
+        "find_projects": {},
+        "find_workspaces": {"project_id": project["id"]},
+        "find_guidance_scopes": {"project_id": project["id"]},
+        "find_guidance_relationships": {"project_id": project["id"]},
+        "find_project_architecture_configurations": {"project_id": project["id"]},
+        "find_diagram_sets": {},
+        "find_diagrams": {},
+        "find_diagram_set_diagrams": {"diagram_set_id": diagram_set["id"]},
+    }
+    results = asyncio.run(PublicMcpClient(PublicCompositeApplication()).collection_pages(identities))
+
+    for operation, (first, final, empty) in results.items():
+        for page, result in zip(("first", "final", "empty"), (first, final, empty), strict=True):
+            assertion = f"{operation}:{page}"
+            assert result.is_error is False, assertion
+            assert result.structured_content["status"] == "ok", assertion
+            assert result.structured_content["data"].get("reason") != "presentation_incomplete", assertion
+            assert len(result.content[0].text.encode("utf-8")) <= 16_384, assertion
+            assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192, assertion
+
+        first_data = first.structured_content["data"]
+        assert len(first_data["items"]) == 1, operation
+        assert first_data["next_offset"] == 1, operation
+        assert first_data["limit"] == 1, operation
+        if operation == "find_project_architecture_configurations":
+            assert first_data["has_more"] is False
+            assert first.structured_content["follow_ups"] == []
+        else:
+            assert first_data["has_more"] is True, operation
+            assert first.structured_content["follow_ups"] == [
+                {
+                    "operation_id": operation,
+                    "arguments": {**identities[operation], "offset": 1, "limit": 1},
+                }
+            ]
+
+        final_data = final.structured_content["data"]
+        assert len(final_data["items"]) == 1, operation
+        assert final_data["has_more"] is False, operation
+        assert final.structured_content["follow_ups"] == [], operation
+        empty_data = empty.structured_content["data"]
+        assert empty_data["items"] == [], operation
+        assert empty_data["has_more"] is False, operation
+        assert empty_data["limit"] == 1, operation
+        assert empty_data["next_offset"] == final_data["next_offset"], operation
+        assert empty.structured_content["follow_ups"] == [], operation
+
+
+@pytest.mark.django_db(transaction=True)
+def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up() -> None:
+    setup = Client()
+    diagram_set = setup.post(
+        "/api/diagram-sets",
+        data={"title": "Large diagrams", "description": "Siren projection boundary."},
+        content_type="application/json",
+    )
+    assert diagram_set.status_code == 201
+    diagram = setup.post(
+        f"/api/diagram-sets/{diagram_set.json()['id']}/diagrams",
+        data={"title": "Large flow", "kind": "flowchart"},
+        content_type="application/json",
+    )
+    assert diagram.status_code == 201
+    revision = diagram.json()["revision"]
+    for index in range(20):
+        operation = "add_start" if index == 0 else "add_end" if index == 19 else "add_node"
+        applied = setup.post(
+            f"/api/diagrams/{diagram.json()['id']}/commands",
+            data={
+                "expected_revision": revision,
+                "operation": operation,
+                "arguments": {"id": f"node-{index}", "label": "x" * 2_000},
+            },
+            content_type="application/json",
+        )
+        assert applied.status_code == 200
+        revision = applied.json()["revision"]
+    for index in range(19):
+        applied = setup.post(
+            f"/api/diagrams/{diagram.json()['id']}/commands",
+            data={
+                "expected_revision": revision,
+                "operation": "add_flow",
+                "arguments": {
+                    "id": f"flow-{index}",
+                    "source_id": f"node-{index}",
+                    "target_id": f"node-{index + 1}",
+                },
+            },
+            content_type="application/json",
+        )
+        assert applied.status_code == 200
+        revision = applied.json()["revision"]
+    source = applied.json()["source"]
     client = PublicMcpClient(PublicCompositeApplication())
 
-    result = asyncio.run(client.call_tool("get_diagram", {"diagram_id": diagram.id}))
+    result = asyncio.run(client.call_tool("get_diagram", {"diagram_id": diagram.json()["id"]}))
     data = result.structured_content["data"]
     action_names = {action["name"] for action in data["actions"]}
 
@@ -1065,9 +1285,9 @@ def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up(
         PublicMcpClient(PublicCompositeApplication()).call_tool(
             "read_diagram_content",
             {
-                "diagram_id": diagram.id,
+                "diagram_id": diagram.json()["id"],
                 "document": "source",
-                "expected_revision": 1,
+                "expected_revision": revision,
                 "offset": 1024,
                 "limit": 512,
             },

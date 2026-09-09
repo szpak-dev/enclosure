@@ -112,12 +112,12 @@ def test_diagram_set_exposes_diagrams_through_nested_resources() -> None:
     assert diagram_set.status_code == 200
     assert "diagrams" not in diagram_set.json()
     assert collection.status_code == 200
-    assert [diagram["id"] for diagram in collection.json()] == [first_diagram["id"]]
-    assert second_diagram["id"] not in [diagram["id"] for diagram in collection.json()]
+    assert [diagram["id"] for diagram in collection.json()["items"]] == [first_diagram["id"]]
+    assert second_diagram["id"] not in [diagram["id"] for diagram in collection.json()["items"]]
     assert detail.status_code == 200
     assert detail.json() == first_diagram
     assert global_collection.status_code == 200
-    assert {diagram["id"] for diagram in global_collection.json()} == {
+    assert {diagram["id"] for diagram in global_collection.json()["items"]} == {
         first_diagram["id"],
         second_diagram["id"],
     }
@@ -165,3 +165,82 @@ def test_nested_diagram_collection_rejects_an_unknown_set() -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Resource not found."}
+
+
+@pytest.mark.django_db
+def test_diagram_collections_are_deterministically_paginated() -> None:
+    client = Client()
+    diagram_sets = [create_diagram_set(client, f"Set {index}") for index in range(3)]
+    diagram_set_id = diagram_sets[0]["id"]
+    for index in range(3):
+        create_diagram(client, diagram_set_id, f"Diagram {index}")
+
+    paths = (
+        "/api/diagram-sets",
+        "/api/diagrams",
+        f"/api/diagram-sets/{diagram_set_id}/diagrams",
+    )
+    for path in paths:
+        first = client.get(path, {"offset": 0, "limit": 1})
+        intermediate = client.get(path, {"offset": 1, "limit": 1})
+        final = client.get(path, {"offset": 2, "limit": 1})
+        empty = client.get(path, {"offset": 3, "limit": 1})
+
+        assert first.status_code == 200
+        assert len(first.json()["items"]) == 1
+        assert first.json()["has_more"] is True
+        assert first.json()["next_offset"] == 1
+        assert first.json()["limit"] == 1
+        assert intermediate.status_code == 200
+        assert len(intermediate.json()["items"]) == 1
+        assert intermediate.json()["has_more"] is True
+        assert intermediate.json()["next_offset"] == 2
+        assert intermediate.json()["limit"] == 1
+        assert final.status_code == 200
+        assert len(final.json()["items"]) == 1
+        assert final.json()["has_more"] is False
+        assert final.json()["next_offset"] == 3
+        assert final.json()["limit"] == 1
+        assert empty.status_code == 200
+        assert empty.json() == {
+            "items": [],
+            "has_more": False,
+            "next_offset": 3,
+            "limit": 1,
+        }
+
+
+def test_sirenity_owns_diagram_collection_continuation_links() -> None:
+    schema = Client().get("/api/openapi.json").json()
+    paths = (
+        "/api/diagram-sets",
+        "/api/diagrams",
+        "/api/diagram-sets/{diagram_set_id}/diagrams",
+    )
+
+    for path in paths:
+        operation = schema["paths"][path]["get"]
+        assert operation["responses"]["200"]["links"] == {
+            "next": {
+                "operationId": operation["operationId"],
+                "parameters": {
+                    "offset": "$response.body#/next_offset",
+                    "limit": "$response.body#/limit",
+                },
+            }
+        }
+
+
+@pytest.mark.django_db
+def test_diagram_collection_pagination_is_bounded() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Bounds")
+    paths = (
+        "/api/diagram-sets",
+        "/api/diagrams",
+        f"/api/diagram-sets/{diagram_set['id']}/diagrams",
+    )
+
+    for path in paths:
+        assert client.get(path, {"offset": -1, "limit": 10}).status_code == 422
+        assert client.get(path, {"offset": 0, "limit": 101}).status_code == 422

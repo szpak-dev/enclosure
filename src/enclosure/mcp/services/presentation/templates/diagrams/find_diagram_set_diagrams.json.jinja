@@ -1,3 +1,7 @@
 {% set summary = "Diagram references in the selected set." %}
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", summary, data, []) }}
+{% set follow_ups = [] %}
+{% if data.has_more %}
+{% do follow_ups.append({"operation_id": operation_id, "arguments": {"diagram_set_id": invocation.diagram_set_id, "offset": data.next_offset, "limit": data.limit}}) %}
+{% endif %}
+{{ envelope(operation_id, "ok", summary, data, follow_ups) }}

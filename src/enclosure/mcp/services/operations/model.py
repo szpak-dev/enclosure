@@ -26,6 +26,7 @@ class ToolInvocation(McpValue):
 
 class SirenDocument(McpValue):
     operation_id: str
+    arguments: Mapping[str, JsonValue]
     document: Mapping[str, JsonValue]
     is_error: bool
     classes: tuple[str, ...]

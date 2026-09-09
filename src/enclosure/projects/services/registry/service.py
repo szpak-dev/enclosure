@@ -11,7 +11,9 @@ from .model import (
     ArchitectureConfiguration,
     ArchitectureConfigurationContent,
     ArchitectureConfigurationDocument,
+    ArchitectureConfigurationPage,
     Project,
+    ProjectPage,
 )
 from .repository import ProjectRepository
 
@@ -26,6 +28,16 @@ class RegistryService:
     def find_all(self) -> tuple[Project, ...]:
         return tuple(self._project(project) for project in self.repository.find_all())
 
+    def find_page(self, offset: int, limit: int) -> ProjectPage:
+        projects = tuple(self._project(project) for project in self.repository.find_page(offset, limit))
+        items = projects[:limit]
+        return ProjectPage(
+            items=items,
+            has_more=len(projects) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
+
     def get(self, project_id: str) -> Project:
         return self._project(self.repository.get(project_id))
 
@@ -36,6 +48,24 @@ class RegistryService:
         return tuple(
             self._configuration(configuration)
             for configuration in self.repository.find_architecture_configurations(project_id)
+        )
+
+    def find_architecture_configuration_page(
+        self,
+        project_id: str,
+        offset: int,
+        limit: int,
+    ) -> ArchitectureConfigurationPage:
+        configurations = tuple(
+            self._configuration(configuration)
+            for configuration in self.repository.find_architecture_configuration_page(project_id, offset, limit)
+        )
+        items = configurations[:limit]
+        return ArchitectureConfigurationPage(
+            items=items,
+            has_more=len(configurations) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
         )
 
     def get_architecture_configuration(

@@ -21,28 +21,31 @@ from .contracts.model import (
 from .contracts.service import OperatingContractsService
 from .generation import GenerationResult, GenerationService
 from .health.graph import GuidanceGraphService
-from .health.model import GuidanceRelationship, GuidanceRelationshipInput
+from .health.model import GuidanceRelationship, GuidanceRelationshipInput, GuidanceRelationshipPage
 from .health.service import ProjectHealthService
 from .registry.model import (
     ArchitectureConfiguration,
     ArchitectureConfigurationContent,
     ArchitectureConfigurationDocument,
+    ArchitectureConfigurationPage,
     Project,
+    ProjectPage,
 )
 from .registry.service import RegistryService
 from .reports.adapters import ArchitectureAdapter
 from .reports.model import HealthReport, InsightPage, InsightReportSet, InsightSource, InsightsReport
 from .reports.service import ReportsService
-from .routing.model import GuidanceScope
+from .routing.model import GuidanceScope, GuidanceScopePage
 from .routing.service import WorkspaceRoutingService
 from .stack import DetectedStack, DiscoveredProject, StackDetector
-from .workspaces import (
+from .workspaces.model import (
     WorkspaceBinding,
     WorkspaceLocation,
+    WorkspacePage,
     WorkspaceResolution,
-    WorkspaceService,
     WorkspaceStatus,
 )
+from .workspaces.service import WorkspaceService
 
 
 @injectable
@@ -68,6 +71,9 @@ class ProjectsService:
     def find_all_projects(self) -> tuple[Project, ...]:
         return self.registry.find_all()
 
+    def find_project_page(self, offset: int, limit: int) -> ProjectPage:
+        return self.registry.find_page(offset, limit)
+
     def find_project_by_root(self, root: str) -> Project:
         return self.resolve_workspace(root).project
 
@@ -82,6 +88,14 @@ class ProjectsService:
         project_id: str,
     ) -> tuple[ArchitectureConfiguration, ...]:
         return self.registry.find_architecture_configurations(project_id)
+
+    def find_project_architecture_configuration_page(
+        self,
+        project_id: str,
+        offset: int,
+        limit: int,
+    ) -> ArchitectureConfigurationPage:
+        return self.registry.find_architecture_configuration_page(project_id, offset, limit)
 
     def get_project_architecture_configuration(
         self,
@@ -110,6 +124,9 @@ class ProjectsService:
 
     def find_workspaces(self, project_id: str) -> tuple[WorkspaceBinding, ...]:
         return self.workspaces.find(project_id)
+
+    def find_workspace_page(self, project_id: str, offset: int, limit: int) -> WorkspacePage:
+        return self.workspaces.find_page(project_id, offset, limit)
 
     def get_workspace(self, project_id: str, workspace_id: str) -> WorkspaceBinding:
         return self.workspaces.get(project_id, workspace_id)
@@ -154,6 +171,10 @@ class ProjectsService:
         self.registry.get(project_id)
         return self.routing.find_scopes(project_id)
 
+    def find_guidance_scope_page(self, project_id: str, offset: int, limit: int) -> GuidanceScopePage:
+        self.registry.get(project_id)
+        return self.routing.find_scope_page(project_id, offset, limit)
+
     def replace_guidance_scopes(
         self,
         project_id: str,
@@ -165,6 +186,15 @@ class ProjectsService:
     def find_guidance_relationships(self, project_id: str) -> tuple[GuidanceRelationship, ...]:
         self.registry.get(project_id)
         return self.graph.find_relationships(project_id)
+
+    def find_guidance_relationship_page(
+        self,
+        project_id: str,
+        offset: int,
+        limit: int,
+    ) -> GuidanceRelationshipPage:
+        self.registry.get(project_id)
+        return self.graph.find_relationship_page(project_id, offset, limit)
 
     def replace_guidance_relationships(
         self,

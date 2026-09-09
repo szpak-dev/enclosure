@@ -8,7 +8,14 @@ from ..adapters.records import RecordsAdapter
 from ..contracts.model import OperatingContractReference
 from .applicability import GuidanceApplicabilityService
 from .budget import GuidanceBudgetService
-from .model import GuidanceCandidate, GuidanceRequirement, GuidanceRoute, GuidanceRouteItem, GuidanceScope
+from .model import (
+    GuidanceCandidate,
+    GuidanceRequirement,
+    GuidanceRoute,
+    GuidanceRouteItem,
+    GuidanceScope,
+    GuidanceScopePage,
+)
 from .ordering import GuidanceOrderingService
 from .repository import GuidanceScopeRepository
 
@@ -24,6 +31,16 @@ class WorkspaceRoutingService:
 
     def find_scopes(self, project_id: str) -> tuple[GuidanceScope, ...]:
         return tuple(self._scope(scope) for scope in self.repository.find(project_id))
+
+    def find_scope_page(self, project_id: str, offset: int, limit: int) -> GuidanceScopePage:
+        scopes = tuple(self._scope(scope) for scope in self.repository.find_page(project_id, offset, limit))
+        items = scopes[:limit]
+        return GuidanceScopePage(
+            items=items,
+            has_more=len(scopes) > limit,
+            next_offset=offset + len(items),
+            limit=limit,
+        )
 
     def replace_scopes(self, project_id: str, record_ids: tuple[str, ...]) -> tuple[GuidanceScope, ...]:
         if len(record_ids) != len(set(record_ids)):

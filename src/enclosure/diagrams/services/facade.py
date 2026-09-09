@@ -7,8 +7,10 @@ from wireup import injectable
 from ..models import Diagram, DiagramSet
 from .catalog import DiagramCatalogService
 from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
-from .diagram_sets import DiagramSetService
-from .editing import DiagramEditingService
+from .diagram_sets.model import DiagramSetPage
+from .diagram_sets.service import DiagramSetService
+from .editing.model import DiagramPage
+from .editing.service import DiagramEditingService
 
 
 @injectable
@@ -36,6 +38,9 @@ class DiagramsService:
 
     def find_all_sets(self) -> QuerySet[DiagramSet]:
         return self.diagram_sets.find_all()
+
+    def find_set_page(self, offset: int, limit: int) -> DiagramSetPage:
+        return self.diagram_sets.find_page(offset, limit)
 
     def update_set(self, id: str, data: Mapping[str, object]) -> DiagramSet:
         return self.diagram_sets.update(id, data)
@@ -74,8 +79,14 @@ class DiagramsService:
     def find_all_diagrams(self) -> QuerySet[Diagram]:
         return self.editing.find_all()
 
+    def find_diagram_page(self, offset: int, limit: int) -> DiagramPage:
+        return self.editing.find_page(offset, limit)
+
     def find_diagrams_in_set(self, diagram_set_id: str) -> QuerySet[Diagram]:
         return self.editing.find_in_set(diagram_set_id)
+
+    def find_diagram_set_page(self, diagram_set_id: str, offset: int, limit: int) -> DiagramPage:
+        return self.editing.find_in_set_page(diagram_set_id, offset, limit)
 
     def apply_command(
         self,
