@@ -81,6 +81,14 @@ class DiagramCommand(StrictSchema):
     arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
 
 
+class CreateDiagramBatch(CreateDiagram):
+    commands: list[DiagramCommand] = Field(
+        description="Ordered semantic commands applied atomically while creating the diagram.",
+        min_length=1,
+        max_length=1000,
+    )
+
+
 class ApplyDiagramCommandBatch(StrictSchema):
     expected_revision: int = Field(
         description="Diagram revision on which the ordered command batch is based.",

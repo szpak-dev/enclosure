@@ -231,6 +231,18 @@ class PublicMcpClient:
                     ],
                 },
             )
+            await call(
+                "create_diagram_batch",
+                {
+                    "diagram_set_id": diagram_set_id,
+                    "title": "MCP batch-created flow",
+                    "kind": "flowchart",
+                    "commands": [
+                        {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                        {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                    ],
+                },
+            )
             updated = await call(
                 "update_diagram",
                 {
@@ -757,6 +769,9 @@ def test_lists_the_siren_catalogue() -> None:
     batch_commands = tools["apply_diagram_command_batch"].input_schema["properties"]["commands"]
     assert batch_commands["minItems"] == 1
     assert batch_commands["maxItems"] == 1000
+    creation_commands = tools["create_diagram_batch"].input_schema["properties"]["commands"]
+    assert creation_commands["minItems"] == 1
+    assert creation_commands["maxItems"] == 1000
 
 
 def test_presents_the_api_root_without_embedded_operation_schemas() -> None:
@@ -1019,6 +1034,7 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
         "apply_diagram_command",
         "apply_diagram_command_batch",
         "create_diagram",
+        "create_diagram_batch",
         "create_diagram_set",
         "delete_diagram",
         "delete_diagram_set",
@@ -1061,6 +1077,7 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
 
     applied = results["apply_diagram_command"].structured_content["data"]
     batched = results["apply_diagram_command_batch"].structured_content["data"]
+    created_batch = results["create_diagram_batch"].structured_content["data"]
     updated = results["update_diagram"].structured_content["data"]
     assert applied["revision"] == 2
     assert {name: batched[name] for name in ("diagram_id", "revision", "applied_count")} == {
@@ -1070,6 +1087,10 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
     }
     assert "snapshot" not in batched
     assert "source" not in batched
+    assert created_batch["revision"] == 1
+    assert created_batch["applied_count"] == 2
+    assert "snapshot" not in created_batch
+    assert "source" not in created_batch
     assert updated["revision"] == 4
 
     content = results["read_diagram_content"].structured_content["data"]

@@ -139,6 +139,26 @@ class DiagramSetsController(ControllerBase):
         )
         return Status(201, diagram)
 
+    @route.post(
+        "/{diagram_set_id}/diagram-batches",
+        response={201: schemas.DiagramCommandBatchReceipt},
+        operation_id="create_diagram_batch",
+        summary="Create a diagram from a command batch",
+        description="Create a typed diagram from an ordered command batch and return a compact receipt.",
+    )
+    def create_diagram_batch(
+        self,
+        request,
+        diagram_set_id: Annotated[str, Path(description="Diagram set identifier.")],
+        body: schemas.CreateDiagramBatch,
+    ):
+        receipt = DjangoRequest.resolve(request, DiagramsService).create_diagram_batch(
+            diagram_set_id,
+            {"title": body.title, "kind": body.kind},
+            tuple((command.operation, command.arguments) for command in body.commands),
+        )
+        return Status(201, receipt)
+
     @siren_pagination(
         http_get,
         "/{diagram_set_id}/diagrams",
