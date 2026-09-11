@@ -96,6 +96,111 @@ def test_draft_survives_independent_commands_until_diagram_is_renderable() -> No
 
 
 @pytest.mark.django_db
+def test_applies_an_ordered_command_batch_with_one_revision_and_a_compact_receipt() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Batch persistence")
+    diagram = create_diagram(client, diagram_set["id"], "Batch flow")
+
+    response = client.post(
+        f"/api/diagrams/{diagram['id']}/command-batches",
+        data={
+            "expected_revision": diagram["revision"],
+            "commands": [
+                {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                {
+                    "operation": "add_flow",
+                    "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+                },
+            ],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "diagram_id": diagram["id"],
+        "revision": diagram["revision"] + 1,
+        "applied_count": 3,
+    }
+    stored = client.get(f"/api/diagrams/{diagram['id']}").json()
+    assert stored["revision"] == diagram["revision"] + 1
+    assert stored["snapshot"]["draft"] is False
+    assert "flowchart TD" in stored["source"]
+
+
+@pytest.mark.django_db
+def test_accepts_hundreds_of_commands_in_one_bounded_request() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Large batch")
+    diagram = create_diagram(client, diagram_set["id"], "Large draft")
+    commands = [
+        {"operation": "add_node", "arguments": {"id": f"node-{index}", "label": f"Node {index}"}}
+        for index in range(250)
+    ]
+
+    response = client.post(
+        f"/api/diagrams/{diagram['id']}/command-batches",
+        data={"expected_revision": diagram["revision"], "commands": commands},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["applied_count"] == 250
+    assert response.json()["revision"] == diagram["revision"] + 1
+
+
+@pytest.mark.django_db
+def test_rejected_command_batch_reports_the_index_and_preserves_the_diagram() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Batch rollback")
+    diagram = create_diagram(client, diagram_set["id"], "Rollback flow")
+
+    response = client.post(
+        f"/api/diagrams/{diagram['id']}/command-batches",
+        data={
+            "expected_revision": diagram["revision"],
+            "commands": [
+                {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                {"operation": "missing", "arguments": {}},
+            ],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422
+    assert "index 1" in response.json()["detail"]
+    assert "operation 'missing'" in response.json()["detail"]
+    assert client.get(f"/api/diagrams/{diagram['id']}").json() == diagram
+
+
+@pytest.mark.django_db
+def test_rejects_command_batches_outside_the_public_size_bounds() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Batch bounds")
+    diagram = create_diagram(client, diagram_set["id"], "Bounded flow")
+    url = f"/api/diagrams/{diagram['id']}/command-batches"
+
+    empty = client.post(
+        url,
+        data={"expected_revision": diagram["revision"], "commands": []},
+        content_type="application/json",
+    )
+    oversized = client.post(
+        url,
+        data={
+            "expected_revision": diagram["revision"],
+            "commands": [{"operation": "add_node", "arguments": {}}] * 1001,
+        },
+        content_type="application/json",
+    )
+
+    assert empty.status_code == 422
+    assert oversized.status_code == 422
+    assert client.get(f"/api/diagrams/{diagram['id']}").json() == diagram
+
+
+@pytest.mark.django_db
 def test_diagram_set_exposes_diagrams_through_nested_resources() -> None:
     client = Client()
     first_set = create_diagram_set(client, "First topic")

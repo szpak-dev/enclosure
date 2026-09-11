@@ -273,3 +273,22 @@ class DiagramsController(ControllerBase):
             body.operation,
             body.arguments,
         )
+
+    @route.post(
+        "/{diagram_id}/command-batches",
+        response=schemas.DiagramCommandBatchReceipt,
+        operation_id="apply_diagram_command_batch",
+        summary="Apply a diagram command batch",
+        description="Apply an ordered command batch atomically and return a compact mutation receipt.",
+    )
+    def apply_command_batch(
+        self,
+        request,
+        diagram_id: Annotated[str, Path(description="Diagram identifier.")],
+        body: schemas.ApplyDiagramCommandBatch,
+    ):
+        return DjangoRequest.resolve(request, DiagramsService).apply_command_batch(
+            diagram_id,
+            body.expected_revision,
+            tuple((command.operation, command.arguments) for command in body.commands),
+        )

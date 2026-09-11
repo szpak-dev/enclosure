@@ -217,11 +217,25 @@ class PublicMcpClient:
                     "arguments": {"id": "start", "label": "Start"},
                 },
             )
+            batched = await call(
+                "apply_diagram_command_batch",
+                {
+                    "diagram_id": diagram_id,
+                    "expected_revision": applied.structured_content["data"]["revision"],
+                    "commands": [
+                        {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                        {
+                            "operation": "add_flow",
+                            "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+                        },
+                    ],
+                },
+            )
             updated = await call(
                 "update_diagram",
                 {
                     "diagram_id": diagram_id,
-                    "expected_revision": applied.structured_content["data"]["revision"],
+                    "expected_revision": batched.structured_content["data"]["revision"],
                     "title": "Updated MCP flow",
                 },
             )
@@ -740,6 +754,9 @@ def test_lists_the_siren_catalogue() -> None:
     assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
     assert tools["find_project_by_root"].input_schema["required"] == ["root"]
     assert tools["check_project_health"].input_schema["required"] == ["project_id", "workspace_id"]
+    batch_commands = tools["apply_diagram_command_batch"].input_schema["properties"]["commands"]
+    assert batch_commands["minItems"] == 1
+    assert batch_commands["maxItems"] == 1000
 
 
 def test_presents_the_api_root_without_embedded_operation_schemas() -> None:
@@ -1000,6 +1017,7 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
 
     assert set(results) == {
         "apply_diagram_command",
+        "apply_diagram_command_batch",
         "create_diagram",
         "create_diagram_set",
         "delete_diagram",
@@ -1042,14 +1060,22 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
     assert set(references[0]) == {"href", "id", "kind", "revision", "title"}
 
     applied = results["apply_diagram_command"].structured_content["data"]
+    batched = results["apply_diagram_command_batch"].structured_content["data"]
     updated = results["update_diagram"].structured_content["data"]
     assert applied["revision"] == 2
-    assert updated["revision"] == 3
+    assert {name: batched[name] for name in ("diagram_id", "revision", "applied_count")} == {
+        "diagram_id": applied["id"],
+        "revision": 3,
+        "applied_count": 2,
+    }
+    assert "snapshot" not in batched
+    assert "source" not in batched
+    assert updated["revision"] == 4
 
     content = results["read_diagram_content"].structured_content["data"]
     assert content["diagram_id"] == applied["id"]
     assert content["document"] == "snapshot"
-    assert content["revision"] == 3
+    assert content["revision"] == 4
     assert content["offset"] == 0
     assert content["next_offset"] == 32
     assert content["has_more"] is True

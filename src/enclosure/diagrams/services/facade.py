@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from django.db.models import QuerySet
@@ -96,6 +96,14 @@ class DiagramsService:
         arguments: Mapping[str, object],
     ) -> Diagram:
         return self.editing.apply(id, expected_revision, operation, arguments)
+
+    def apply_command_batch(
+        self,
+        id: str,
+        expected_revision: int,
+        commands: Sequence[tuple[str, Mapping[str, object]]],
+    ) -> dict[str, object]:
+        return self.editing.apply_batch(id, expected_revision, commands)
 
     def delete_diagram(self, id: str) -> None:
         self.editing.delete(id)
