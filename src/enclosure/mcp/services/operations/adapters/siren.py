@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from functools import cached_property
+from typing import Any
 
 from django.conf import settings
 from sirenity import (
@@ -20,9 +22,8 @@ class SirenGatewayAdapter(SirenGateway):
     executor: HttpSirenExecutor
 
     def catalogue(self) -> ToolCatalogue:
-        bridge = siren_mcp(self._configuration(), executor=self.executor)
         return ToolCatalogue(
-            fingerprint=bridge.catalogue_fingerprint,
+            fingerprint=self._bridge.catalogue_fingerprint,
             tools=tuple(
                 ToolDefinition(
                     name=tool.name,
@@ -30,13 +31,12 @@ class SirenGatewayAdapter(SirenGateway):
                     description=tool.description,
                     input_schema=tool.input_schema,
                 )
-                for tool in bridge.tools()
+                for tool in self._bridge.tools()
             ),
         )
 
     def invoke(self, invocation: ToolInvocation) -> SirenDocument:
-        bridge = siren_mcp(self._configuration(), executor=self.executor)
-        result = bridge.invoke(
+        result = self._bridge.invoke(
             SirenMcpInvocation(
                 operation_id=invocation.operation_id,
                 arguments=invocation.arguments,
@@ -54,12 +54,14 @@ class SirenGatewayAdapter(SirenGateway):
             detail=properties.get("detail", ""),
         )
 
-    def _configuration(self) -> SirenConfiguration:
+    @cached_property
+    def _bridge(self) -> Any:
         declaration = settings.SIRENITY
-        return siren_configuration(
+        configuration: SirenConfiguration = siren_configuration(
             openapi=declaration["OPENAPI"],
             source_path=declaration["SOURCE_PATH"],
             public_path=declaration["PUBLIC_PATH"],
             policy=declaration["POLICY"],
             profiles=tuple(declaration["PROFILES"]),
         )
+        return siren_mcp(configuration, executor=self.executor)

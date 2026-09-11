@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.cookies import SimpleCookie
 
+from django.core.handlers.wsgi import WSGIHandler
 from django.core.wsgi import get_wsgi_application
 from httpx import Client, WSGITransport
 from sirenity import SirenMcpExecution, SirenMcpOperation
@@ -10,6 +11,8 @@ from wireup import injectable
 @injectable
 @dataclass(frozen=True)
 class HttpSirenExecutor:
+    _application: WSGIHandler = field(default_factory=get_wsgi_application, init=False, repr=False)
+
     def execute(self, operation: SirenMcpOperation) -> SirenMcpExecution:
         headers = {
             "accept": "application/json",
@@ -20,7 +23,7 @@ class HttpSirenExecutor:
             headers["cookie"] = "; ".join(morsel.OutputString() for morsel in cookie.values())
 
         with Client(
-            transport=WSGITransport(app=get_wsgi_application()),
+            transport=WSGITransport(app=self._application),
             base_url="http://localhost",
         ) as client:
             response = client.request(
