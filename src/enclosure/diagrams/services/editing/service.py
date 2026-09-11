@@ -1,10 +1,11 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from django.db.models import QuerySet
 from wireup import injectable
 
+from ...errors import DiagramsError
 from ...models import Diagram
 from ..diagram_sets.service import DiagramSetService
 from ..mermaiden import MermaidenService
@@ -89,6 +90,32 @@ class DiagramEditingService:
             expected_revision,
             self._persistence_values(diagram),
         )
+
+    def apply_batch(
+        self,
+        id: str,
+        expected_revision: int,
+        commands: Sequence[tuple[str, Mapping[str, object]]],
+    ) -> dict[str, object]:
+        stored = self.get(id)
+        diagram = self.mermaiden.restore(stored.snapshot)
+        for index, (operation, arguments) in enumerate(commands):
+            try:
+                self.mermaiden.apply(diagram, operation, arguments)
+            except DiagramsError as error:
+                raise DiagramsError(
+                    f"Diagram command batch failed at index {index} for operation {operation!r}: {error}"
+                ) from error
+        updated = self.update(
+            id,
+            expected_revision,
+            self._persistence_values(diagram),
+        )
+        return {
+            "diagram_id": str(updated.id),
+            "revision": updated.revision,
+            "applied_count": len(commands),
+        }
 
     def _persistence_values(self, diagram: Any) -> dict[str, object]:
         snapshot = self.mermaiden.snapshot(diagram)

@@ -117,3 +117,35 @@ def test_stale_revision_returns_domain_error() -> None:
     assert response.json() == {
         "detail": (f"Diagram {diagram['id']!r} revision conflict: expected 1, current revision is 2.")
     }
+
+
+@pytest.mark.django_db
+def test_stale_batch_revision_preserves_the_latest_diagram() -> None:
+    client = Client()
+    diagram = create_diagram(client)
+    diagram_url = f"/api/diagrams/{diagram['id']}"
+    applied = client.post(
+        f"{diagram_url}/commands",
+        data={
+            "expected_revision": 1,
+            "operation": "add_start",
+            "arguments": {"id": "start", "label": "Start"},
+        },
+        content_type="application/json",
+    )
+    assert applied.status_code == 200
+
+    response = client.post(
+        f"{diagram_url}/command-batches",
+        data={
+            "expected_revision": 1,
+            "commands": [{"operation": "add_end", "arguments": {"id": "end", "label": "End"}}],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": (f"Diagram {diagram['id']!r} revision conflict: expected 1, current revision is 2.")
+    }
+    assert client.get(diagram_url).json() == applied.json()

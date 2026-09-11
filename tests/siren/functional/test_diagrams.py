@@ -129,6 +129,41 @@ def test_siren_projects_stale_diagram_revision_as_domain_error() -> None:
 
 
 @pytest.mark.django_db
+def test_siren_exposes_the_compact_diagram_batch_receipt() -> None:
+    client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
+    diagram_set = client.post(
+        "/siren/diagram-sets",
+        data={"title": "Batch", "description": "Siren batch receipt."},
+        content_type="application/json",
+    )
+    diagram = client.post(
+        f"/siren/diagram-sets/{diagram_set.json()['properties']['id']}/diagrams",
+        data={"title": "Batch flow", "kind": "flowchart"},
+        content_type="application/json",
+    )
+    diagram_id = diagram.json()["properties"]["id"]
+
+    response = client.post(
+        f"/siren/diagrams/{diagram_id}/command-batches",
+        data={
+            "expected_revision": 1,
+            "commands": [
+                {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+            ],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["properties"] == {
+        "diagram_id": diagram_id,
+        "revision": 2,
+        "applied_count": 2,
+    }
+
+
+@pytest.mark.django_db
 def test_siren_projects_bounded_diagram_collection_pages() -> None:
     client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
     diagram_sets = [

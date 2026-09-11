@@ -76,6 +76,29 @@ class ApplyDiagramCommand(StrictSchema):
     arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
 
 
+class DiagramCommand(StrictSchema):
+    operation: str = Field(description="Mermaiden command operation name.", min_length=1)
+    arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
+
+
+class ApplyDiagramCommandBatch(StrictSchema):
+    expected_revision: int = Field(
+        description="Diagram revision on which the ordered command batch is based.",
+        ge=1,
+    )
+    commands: list[DiagramCommand] = Field(
+        description="Ordered semantic commands applied atomically to one diagram.",
+        min_length=1,
+        max_length=1000,
+    )
+
+
+class DiagramCommandBatchReceipt(Schema):
+    diagram_id: DiagramId
+    revision: int = Field(description="Resulting optimistic-concurrency revision.", ge=1)
+    applied_count: int = Field(description="Number of commands applied by the accepted batch.", ge=1, le=1000)
+
+
 class DiagramReference(Schema):
     id: DiagramId
     title: str = Field(description="Human-readable diagram title.")
