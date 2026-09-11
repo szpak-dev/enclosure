@@ -164,6 +164,42 @@ def test_siren_exposes_the_compact_diagram_batch_receipt() -> None:
 
 
 @pytest.mark.django_db
+def test_siren_advertises_and_applies_a_diagram_creation_batch() -> None:
+    client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
+    diagram_set = client.post(
+        "/siren/diagram-sets",
+        data={"title": "Batch creation", "description": "Siren creation batch."},
+        content_type="application/json",
+    )
+    diagram_set_id = diagram_set.json()["properties"]["id"]
+
+    details = client.get(f"/siren/diagram-sets/{diagram_set_id}")
+    action = next(action for action in details.json()["actions"] if action["name"] == "create_diagram_batch")
+
+    assert action["method"] == "POST"
+    assert urlsplit(action["href"]).path == f"/siren/diagram-sets/{diagram_set_id}/diagram-batches"
+    assert [field["name"] for field in action["fields"]] == ["title", "kind"]
+    structured_form = action["https://modwire.dev/siren/structured-form/v1"]
+    assert [control["name"] for control in structured_form["controls"]] == ["commands"]
+    response = client.post(
+        urlsplit(action["href"]).path,
+        data={
+            "title": "Created flow",
+            "kind": "flowchart",
+            "commands": [
+                {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+            ],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["properties"]["revision"] == 1
+    assert response.json()["properties"]["applied_count"] == 2
+
+
+@pytest.mark.django_db
 def test_siren_projects_bounded_diagram_collection_pages() -> None:
     client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
     diagram_sets = [

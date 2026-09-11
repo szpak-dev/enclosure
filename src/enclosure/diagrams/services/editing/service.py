@@ -34,6 +34,35 @@ class DiagramEditingService:
             },
         )
 
+    def create_batch(
+        self,
+        diagram_set_id: str,
+        data: Mapping[str, object],
+        commands: Sequence[tuple[str, Mapping[str, object]]],
+    ) -> dict[str, object]:
+        self.diagram_sets.get(diagram_set_id)
+        values = self.validation.diagram_creation(data)
+        diagram = self.mermaiden.create(values["kind"])
+        for index, (operation, arguments) in enumerate(commands):
+            try:
+                self.mermaiden.apply(diagram, operation, arguments)
+            except DiagramsError as error:
+                raise DiagramsError(
+                    f"Diagram creation batch failed at index {index} for operation {operation!r}: {error}"
+                ) from error
+        created = self.repository.create_diagram(
+            diagram_set_id,
+            {
+                **values,
+                **self._persistence_values(diagram),
+            },
+        )
+        return {
+            "diagram_id": str(created.id),
+            "revision": created.revision,
+            "applied_count": len(commands),
+        }
+
     def get(self, id: str) -> Diagram:
         return self.repository.get_diagram(id)
 

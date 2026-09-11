@@ -51,6 +51,14 @@ class DiagramsService:
     def create_diagram(self, diagram_set_id: str, data: Mapping[str, object]) -> Diagram:
         return self.editing.create(diagram_set_id, data)
 
+    def create_diagram_batch(
+        self,
+        diagram_set_id: str,
+        data: Mapping[str, object],
+        commands: Sequence[tuple[str, Mapping[str, object]]],
+    ) -> dict[str, object]:
+        return self.editing.create_batch(diagram_set_id, data, commands)
+
     def get_diagram(self, id: str) -> Diagram:
         return self.editing.get(id)
 

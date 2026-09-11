@@ -130,6 +130,63 @@ def test_applies_an_ordered_command_batch_with_one_revision_and_a_compact_receip
 
 
 @pytest.mark.django_db
+def test_creates_a_diagram_from_an_ordered_command_batch_with_a_compact_receipt() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Batch creation")
+
+    response = client.post(
+        f"/api/diagram-sets/{diagram_set['id']}/diagram-batches",
+        data={
+            "title": "Created flow",
+            "kind": "flowchart",
+            "commands": [
+                {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                {
+                    "operation": "add_flow",
+                    "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+                },
+            ],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["revision"] == 1
+    assert response.json()["applied_count"] == 3
+    stored = client.get(f"/api/diagrams/{response.json()['diagram_id']}").json()
+    assert stored["title"] == "Created flow"
+    assert stored["revision"] == 1
+    assert stored["snapshot"]["draft"] is False
+    assert "flowchart TD" in stored["source"]
+
+
+@pytest.mark.django_db
+def test_rejected_creation_batch_reports_the_index_and_creates_no_diagram() -> None:
+    client = Client()
+    diagram_set = create_diagram_set(client, "Batch creation rollback")
+
+    response = client.post(
+        f"/api/diagram-sets/{diagram_set['id']}/diagram-batches",
+        data={
+            "title": "Rejected flow",
+            "kind": "flowchart",
+            "commands": [
+                {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
+                {"operation": "missing", "arguments": {}},
+            ],
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422
+    assert "index 1" in response.json()["detail"]
+    assert "operation 'missing'" in response.json()["detail"]
+    diagrams = client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams").json()
+    assert diagrams["items"] == []
+
+
+@pytest.mark.django_db
 def test_accepts_hundreds_of_commands_in_one_bounded_request() -> None:
     client = Client()
     diagram_set = create_diagram_set(client, "Large batch")
