@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Enclosure runtime."
 readme = "README.md"
 requires-python = ">=3.14"
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
 dependencies = [
     "copier>=9.16.0",
     "dj-database-url",
