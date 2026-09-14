@@ -4,18 +4,35 @@ from dataclasses import dataclass
 from pydantic import JsonValue
 from wireup import injectable
 
+from enclosure.scaffoldings.services import RenderedFile
+
 from ..adapters import ScaffoldingsAdapter
 from ..registry.model import Project
 from ..workspaces.model import WorkspaceBinding
-from .adapters import FilesystemAdapter
+from .adapters import AgentInstructionsAdapter, FilesystemAdapter
 from .model import GenerationResult
 
 
 @injectable
 @dataclass(frozen=True)
 class GenerationService:
+    agent_instructions: AgentInstructionsAdapter
     filesystem: FilesystemAdapter
     scaffoldings: ScaffoldingsAdapter
+
+    def install_agent_instructions(self, workspace: WorkspaceBinding) -> GenerationResult:
+        written_files = self.filesystem.write(
+            workspace.root,
+            "",
+            (
+                RenderedFile(
+                    path="AGENTS.md",
+                    content=self.agent_instructions.read(),
+                    overwrite=True,
+                ),
+            ),
+        )
+        return GenerationResult(files=written_files)
 
     def generate(
         self,

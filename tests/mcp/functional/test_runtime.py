@@ -448,6 +448,21 @@ class PublicMcpClient:
                 },
             )
 
+    async def install_workspace_agent_instructions(self, root: Path) -> tuple[InitializeResult, CallToolResult]:
+        async with self.session() as (session, http_client):
+            initialization = await session.initialize()
+            project_id, workspace_id = await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            result = await session.call_tool(
+                "install_workspace_agent_instructions",
+                {"project_id": project_id, "workspace_id": workspace_id},
+            )
+            return initialization, result
+
     async def project_health(
         self,
         root: Path,
@@ -740,10 +755,10 @@ def test_initializes_with_the_stable_server_contract() -> None:
     assert initialization.capabilities.tools is not None
     assert initialization.capabilities.prompts is None
     assert initialization.capabilities.resources is None
-    assert initialization.instructions == (
-        "Enclosure provides project operating context and architecture checks. "
-        "Call get_workspace_context before working in a registered workspace."
-    )
+    assert "enclosure-mcp.get_workspace_context(root, task)" in initialization.instructions
+    assert "enclosure-mcp.check_project_health" in initialization.instructions
+    assert "\n" not in initialization.instructions
+    assert len(initialization.instructions.encode("utf-8")) <= 512
 
 
 def test_lists_the_siren_catalogue() -> None:
@@ -757,6 +772,7 @@ def test_lists_the_siren_catalogue() -> None:
     assert "replace_workspace" in tools
     assert "inspect_workspace" in tools
     assert "get_workspace_context" in tools
+    assert "install_workspace_agent_instructions" in tools
     assert "create_operating_contract" in tools
     assert "get_project_operating_contract_binding" in tools
     assert "read_project_architecture_configuration_content" in tools
@@ -766,12 +782,35 @@ def test_lists_the_siren_catalogue() -> None:
     assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
     assert tools["find_project_by_root"].input_schema["required"] == ["root"]
     assert tools["check_project_health"].input_schema["required"] == ["project_id", "workspace_id"]
+    assert tools["install_workspace_agent_instructions"].input_schema["required"] == [
+        "project_id",
+        "workspace_id",
+    ]
     batch_commands = tools["apply_diagram_command_batch"].input_schema["properties"]["commands"]
     assert batch_commands["minItems"] == 1
     assert batch_commands["maxItems"] == 1000
     creation_commands = tools["create_diagram_batch"].input_schema["properties"]["commands"]
     assert creation_commands["minItems"] == 1
     assert creation_commands["maxItems"] == 1000
+
+
+@pytest.mark.django_db(transaction=True)
+def test_installs_workspace_agent_instructions_through_public_mcp(tmp_path: Path) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text("", encoding="utf-8")
+    target = tmp_path / "AGENTS.md"
+    target.write_text("replace me\n", encoding="utf-8")
+
+    initialization, result = asyncio.run(
+        PublicMcpClient(PublicCompositeApplication()).install_workspace_agent_instructions(tmp_path)
+    )
+
+    assert result.is_error is False
+    assert result.structured_content["status"] == "ok"
+    assert result.structured_content["data"]["files"] == ["AGENTS.md"]
+    assert target.is_file()
+    assert not target.is_symlink()
+    assert target.read_text(encoding="utf-8").rstrip("\n") == initialization.instructions
 
 
 def test_presents_the_api_root_without_embedded_operation_schemas() -> None:
@@ -909,8 +948,9 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     assert rest_response.status_code == 200
     assert result.is_error is False
     assert envelope["status"] == "ok"
-    assert markdown.count("# Enclosure") == 1
-    assert markdown.index("# Enclosure") < markdown.index("## Selected guidance")
+    bootstrap_operation = "enclosure-mcp.get_workspace_context(root, task)"
+    assert markdown.count(bootstrap_operation) == 1
+    assert markdown.index(bootstrap_operation) < markdown.index("## Selected guidance")
     assert markdown.count("Example operating guidance") == 1
     assert markdown.count("Run the example check.") == 1
     assert data["project_id"] == rest_response.json()["project_id"]

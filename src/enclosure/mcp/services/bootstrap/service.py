@@ -9,21 +9,16 @@ from wireup import injectable
 from .model import AgentBootstrap
 from .repository import BootstrapRepository
 
-MAX_BOOTSTRAP_BYTES = 8_192
-
 
 @injectable
 @dataclass(frozen=True)
 class AgentBootstrapService:
     repository: BootstrapRepository
     release: ClassVar[str] = os.getenv("ENCLOSURE_RUNTIME_VERSION", "0.0.0+dev")
+    MAX_BOOTSTRAP_BYTES: ClassVar[int] = 8_192
 
     def instructions(self) -> str:
-        self.load()
-        return (
-            "Enclosure provides project operating context and architecture checks. "
-            "Call get_workspace_context before working in a registered workspace."
-        )
+        return self.load().markdown.strip()
 
     def load(self) -> AgentBootstrap:
         return self._loaded
@@ -34,8 +29,8 @@ class AgentBootstrapService:
         content = markdown.encode("utf-8")
         if not markdown.strip():
             raise ValueError("The MCP agent bootstrap is empty.")
-        if len(content) > MAX_BOOTSTRAP_BYTES:
-            raise ValueError(f"The MCP agent bootstrap exceeds {MAX_BOOTSTRAP_BYTES} bytes.")
+        if len(content) > self.MAX_BOOTSTRAP_BYTES:
+            raise ValueError(f"The MCP agent bootstrap exceeds {self.MAX_BOOTSTRAP_BYTES} bytes.")
         return AgentBootstrap(
             uri="pkg://enclosure.mcp/resources/agent-bootstrap.md",
             release=self.release,

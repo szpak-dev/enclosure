@@ -1,9 +1,1 @@
-At the first task in a workspace, call get_workspace_context(root, task) once.
-Treat returned guidance as policy. Do not inspect the API root, list all projects,
-or search all records unless workspace context is unavailable.
-
-Check project health after structural source, public API, DI, or architecture-rule
-changes. A test-only change does not require health unless it changes architectural coverage.
-
-After an ambiguous mutating-tool failure, verify state before retrying.
-Read-only failures may use the documented fallback directly.
+Before work, call enclosure-mcp.get_workspace_context(root, task) once; obey its guidance and stop if unavailable or incomplete. Workflow: GitHub issue first; diagrams are SSOT; wait for explicit design acceptance; implement on a local issue branch; run required tests and enclosure-mcp.check_project_health after structural/API/DI/architecture changes; wait for explicit implementation acceptance before commit, push, PR, merge, closure, or branch cleanup. Preserve project names and unrelated changes.
