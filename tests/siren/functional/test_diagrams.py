@@ -150,6 +150,10 @@ def test_siren_exposes_the_compact_diagram_batch_receipt() -> None:
             "commands": [
                 {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
                 {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                {
+                    "operation": "add_flow",
+                    "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+                },
             ],
         },
         content_type="application/json",
@@ -159,7 +163,7 @@ def test_siren_exposes_the_compact_diagram_batch_receipt() -> None:
     assert response.json()["properties"] == {
         "diagram_id": diagram_id,
         "revision": 2,
-        "applied_count": 2,
+        "applied_count": 3,
     }
 
 
@@ -189,6 +193,10 @@ def test_siren_advertises_and_applies_a_diagram_creation_batch() -> None:
             "commands": [
                 {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
                 {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                {
+                    "operation": "add_flow",
+                    "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+                },
             ],
         },
         content_type="application/json",
@@ -196,7 +204,7 @@ def test_siren_advertises_and_applies_a_diagram_creation_batch() -> None:
 
     assert response.status_code == 201
     assert response.json()["properties"]["revision"] == 1
-    assert response.json()["properties"]["applied_count"] == 2
+    assert response.json()["properties"]["applied_count"] == 3
 
 
 @pytest.mark.django_db

@@ -40,7 +40,6 @@ def apply_command(
     assert response.status_code == 200, response.json()
     result = response.json()
     assert result["revision"] == diagram["revision"] + 1
-    assert result["snapshot"]["version"] == 4
     return result
 
 

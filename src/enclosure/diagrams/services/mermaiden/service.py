@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -52,6 +52,17 @@ class MermaidenService:
         try:
             self._application.execute(diagram, operation, arguments)
         except RuntimeError as error:
+            raise DiagramsError(str(error)) from error
+
+    def apply_batch(
+        self,
+        diagram: Any,
+        commands: Sequence[tuple[str, Mapping[str, object]]],
+    ) -> None:
+        payload = tuple({"operation": operation, "arguments": arguments} for operation, arguments in commands)
+        try:
+            self._application.apply_batch(diagram, payload)
+        except (RuntimeError, ValueError) as error:
             raise DiagramsError(str(error)) from error
 
     def snapshot(self, diagram: Any) -> dict[str, object]:
