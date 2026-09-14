@@ -14,7 +14,7 @@ export type DiagramProperties = Entity["properties"] & {
   id: string;
   kind: string;
   revision: number;
-  snapshot: unknown;
+  snapshot: object;
   source: string;
   title: string;
 };

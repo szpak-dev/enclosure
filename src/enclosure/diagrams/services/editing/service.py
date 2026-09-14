@@ -43,13 +43,7 @@ class DiagramEditingService:
         self.diagram_sets.get(diagram_set_id)
         values = self.validation.diagram_creation(data)
         diagram = self.mermaiden.create(values["kind"])
-        for index, (operation, arguments) in enumerate(commands):
-            try:
-                self.mermaiden.apply(diagram, operation, arguments)
-            except DiagramsError as error:
-                raise DiagramsError(
-                    f"Diagram creation batch failed at index {index} for operation {operation!r}: {error}"
-                ) from error
+        self.mermaiden.apply_batch(diagram, commands)
         created = self.repository.create_diagram(
             diagram_set_id,
             {
@@ -127,17 +121,16 @@ class DiagramEditingService:
         commands: Sequence[tuple[str, Mapping[str, object]]],
     ) -> dict[str, object]:
         stored = self.get(id)
+        revision = self.validation.expected_revision(expected_revision)
+        if stored.revision != revision:
+            raise DiagramsError(
+                f"Diagram {id!r} revision conflict: expected {revision}, current revision is {stored.revision}."
+            )
         diagram = self.mermaiden.restore(stored.snapshot)
-        for index, (operation, arguments) in enumerate(commands):
-            try:
-                self.mermaiden.apply(diagram, operation, arguments)
-            except DiagramsError as error:
-                raise DiagramsError(
-                    f"Diagram command batch failed at index {index} for operation {operation!r}: {error}"
-                ) from error
+        self.mermaiden.apply_batch(diagram, commands)
         updated = self.update(
             id,
-            expected_revision,
+            revision,
             self._persistence_values(diagram),
         )
         return {

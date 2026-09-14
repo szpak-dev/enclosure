@@ -23,10 +23,15 @@ def create_diagram_set(client: Client, title: str) -> dict[str, object]:
     return response.json()
 
 
-def create_diagram(client: Client, diagram_set_id: object, title: str) -> dict[str, object]:
+def create_diagram(
+    client: Client,
+    diagram_set_id: object,
+    title: str,
+    kind: str = "flowchart",
+) -> dict[str, object]:
     response = client.post(
         f"/api/diagram-sets/{diagram_set_id}/diagrams",
-        data={"title": title, "kind": "flowchart"},
+        data={"title": title, "kind": kind},
         content_type="application/json",
     )
     assert response.status_code == 201
@@ -162,7 +167,7 @@ def test_creates_a_diagram_from_an_ordered_command_batch_with_a_compact_receipt(
 
 
 @pytest.mark.django_db
-def test_rejected_creation_batch_reports_the_index_and_creates_no_diagram() -> None:
+def test_rejected_creation_batch_returns_the_native_error_and_creates_no_diagram() -> None:
     client = Client()
     diagram_set = create_diagram_set(client, "Batch creation rollback")
 
@@ -180,8 +185,7 @@ def test_rejected_creation_batch_reports_the_index_and_creates_no_diagram() -> N
     )
 
     assert response.status_code == 422
-    assert "index 1" in response.json()["detail"]
-    assert "operation 'missing'" in response.json()["detail"]
+    assert response.json() == {"detail": "Command 'missing' is not supported for 'flowchart'."}
     diagrams = client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams").json()
     assert diagrams["items"] == []
 
@@ -190,9 +194,12 @@ def test_rejected_creation_batch_reports_the_index_and_creates_no_diagram() -> N
 def test_accepts_hundreds_of_commands_in_one_bounded_request() -> None:
     client = Client()
     diagram_set = create_diagram_set(client, "Large batch")
-    diagram = create_diagram(client, diagram_set["id"], "Large draft")
+    diagram = create_diagram(client, diagram_set["id"], "Large block diagram", "block")
     commands = [
-        {"operation": "add_node", "arguments": {"id": f"node-{index}", "label": f"Node {index}"}}
+        {
+            "operation": "add_block",
+            "arguments": {"id": f"example-block-{index}", "label": f"Example block {index}"},
+        }
         for index in range(250)
     ]
 
@@ -208,7 +215,7 @@ def test_accepts_hundreds_of_commands_in_one_bounded_request() -> None:
 
 
 @pytest.mark.django_db
-def test_rejected_command_batch_reports_the_index_and_preserves_the_diagram() -> None:
+def test_rejected_command_batch_returns_the_native_error_and_preserves_the_diagram() -> None:
     client = Client()
     diagram_set = create_diagram_set(client, "Batch rollback")
     diagram = create_diagram(client, diagram_set["id"], "Rollback flow")
@@ -226,8 +233,7 @@ def test_rejected_command_batch_reports_the_index_and_preserves_the_diagram() ->
     )
 
     assert response.status_code == 422
-    assert "index 1" in response.json()["detail"]
-    assert "operation 'missing'" in response.json()["detail"]
+    assert response.json() == {"detail": "Command 'missing' is not supported for 'flowchart'."}
     assert client.get(f"/api/diagrams/{diagram['id']}").json() == diagram
 
 

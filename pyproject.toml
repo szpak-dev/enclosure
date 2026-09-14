@@ -22,7 +22,7 @@ dependencies = [
     "modwire-architecture>=7.0.0,<8",
     "modwire-extraction==2.1.2",
     "modwire-hex",
-    "mermaiden==7.0.0",
+    "mermaiden==9.0.0",
     "sirenity==7.2.0",
     "pgvector",
     "psycopg[binary]",

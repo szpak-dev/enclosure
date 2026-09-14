@@ -240,6 +240,10 @@ class PublicMcpClient:
                     "commands": [
                         {"operation": "add_start", "arguments": {"id": "start", "label": "Start"}},
                         {"operation": "add_end", "arguments": {"id": "end", "label": "End"}},
+                        {
+                            "operation": "add_flow",
+                            "arguments": {"id": "flow", "source_id": "start", "target_id": "end"},
+                        },
                     ],
                 },
             )
@@ -1128,7 +1132,7 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
     assert "snapshot" not in batched
     assert "source" not in batched
     assert created_batch["revision"] == 1
-    assert created_batch["applied_count"] == 2
+    assert created_batch["applied_count"] == 3
     assert "snapshot" not in created_batch
     assert "source" not in created_batch
     assert updated["revision"] == 4
