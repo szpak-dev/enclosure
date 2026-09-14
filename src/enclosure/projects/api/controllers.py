@@ -310,6 +310,24 @@ class ProjectsController(ControllerBase):
             body.parameters,
         )
 
+    @route.put(
+        "/{project_id}/workspaces/{workspace_id}/agent-instructions",
+        response=schemas.GeneratedProjectSource,
+        operation_id="install_workspace_agent_instructions",
+        summary="Install workspace agent instructions",
+        description="Write Enclosure's packaged AGENTS.md to the registered workspace root.",
+    )
+    def install_agent_instructions(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).install_workspace_agent_instructions(
+            project_id,
+            workspace_id,
+        )
+
     @siren_pagination(
         http_get,
         "/{project_id}/architecture-configurations",

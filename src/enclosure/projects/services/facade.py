@@ -279,6 +279,13 @@ class ProjectsService:
             parameters,
         )
 
+    def install_workspace_agent_instructions(
+        self,
+        project_id: str,
+        workspace_id: str,
+    ) -> GenerationResult:
+        return self.generation.install_agent_instructions(self.workspaces.get(project_id, workspace_id))
+
     @transaction.atomic
     def register_project(
         self,

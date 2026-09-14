@@ -1137,6 +1137,36 @@ def test_generates_project_source_from_associated_scaffolding(
 
 
 @pytest.mark.django_db
+def test_installs_agent_instructions_at_workspace_root(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    target = tmp_path / "AGENTS.md"
+    target.write_text("replace me\n", encoding="utf-8")
+
+    response = client.put(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/agent-instructions"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"files": ["AGENTS.md"]}
+    assert target.is_file()
+    assert not target.is_symlink()
+    installed = target.read_text(encoding="utf-8")
+    assert "enclosure-mcp.get_workspace_context(root, task)" in installed
+    assert "enclosure-mcp.check_project_health" in installed
+    assert installed.endswith("\n")
+    assert installed.rstrip("\n").count("\n") == 0
+
+
+@pytest.mark.django_db
 def test_generation_respects_create_if_missing(
     client: Client,
     dependencies: dict[str, str],
