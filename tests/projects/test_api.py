@@ -1152,8 +1152,7 @@ def test_installs_agent_instructions_at_workspace_root(
     target.write_text("replace me\n", encoding="utf-8")
 
     response = client.put(
-        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}"
-        "/agent-instructions"
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/agent-instructions"
     )
 
     assert response.status_code == 200
