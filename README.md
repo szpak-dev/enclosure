@@ -81,3 +81,8 @@ the repository configuration.
 
 The API is auth-free. Mutating record requests use `X-Actor-Id` and
 `X-Actor-Type`; supported actor types are `user` and `agent`.
+
+## License
+
+Copyright (c) 2026 Tomasz Szpak. All rights reserved. Enclosure is proprietary
+software; see the [LICENSE](LICENSE) file for the complete terms.
