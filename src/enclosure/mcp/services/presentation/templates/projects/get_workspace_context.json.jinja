@@ -1,4 +1,48 @@
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{% set status = "ok" if data.readiness == "ready" else "error" %}
-{% set summary = "Workspace context is ready." if data.readiness == "ready" else "Workspace context is incomplete." %}
+{% set workspace = properties if data.guidance is mapping else data %}
+{% set status = "ok" if workspace.readiness == "ready" else "error" %}
+{% set summary = "Workspace context is ready." if workspace.readiness == "ready" else "Workspace context is incomplete." %}
+{% set compact = data.guidance is mapping or data.receipt["items"] | length > 1 %}
+{% if not compact %}
 {{ envelope(operation_id, status, summary, data, []) }}
+{% else %}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": {{ status | tojson }},
+  "summary": {{ summary | tojson }},
+  "data": {
+    "project_id": {{ workspace.project_id | tojson }},
+    "root": {{ workspace.root | tojson }},
+    "readiness": {{ workspace.readiness | tojson }},
+    "guidance": [
+      {% for guidance in workspace.guidance %}
+      {% set item = workspace.receipt["items"][loop.index0] %}
+      {
+        "record_id": {{ item.record_id | tojson }},
+        "title": {{ guidance.title | tojson }},
+        "requirement": {{ item.requirement | tojson }},
+        "reason": {{ item.reason | tojson }},
+        "explanation": {{ item.explanation | tojson }},
+        "authority": {{ item.authority | tojson }},
+        "revision": {{ item.revision | tojson }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+    "receipt": {
+      "authority": {{ workspace.receipt.authority | tojson }},
+      "required_checks": {{ workspace.receipt.required_checks | tojson }},
+      "budget": {{ workspace.receipt.budget | tojson }},
+      "coverage": {{ workspace.receipt.coverage | tojson }},
+      "omissions": {{ workspace.receipt.omissions | tojson }},
+      "diagnostics": {{ workspace.receipt.diagnostics | tojson }},
+      "stop_condition": {{ workspace.receipt.stop_condition | tojson }}
+    }{% if data.links | default([]) %},
+    "links": {{ data.links | tojson }}{% endif %}
+  },
+  "follow_ups": [
+    {% for item in workspace.receipt["items"] %}
+    {"operation_id": "get_record", "arguments": {"record_id": {{ item.record_id | tojson }}}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+{% endif %}
