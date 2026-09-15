@@ -1,19 +1,20 @@
+{% set workspace = properties if data.guidance is mapping else data %}
 {{ bootstrap.markdown | trim }}
 
 # Workspace context
 
-- Project: `{{ data.project_id }}`
-- Root: `{{ data.root }}`
-- Readiness: **{{ data.readiness }}**
-- Authority: `{{ data.receipt.authority.kind }}:{{ data.receipt.authority.id }}`
-- Revision: `{{ data.receipt.authority.revision }}`
-- Provenance: `{{ data.receipt.authority.provenance }}`
-- Coverage: **{{ data.receipt.coverage.status }}** ({{ data.receipt.coverage.selected_count }} selected, {{ data.receipt.coverage.omitted_count }} omitted, {{ data.receipt.coverage.diagnostic_count }} diagnostics)
-- Serialized supplemental guidance budget: {{ data.receipt.budget.used_optional_characters }}/{{ data.receipt.budget.optional_character_limit }} characters
+- Project: `{{ workspace.project_id }}`
+- Root: `{{ workspace.root }}`
+- Readiness: **{{ workspace.readiness }}**
+- Authority: `{{ workspace.receipt.authority.kind }}:{{ workspace.receipt.authority.id }}`
+- Revision: `{{ workspace.receipt.authority.revision }}`
+- Provenance: `{{ workspace.receipt.authority.provenance }}`
+- Coverage: **{{ workspace.receipt.coverage.status }}** ({{ workspace.receipt.coverage.selected_count }} selected, {{ workspace.receipt.coverage.omitted_count }} omitted, {{ workspace.receipt.coverage.diagnostic_count }} diagnostics)
+- Serialized supplemental guidance budget: {{ workspace.receipt.budget.used_optional_characters }}/{{ workspace.receipt.budget.optional_character_limit }} characters
 
 ## Selected guidance
-{% for guidance in data.guidance %}
-{% set item = data.receipt["items"][loop.index0] %}
+{% for guidance in workspace.guidance %}
+{% set item = workspace.receipt["items"][loop.index0] %}
 
 ### {{ guidance.title }}
 
@@ -39,29 +40,29 @@
 {% endfor %}
 {% endif %}
 {% endfor %}
-{% if data.receipt.required_checks %}
+{% if workspace.receipt.required_checks %}
 
 ## Required checks
-{% for check in data.receipt.required_checks %}
+{% for check in workspace.receipt.required_checks %}
 - {{ check }}
 {% endfor %}
 {% endif %}
-{% if data.receipt.omissions %}
+{% if workspace.receipt.omissions %}
 
 ## Omissions
-{% for omission in data.receipt.omissions %}
+{% for omission in workspace.receipt.omissions %}
 - `{{ omission.code }}`: {{ omission.message }} Records: {% for guidance_id in omission.guidance_ids %}`{{ guidance_id }}`{% if not loop.last %}, {% endif %}{% endfor %}
 {% endfor %}
 {% endif %}
-{% if data.receipt.diagnostics %}
+{% if workspace.receipt.diagnostics %}
 
 ## Diagnostics
-{% for diagnostic in data.receipt.diagnostics %}
+{% for diagnostic in workspace.receipt.diagnostics %}
 - `{{ diagnostic.code }}`: {{ diagnostic.message }}{% if diagnostic.guidance_ids %} Records: {% for guidance_id in diagnostic.guidance_ids %}`{{ guidance_id }}`{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
 {% endfor %}
 {% endif %}
 
 ## Stop condition
 
-`{{ data.receipt.stop_condition }}`
+`{{ workspace.receipt.stop_condition }}`
 {% include "projects/partials/navigation.md.jinja" %}

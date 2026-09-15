@@ -60,13 +60,12 @@ class PresentationService:
         context = {
             "bootstrap": self.bootstrap.load(),
             "data": self.projection.project(document),
+            "document": document.document,
             "invocation": document.arguments,
             "operation_id": document.operation_id,
+            "properties": document.document.get("properties", {}),
             "summary": document.detail or document.title or "Enclosure result",
         }
-        if template.application != "projects":
-            context["document"] = document.document
-            context["properties"] = document.document.get("properties", {})
         envelope = PresentationEnvelope.model_validate(
             json.loads(
                 self.templates.render(
