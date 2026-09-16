@@ -1394,7 +1394,12 @@ def test_serves_rest_and_mcp_from_the_composite_application() -> None:
 
     assert rest_response.status_code == 200
     assert result.is_error is False
-    assert result.structured_content["status"] == "incomplete"
-    assert result.structured_content["data"]["id"] == "python"
-    assert result.structured_content["data"]["reason"] == "presentation_incomplete"
-    assert "Bounded operation receipt" in result.content[0].text
+    assert result.structured_content["status"] == "ok"
+    assert result.structured_content["data"] == {
+        "id": "python",
+        "name": "Python",
+        "aliases": ["py"],
+        "source_extensions": [".py"],
+    }
+    assert result.structured_content["follow_ups"] == []
+    assert "# Language" in result.content[0].text
