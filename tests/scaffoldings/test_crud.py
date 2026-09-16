@@ -30,12 +30,27 @@ def test_scaffolding_crud() -> None:
     listed = client.get("/api/scaffoldings")
 
     assert listed.status_code == 200
-    assert listed.json()[0]["id"] == scaffolding_id
+    assert listed.json()["items"][0]["id"] == scaffolding_id
 
     fetched = client.get(f"/api/scaffoldings/{scaffolding_id}")
 
     assert fetched.status_code == 200
-    assert fetched.json()["spec"] == payload["spec"]
+    template = fetched.json()["spec"]["templates"][0]
+    assert fetched.json()["spec"]["variables"] == []
+    assert template["path"] == "src/package/__init__.py"
+    assert "content" not in template
+
+    content = client.get(
+        f"/api/scaffoldings/{scaffolding_id}/template-content",
+        data={
+            "path": template["path"],
+            "expected_revision": template["revision"],
+            "offset": 0,
+            "limit": 512,
+        },
+    )
+    assert content.status_code == 200
+    assert content.json()["content"] == ""
 
     rendering = client.post(
         f"/api/scaffoldings/{scaffolding_id}/renderings",
@@ -44,7 +59,23 @@ def test_scaffolding_crud() -> None:
     )
 
     assert rendering.status_code == 200
-    assert rendering.json() == {"files": {"src/package/__init__.py": ""}}
+    rendered = rendering.json()["items"][0]
+    assert rendered["path"] == "src/package/__init__.py"
+    assert rendered["preview"] == ""
+
+    rendered_content = client.post(
+        f"/api/scaffoldings/{scaffolding_id}/rendered-file-content",
+        data={
+            "parameters": {},
+            "path": rendered["path"],
+            "expected_revision": rendered["revision"],
+            "offset": 0,
+            "limit": 512,
+        },
+        content_type="application/json",
+    )
+    assert rendered_content.status_code == 200
+    assert rendered_content.json()["content"] == ""
 
     payload["name"] = "Renamed package"
     updated = client.put(f"/api/scaffoldings/{scaffolding_id}", data=payload, content_type="application/json")
@@ -80,12 +111,12 @@ def test_search_scaffoldings_by_name_and_language() -> None:
 
     matches = client.post(
         "/api/scaffoldings/name-search-results",
-        data={"name": "ack"},
+        data={"name": "ack", "limit": 10},
         content_type="application/json",
     )
     constrained = client.post(
         "/api/scaffoldings/name-search-results",
-        data={"name": "Package", "language_id": "python"},
+        data={"name": "Package", "language_id": "python", "limit": 10},
         content_type="application/json",
     )
 

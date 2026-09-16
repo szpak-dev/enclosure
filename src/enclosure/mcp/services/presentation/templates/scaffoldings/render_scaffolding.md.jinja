@@ -1,0 +1,7 @@
+# Rendered scaffolding
+
+{% for file in data['items'] %}- `{{ file.path }}` — {{ file.size_bytes }} bytes, revision `{{ file.revision }}`
+{% else %}- No rendered files
+{% endfor %}{% if data.has_more %}
+Continue `render_scaffolding` at offset {{ data.next_offset }}.
+{% endif %}

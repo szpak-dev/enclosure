@@ -1,0 +1,5 @@
+# Scaffolding search results
+
+{% for scaffolding in data['items'] %}- `{{ scaffolding.id }}` — {{ scaffolding.name }} ({{ scaffolding.language_id }})
+{% else %}- None
+{% endfor %}

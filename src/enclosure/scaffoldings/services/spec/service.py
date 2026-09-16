@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pydantic import JsonValue, ValidationError
 from wireup import injectable
 
-from enclosure.shared import SourceCodePackage
+from enclosure.shared.source_code.package import SourceCodePackage
 
 from ...errors import ScaffoldingError
 from .model import PreparedScaffolding, ScaffoldingSpec
@@ -31,8 +31,6 @@ class ScaffoldingSpecService:
         )
 
     def _parse(self, value: Mapping[str, object] | ScaffoldingSpec) -> ScaffoldingSpec:
-        if isinstance(value, ScaffoldingSpec):
-            return value
         try:
             return ScaffoldingSpec.model_validate(value)
         except ValidationError as error:
@@ -44,8 +42,7 @@ class ScaffoldingSpecService:
             package={"files": {template.path: template.content for template in spec.templates}},
         )
 
-    @staticmethod
-    def _validate_template_content_paths(spec: ScaffoldingSpec) -> None:
+    def _validate_template_content_paths(self, spec: ScaffoldingSpec) -> None:
         for template in spec.templates:
             if not template.path.endswith(".jinja") and any(token in template.content for token in ("{{", "{%", "{#")):
                 raise ScaffoldingError("Template content uses Jinja syntax; its path must end with '.jinja'.")

@@ -3,8 +3,9 @@ from pathlib import Path
 
 from wireup import injectable
 
-from enclosure.scaffoldings.services import RenderedFile
-from enclosure.shared import CodePackage, CodePackageWriter
+from enclosure.scaffoldings.services.renderings.model import RenderedFile
+from enclosure.shared.source_code.package import CodePackage
+from enclosure.shared.source_code.writer import CodePackageWriter
 
 from ....errors import ProjectsError
 

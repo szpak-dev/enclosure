@@ -74,9 +74,28 @@ def test_siren_discovers_and_creates_scaffoldings(
     assert {action["name"] for action in details.json()["actions"]} == {
         "delete_scaffolding",
         "get_scaffolding",
+        "read_scaffolding_rendered_file",
+        "read_scaffolding_template",
         "render_scaffolding",
         "update_scaffolding",
     }
+
+    manifest = details.json()["properties"]["spec"]["templates"][0]
+    assert "content" not in manifest
+    template_action = next(
+        action for action in details.json()["actions"] if action["name"] == "read_scaffolding_template"
+    )
+    template_content = client.get(
+        template_action["href"].removeprefix("http://testserver"),
+        data={
+            "path": manifest["path"],
+            "expected_revision": manifest["revision"],
+            "offset": 0,
+            "limit": 512,
+        },
+    )
+    assert template_content.status_code == 200
+    assert template_content.json()["properties"]["content"] == ""
 
     action = next(action for action in details.json()["actions"] if action["name"] == "update_scaffolding")
     updated = client.put(
@@ -102,7 +121,23 @@ def test_siren_discovers_and_creates_scaffoldings(
     assert rendering.status_code == 200
     assert rendering["Content-Type"] == SIREN_MEDIA_TYPE
     assert rendering.json()["class"] == ["command-result"]
-    assert rendering.json()["properties"] == {"files": {"src/package/__init__.py": ""}}
+    rendered = rendering.json()["properties"]["items"][0]
+    assert rendered["path"] == "src/package/__init__.py"
+    assert rendered["preview"] == ""
+
+    rendered_content = client.post(
+        f"/siren/scaffoldings/{created.json()['properties']['id']}/rendered-file-content",
+        data={
+            "parameters": {},
+            "path": rendered["path"],
+            "expected_revision": rendered["revision"],
+            "offset": 0,
+            "limit": 512,
+        },
+        content_type="application/json",
+    )
+    assert rendered_content.status_code == 200
+    assert rendered_content.json()["properties"]["content"] == ""
 
     action = next(action for action in details.json()["actions"] if action["name"] == "delete_scaffolding")
     deleted = client.delete(action["href"].removeprefix("http://testserver"))

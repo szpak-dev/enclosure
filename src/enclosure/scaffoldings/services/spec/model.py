@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
-from enclosure.shared import SourceCodePackage
+from enclosure.shared.source_code.package import SourceCodePackage
 
 from ...errors import ScaffoldingError
 from .template import Template

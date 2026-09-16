@@ -1174,7 +1174,28 @@ def test_generation_respects_create_if_missing(
 ) -> None:
     python_project(tmp_path)
     scaffolding = client.get(f"/api/scaffoldings/{dependencies['scaffolding_id']}").json()
-    scaffolding["spec"]["templates"][0]["write_mode"] = "create_if_missing"
+    manifest = scaffolding["spec"]["templates"][0]
+    content = client.get(
+        f"/api/scaffoldings/{dependencies['scaffolding_id']}/template-content",
+        data={
+            "path": manifest["path"],
+            "expected_revision": manifest["revision"],
+            "offset": 0,
+            "limit": 512,
+        },
+    )
+    assert content.status_code == 200
+    scaffolding["spec"] = {
+        "language": scaffolding["spec"]["language"],
+        "variables": scaffolding["spec"]["variables"],
+        "templates": [
+            {
+                "path": manifest["path"],
+                "content": content.json()["content"],
+                "write_mode": "create_if_missing",
+            }
+        ],
+    }
     updated = client.put(
         f"/api/scaffoldings/{dependencies['scaffolding_id']}",
         data=scaffolding,

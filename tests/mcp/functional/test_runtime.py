@@ -410,6 +410,96 @@ class PublicMcpClient:
             )
             return results
 
+    async def scaffolding_presentations(self) -> dict[str, CallToolResult]:
+        async with self.session() as (session, _):
+            await session.initialize()
+            results = {}
+
+            async def call(name: str, arguments: Mapping[str, Any]) -> CallToolResult:
+                result = await session.call_tool(name, arguments)
+                results[name] = result
+                return result
+
+            source = "package = '{{ name }}'\n" * 32
+            payload = {
+                "language_id": "python",
+                "name": "MCP package",
+                "description": "Scaffolding presentation verification.",
+                "spec": {
+                    "language": "python",
+                    "variables": [{"name": "name", "type": "string"}],
+                    "templates": [
+                        {
+                            "path": "package.py.jinja",
+                            "content": source,
+                            "write_mode": "overwrite",
+                        },
+                        {
+                            "path": "README.md.jinja",
+                            "content": "# {{ name }}\n",
+                            "write_mode": "create_if_missing",
+                        },
+                    ],
+                },
+            }
+            created = await call("create_scaffolding", payload)
+            scaffolding_id = created.structured_content["data"]["id"]
+            disposable = await session.call_tool(
+                "create_scaffolding",
+                {
+                    **payload,
+                    "name": "MCP disposable package",
+                },
+            )
+            await call("find_scaffoldings", {"offset": 0, "limit": 1})
+            await call("search_scaffoldings", {"name": "MCP", "language_id": "python", "limit": 2})
+            await call("get_scaffolding", {"scaffolding_id": scaffolding_id})
+            updated = await call(
+                "update_scaffolding",
+                {
+                    "scaffolding_id": scaffolding_id,
+                    **payload,
+                    "description": "Updated scaffolding presentation verification.",
+                },
+            )
+            template = updated.structured_content["data"]["spec"]["templates"][0]
+            await call(
+                "read_scaffolding_template",
+                {
+                    "scaffolding_id": scaffolding_id,
+                    "path": template["path"],
+                    "expected_revision": template["revision"],
+                    "offset": 0,
+                    "limit": 64,
+                },
+            )
+            rendering = await call(
+                "render_scaffolding",
+                {
+                    "scaffolding_id": scaffolding_id,
+                    "parameters": {"name": "Example"},
+                    "offset": 0,
+                    "limit": 1,
+                },
+            )
+            rendered = rendering.structured_content["data"]["items"][0]
+            await call(
+                "read_scaffolding_rendered_file",
+                {
+                    "scaffolding_id": scaffolding_id,
+                    "parameters": {"name": "Example"},
+                    "path": rendered["path"],
+                    "expected_revision": rendered["revision"],
+                    "offset": 0,
+                    "limit": 64,
+                },
+            )
+            await call(
+                "delete_scaffolding",
+                {"scaffolding_id": disposable.structured_content["data"]["id"]},
+            )
+            return results
+
     async def workspace_context(
         self,
         root: Path,
