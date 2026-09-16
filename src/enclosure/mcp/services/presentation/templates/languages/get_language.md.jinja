@@ -1,0 +1,6 @@
+# Language
+
+`{{ data.id }}` — {{ data.name }}
+
+- Aliases: {% if data.aliases %}`{{ data.aliases | join("`, `") }}`{% else %}none{% endif %}
+- Source extensions: {% if data.source_extensions %}`{{ data.source_extensions | join("`, `") }}`{% else %}none{% endif %}

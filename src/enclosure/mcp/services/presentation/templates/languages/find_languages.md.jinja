@@ -1,0 +1,13 @@
+# Languages
+
+Supported source-processing and scaffolding languages.
+
+| ID | Name | Aliases | Source extensions |
+| --- | --- | --- | --- |
+{% for language in data["items"] -%}
+| `{{ language.id }}` | {{ language.name }} | {% if language.aliases %}`{{ language.aliases | join("`, `") }}`{% else %}—{% endif %} | {% if language.source_extensions %}`{{ language.source_extensions | join("`, `") }}`{% else %}—{% endif %} |
+{% else -%}
+| — | None | — | — |
+{% endfor %}
+
+Use `get_language(language_id="<id>")` for exact language detail.

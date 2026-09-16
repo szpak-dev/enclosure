@@ -1,0 +1,8 @@
+{% from "shared/partials/envelope.json.jinja" import envelope with context %}
+{% set language = {
+  "id": data.id,
+  "name": data.name,
+  "aliases": data.aliases,
+  "source_extensions": data.source_extensions
+} %}
+{{ envelope(operation_id, "ok", "Supported language detail.", language, []) }}

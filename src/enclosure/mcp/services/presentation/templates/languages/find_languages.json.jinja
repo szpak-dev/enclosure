@@ -1,0 +1,17 @@
+{% from "shared/partials/envelope.json.jinja" import envelope with context %}
+{% set items = [] %}
+{% set follow_ups = [] %}
+{% for language in data["items"] %}
+{% do items.append({
+  "id": language.id,
+  "name": language.name,
+  "aliases": language.aliases,
+  "source_extensions": language.source_extensions
+}) %}
+{% do follow_ups.append({
+  "operation_id": "get_language",
+  "arguments": {"language_id": language.id}
+}) %}
+{% endfor %}
+{% set catalogue = {"count": items | length, "items": items} %}
+{{ envelope(operation_id, "ok", "Supported language references.", catalogue, follow_ups) }}
