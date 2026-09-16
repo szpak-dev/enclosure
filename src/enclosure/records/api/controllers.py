@@ -3,7 +3,7 @@ from typing import Annotated
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
-from sirenity import siren_pagination
+from sirenity import SirenContinuation, siren_pagination
 
 from ..services import RecordsService
 from . import schemas
@@ -177,10 +177,12 @@ class RecordsController(ControllerBase):
             body.content_schema,
         )
 
-    @route.get(
+    @SirenContinuation(
+        http_get,
         "/categories/{category_id}/content-schema",
         response=schemas.RecordCategoryContentSchema,
         operation_id="read_record_category_content_schema",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="Read a record category content schema",
         description="Read one bounded page from a revision-pinned category content schema.",
     )
@@ -223,10 +225,12 @@ class RecordsController(ControllerBase):
     def get(self, request, record_id: Annotated[str, Path(description="Record identifier.")]):
         return DjangoRequest.resolve(request, RecordsService).get_record_detail(record_id)
 
-    @route.get(
+    @SirenContinuation(
+        http_get,
         "/{record_id}/resources/content",
         response=schemas.RecordResourceContent,
         operation_id="read_record_resource",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="Read a record resource",
         description="Read one bounded page from an exact revision-pinned record resource path.",
     )

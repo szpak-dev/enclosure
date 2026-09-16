@@ -8,5 +8,5 @@
     "next_offset": {{ data.next_offset | tojson }},
     "limit": {{ data.limit | tojson }}
   },
-  "follow_ups": [{% if data.has_more %}{"operation_id": "find_records", "arguments": {"offset": {{ data.next_offset | tojson }}, "limit": {{ data.limit | tojson }}}}{% endif %}]
+  "follow_ups": {{ follow_ups | tojson }}
 }

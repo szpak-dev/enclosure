@@ -5,7 +5,7 @@
 {% else %}
 - None
 {% endfor %}
-{% if data.has_more %}
+{% if follow_ups %}
 
-Continue with `find_records(offset={{ data.next_offset }}, limit={{ data.limit }})`.
+Use the supplied typed continuation to read the next page.
 {% endif %}

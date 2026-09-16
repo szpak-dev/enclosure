@@ -9,7 +9,7 @@
 ```yaml
 {{ data.content }}
 ```
-{% if data.has_more %}
-Continue with the bounded content operation at offset {{ data.next_offset }} using the same revision.
+{% if follow_ups %}
+Use the supplied typed continuation to read the remaining configuration content.
 {% endif %}
 {% include "projects/partials/navigation.md.jinja" %}

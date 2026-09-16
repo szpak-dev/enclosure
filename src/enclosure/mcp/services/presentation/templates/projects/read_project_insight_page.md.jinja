@@ -11,8 +11,8 @@
 {% else %}
 - None
 {% endfor %}
-{% if data.has_more %}
+{% if follow_ups %}
 
-Continue with the bounded page operation at offset {{ data.next_offset }} using the same revision.
+Use the supplied typed continuation to read the next insight page.
 {% endif %}
 {% include "projects/partials/navigation.md.jinja" %}

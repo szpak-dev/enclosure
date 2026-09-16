@@ -3,7 +3,7 @@ from typing import Annotated
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
-from sirenity import siren_pagination
+from sirenity import SirenContinuation, siren_pagination
 
 from ..services.facade import ProjectsService
 from . import schemas
@@ -367,10 +367,12 @@ class ProjectsController(ControllerBase):
             configuration_id,
         )
 
-    @route.get(
+    @SirenContinuation(
+        http_get,
         "/{project_id}/architecture-configurations/{configuration_id}/content",
         response=schemas.ArchitectureConfigurationContent,
         operation_id="read_project_architecture_configuration_content",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="Read architecture configuration content",
         description="Read one bounded page from a revision-pinned architecture configuration document.",
     )
@@ -566,10 +568,12 @@ class ProjectsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, ProjectsService).read_insights(project_id, workspace_id)
 
-    @route.get(
+    @SirenContinuation(
+        http_get,
         "/{project_id}/workspaces/{workspace_id}/insights/pages",
         response=schemas.InsightPage,
         operation_id="read_project_insight_page",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="Read a project insight page",
         description="Read one bounded projected collection from a revision-pinned project insights report.",
     )
