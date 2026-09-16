@@ -3,7 +3,7 @@ from typing import Annotated
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
-from sirenity import siren_pagination
+from sirenity import SirenContinuation, siren_pagination
 
 from ..services.facade import DiagramsService
 from . import schemas
@@ -213,10 +213,12 @@ class DiagramsController(ControllerBase):
     def find_all(self, request, query: Query[schemas.FindPage]):
         return DjangoRequest.resolve(request, DiagramsService).find_diagram_page(query.offset, query.limit)
 
-    @route.get(
+    @SirenContinuation(
+        http_get,
         "/{diagram_id}/content",
         response=schemas.DiagramContent,
         operation_id="read_diagram_content",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="Read diagram content",
         description="Read one revision-pinned bounded page from a diagram's source or canonical snapshot.",
     )

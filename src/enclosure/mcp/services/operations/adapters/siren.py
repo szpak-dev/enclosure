@@ -48,6 +48,13 @@ class SirenGatewayAdapter(SirenGateway):
             operation_id=invocation.operation_id,
             arguments=invocation.arguments,
             document=document,
+            continuations=tuple(
+                ToolInvocation(
+                    operation_id=continuation.operation_id,
+                    arguments=continuation.arguments,
+                )
+                for continuation in getattr(result, "continuations", ())
+            ),
             is_error=result.is_error,
             classes=tuple(document.get("class", ())),
             title=document.get("title", ""),
@@ -58,7 +65,7 @@ class SirenGatewayAdapter(SirenGateway):
     def _bridge(self) -> Any:
         declaration = settings.SIRENITY
         configuration: SirenConfiguration = siren_configuration(
-            openapi=declaration["OPENAPI"],
+            openapi=declaration.get("MCP_OPENAPI", declaration["OPENAPI"]),
             source_path=declaration["SOURCE_PATH"],
             public_path=declaration["PUBLIC_PATH"],
             policy=declaration["POLICY"],

@@ -61,6 +61,7 @@ class PresentationService:
             "bootstrap": self.bootstrap.load(),
             "data": self.projection.project(document),
             "document": document.document,
+            "follow_ups": [continuation.model_dump(mode="json") for continuation in document.continuations],
             "invocation": document.arguments,
             "operation_id": document.operation_id,
             "properties": document.document.get("properties", {}),

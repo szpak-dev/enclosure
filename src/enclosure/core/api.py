@@ -23,3 +23,4 @@ for app_config in apps.get_app_configs():
         import_module(f"{app_config.name}.api.controllers")
 
 api.register_controllers(*controller_registry.get_controllers().values())
+openapi_schema = api.get_openapi_schema(path_prefix="/api")

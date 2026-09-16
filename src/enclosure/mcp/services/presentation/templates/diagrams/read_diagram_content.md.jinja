@@ -8,8 +8,8 @@
 ```
 {{ data.content }}
 ```
-{% if data.has_more %}
-Continue at offset {{ data.next_offset }} using the same revision.
+{% if follow_ups %}
+Use the supplied typed continuation to read the remaining diagram content.
 {% endif %}
 {% if data.actions | default([]) %}
 

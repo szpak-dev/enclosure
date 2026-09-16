@@ -8,7 +8,7 @@ Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characte
 ```{{ data.language }}
 {{ data.content }}
 ```
-{% if data.has_more %}
+{% if follow_ups %}
 
-Continue at offset {{ data.next_offset }} with the same revision and limit {{ data.limit }}.
+Use the supplied typed continuation to read the remaining content.
 {% endif %}

@@ -65,6 +65,7 @@ MODWIRE = {
     "NINJA": {"title": "Enclosure API", "version": RELEASE_VERSION},
 }
 SIRENITY = {
+    "MCP_OPENAPI": "enclosure.core.api.openapi_schema",
     "OPENAPI": "enclosure.core.api.api",
     "POLICY": "sirenity.SirenAllowAllPolicy",
     "SOURCE_PATH": "/api",
