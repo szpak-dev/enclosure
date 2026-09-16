@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pydantic import JsonValue
 from wireup import injectable
 
-from enclosure.scaffoldings.services import RenderedFile
+from enclosure.scaffoldings.services.renderings.model import RenderedFile
 
 from ..adapters import ScaffoldingsAdapter
 from ..registry.model import Project

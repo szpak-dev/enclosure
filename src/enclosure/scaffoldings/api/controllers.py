@@ -1,10 +1,11 @@
 from typing import Annotated
 
 from modwire_hex.django import DjangoRequest
-from ninja import Path, Status
-from ninja_extra import ControllerBase, api_controller, route
+from ninja import Path, Query, Status
+from ninja_extra import ControllerBase, api_controller, http_get, route
+from sirenity import SirenContinuation, siren_pagination
 
-from ..services import ScaffoldingService
+from ..services.facade import ScaffoldingService
 from . import schemas
 
 
@@ -18,38 +19,62 @@ class ScaffoldingController(ControllerBase):
         description="Store a reusable source-code template and its parameter specification.",
     )
     def create(self, request, body: schemas.ScaffoldingInput):
-        scaffolding = DjangoRequest.resolve(request, ScaffoldingService).create(body.model_dump(mode="json"))
-        return Status(201, scaffolding)
+        value = DjangoRequest.resolve(request, ScaffoldingService).create(body.model_dump(mode="json"))
+        return Status(201, value)
 
-    @route.get(
-        "",
-        response=list[schemas.ScaffoldingSummary],
+    @siren_pagination(
+        http_get,
+        response=schemas.ScaffoldingPage,
         operation_id="find_scaffoldings",
+        continuation={"offset": "next_offset", "limit": "limit"},
         summary="List scaffoldings",
-        description="Return summaries of all available scaffoldings.",
+        description="Return one bounded page of compact scaffolding references.",
     )
-    def find_all(self, request):
-        return DjangoRequest.resolve(request, ScaffoldingService).find_all()
+    def find_all(self, request, query: Query[schemas.FindPage]):
+        return DjangoRequest.resolve(request, ScaffoldingService).find_page(query.offset, query.limit)
 
     @route.post(
         "/name-search-results",
         response=list[schemas.ScaffoldingSummary],
         operation_id="search_scaffoldings",
         summary="Search scaffoldings",
-        description="Find compact scaffolding summaries by name, optionally constrained to one language.",
+        description="Find a bounded set of compact scaffolding references by name and language.",
     )
     def search(self, request, body: schemas.SearchScaffoldings):
-        return DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id)
+        return DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id, body.limit)
 
     @route.get(
         "/{scaffolding_id}",
         response=schemas.Scaffolding,
         operation_id="get_scaffolding",
         summary="Get a scaffolding",
-        description="Return a scaffolding and its complete specification.",
+        description="Return variables and revisioned template manifests without template bodies.",
     )
     def get(self, request, scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")]):
-        return DjangoRequest.resolve(request, ScaffoldingService).get(scaffolding_id)
+        return DjangoRequest.resolve(request, ScaffoldingService).get_detail(scaffolding_id)
+
+    @SirenContinuation(
+        http_get,
+        "/{scaffolding_id}/template-content",
+        response=schemas.ScaffoldingTemplateContent,
+        operation_id="read_scaffolding_template",
+        continuation={"offset": "next_offset", "limit": "limit"},
+        summary="Read scaffolding template content",
+        description="Read one bounded page from an exact revision-pinned template path.",
+    )
+    def read_template(
+        self,
+        request,
+        scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
+        query: Query[schemas.ReadScaffoldingTemplate],
+    ):
+        return DjangoRequest.resolve(request, ScaffoldingService).read_template(
+            scaffolding_id,
+            query.path,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )
 
     @route.put(
         "/{scaffolding_id}",
@@ -68,25 +93,45 @@ class ScaffoldingController(ControllerBase):
 
     @route.post(
         "/{scaffolding_id}/renderings",
-        response=schemas.Rendering,
+        response=schemas.RenderingPage,
         operation_id="render_scaffolding",
         summary="Render a scaffolding",
-        description="Generate source files from a scaffolding using the supplied parameters.",
+        description="Return one bounded page of rendered-file manifests and previews.",
     )
     def create_rendering(
         self,
         request,
         scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
-        body: schemas.GenerateSourceCode,
+        body: schemas.RenderScaffolding,
     ):
-        return {
-            "files": DjangoRequest.resolve(
-                request,
-                ScaffoldingService,
-            )
-            .render(scaffolding_id, body.parameters)
-            .package.files,
-        }
+        return DjangoRequest.resolve(request, ScaffoldingService).render_page(
+            scaffolding_id,
+            body.parameters,
+            body.offset,
+            body.limit,
+        )
+
+    @route.post(
+        "/{scaffolding_id}/rendered-file-content",
+        response=schemas.RenderedFileContent,
+        operation_id="read_scaffolding_rendered_file",
+        summary="Read rendered scaffolding content",
+        description="Rerender and read one bounded page from a revision-pinned output path.",
+    )
+    def read_rendered_file(
+        self,
+        request,
+        scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
+        body: schemas.ReadScaffoldingRenderedFile,
+    ):
+        return DjangoRequest.resolve(request, ScaffoldingService).read_rendered_file(
+            scaffolding_id,
+            body.parameters,
+            body.path,
+            body.expected_revision,
+            body.offset,
+            body.limit,
+        )
 
     @route.delete(
         "/{scaffolding_id}",

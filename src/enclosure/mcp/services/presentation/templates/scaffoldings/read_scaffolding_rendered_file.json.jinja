@@ -1,0 +1,7 @@
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Bounded rendered scaffolding file content.",
+  "data": {{ data | tojson }},
+  "follow_ups": [{% if data.has_more %}{"operation_id": "read_scaffolding_rendered_file", "arguments": {"scaffolding_id": {{ data.scaffolding_id | tojson }}, "parameters": {{ invocation.parameters | tojson }}, "path": {{ data.path | tojson }}, "expected_revision": {{ data.revision | tojson }}, "offset": {{ data.next_offset | tojson }}, "limit": {{ data.limit | tojson }}}}{% endif %}]
+}
