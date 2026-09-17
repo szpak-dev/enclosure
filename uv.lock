@@ -401,8 +401,7 @@ dependencies = [
     { name = "markdown-it-py" },
     { name = "mcp" },
     { name = "mermaiden" },
-    { name = "modwire-architecture" },
-    { name = "modwire-extraction" },
+    { name = "modwire" },
     { name = "modwire-hex" },
     { name = "pgvector" },
     { name = "psycopg", extra = ["binary"] },
@@ -445,8 +444,7 @@ requires-dist = [
     { name = "markdown-it-py" },
     { name = "mcp", specifier = ">=2,<3" },
     { name = "mermaiden", specifier = "==9.0.0" },
-    { name = "modwire-architecture", specifier = ">=7.0.0,<8" },
-    { name = "modwire-extraction", specifier = "==2.1.2" },
+    { name = "modwire", git = "https://github.com/szpak-dev/modwire.git?rev=1711298769225023440eff07dd6d6003ef1c854c" },
     { name = "modwire-hex" },
     { name = "pgvector" },
     { name = "psycopg", extras = ["binary"] },
@@ -836,29 +834,14 @@ wheels = [
 ]
 
 [[package]]
-name = "modwire-architecture"
-version = "7.0.0"
-source = { registry = "https://pypi.org/simple" }
+name = "modwire"
+version = "8.0.0.dev4"
+source = { git = "https://github.com/szpak-dev/modwire.git?rev=1711298769225023440eff07dd6d6003ef1c854c#1711298769225023440eff07dd6d6003ef1c854c" }
 dependencies = [
-    { name = "modwire-extraction" },
     { name = "pydantic" },
     { name = "pydantic-yaml" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/91/70/c8d5e3899acc0acee702392900445583a32da6c7f5b54dbf68f7a7b301b5/modwire_architecture-7.0.0.tar.gz", hash = "sha256:15f31fbd8a214d039a0d8e99408f0548a27c9805f60f13c1f82317d989883fd7", size = 80919, upload-time = "2026-07-25T10:29:41.75Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/30/ab8356df47713c168b9254260e8d8f8f91e49205a518c11c638aaa494c21/modwire_architecture-7.0.0-py3-none-any.whl", hash = "sha256:dc24deccb9ff48f5e887be6dfefbd09dd35dae8c30cc0877e15399a8f1a7c72e", size = 51225, upload-time = "2026-07-25T10:29:40.466Z" },
-]
-
-[[package]]
-name = "modwire-extraction"
-version = "2.1.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f8/77/48e9611228dd2b928b752f67e78bc708cbb3ac3b78767bd8f01ed73caa17/modwire_extraction-2.1.2.tar.gz", hash = "sha256:ece394472f7eafe6919f6ab149605e102a4a32a1cdb9dc8888d002bbe564d76a", size = 2360916, upload-time = "2026-09-10T11:38:18.86Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/da/a06a717b6ff7d8e52a96eed9c32a67364cc9267e60c370e7bff62623f04f/modwire_extraction-2.1.2-py3-none-any.whl", hash = "sha256:86eb0b049e04b8eac0a11b7fa53c1bfa7d5c28d9a3ed6f0b3795a5b9405fd1ba", size = 2333775, upload-time = "2026-09-10T11:38:16.918Z" },
+    { name = "rich" },
+    { name = "wireup" },
 ]
 
 [[package]]

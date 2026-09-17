@@ -19,8 +19,7 @@ dependencies = [
     "jinja2",
     "mcp>=2,<3",
     "markdown-it-py",
-    "modwire-architecture>=7.0.0,<8",
-    "modwire-extraction==2.1.2",
+    "modwire",
     "modwire-hex",
     "mermaiden==9.0.0",
     "sirenity==7.2.1",
@@ -52,6 +51,9 @@ dev = [
 [tool.uv]
 package = false
 cache-dir = ".dev/uv-cache"
+
+[tool.uv.sources]
+modwire = { git = "https://github.com/szpak-dev/modwire.git", rev = "1711298769225023440eff07dd6d6003ef1c854c" }
 
 [tool.setuptools.package-data]
 "enclosure.mcp" = ["resources/*.md"]

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from modwire_extraction import ModwireExtraction
-from modwire_extraction.code import QueryableCodeMap
+from modwire.application import ModwireApplication
+from modwire.shared.code.models.queryable_code_map import QueryableCodeMap
 from wireup import injectable
 
 from .package import SourceCodePackage
@@ -16,5 +16,10 @@ class SourceCodeMap:
 
 @injectable
 class QueryableCodeMapReader:
-    def read(self, root: Path, language: str) -> QueryableCodeMap:
-        return ModwireExtraction(root).generate_queryable_map(language)
+    def read(
+        self,
+        root: Path,
+        language: str,
+        excluded_patterns: tuple[str, ...] = (),
+    ) -> QueryableCodeMap:
+        return ModwireApplication.create().generate_queryable_map(language, str(root), excluded_patterns)
