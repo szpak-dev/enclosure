@@ -13,6 +13,25 @@ BOUNDARIES_YAML = """boundaries:
     layers: []
     analyzers: []
 """
+COMPLETE_BOUNDARIES_YAML = """excluded_patterns:
+  - .dev/**
+boundaries:
+  tags:
+    - name: example-module
+      match: "*"
+    - name: example-entrypoint
+      match: app.py
+  rules:
+    - realm: example-project
+      source: example-module
+      allow: [example-module]
+  flow:
+    standalone_tags: [example-entrypoint]
+    realms:
+      - name: example-project
+        module_tag: example-module
+    analyzers: []
+"""
 HEALTHY_SHAPE_YAML = """shape:
   realms:
     - name: project
@@ -26,6 +45,15 @@ UNHEALTHY_SHAPE_YAML = """shape:
       match: "*"
       shape:
         max_classes_per_file: 0
+"""
+COMPLETE_SHAPE_YAML = """shape:
+  realms:
+    - name: example-project
+      match: "*"
+      excluded_patterns:
+        - tests/fixtures/**
+      shape:
+        max_classes_per_file: 1
 """
 
 
@@ -336,6 +364,21 @@ def test_registration_rejects_invalid_architecture_yaml(
 
     assert response.status_code == 422
     assert response.json()["detail"].startswith("Invalid architecture configuration:")
+
+
+@pytest.mark.django_db
+def test_registration_accepts_complete_architecture_configuration(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    payload = registration(discover(client, tmp_path), dependencies, shape_yaml=COMPLETE_SHAPE_YAML)
+    payload["boundaries_yaml"] = COMPLETE_BOUNDARIES_YAML
+
+    response = client.post("/api/projects", data=payload, content_type="application/json")
+
+    assert response.status_code == 201
 
 
 @pytest.mark.django_db
