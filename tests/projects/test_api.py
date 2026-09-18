@@ -1135,9 +1135,9 @@ def test_reads_revision_pinned_architecture_configuration_content(
     assert stale.status_code == 422
     assert stale.json() == {"detail": "Architecture configuration changed; get it again before reading content."}
 
-    for offset, limit, detail in (
-        (-1, 12, "Architecture configuration content offset is outside the document."),
-        (0, 1025, "Architecture configuration content limit must be between 1 and 1024."),
+    for offset, limit, field, bound in (
+        (-1, 12, "offset", {"ge": 0}),
+        (0, 1025, "limit", {"le": 1024}),
     ):
         invalid = client.get(
             f"/api/projects/{project_id}/architecture-configurations/{reference['id']}/content",
@@ -1149,7 +1149,8 @@ def test_reads_revision_pinned_architecture_configuration_content(
             },
         )
         assert invalid.status_code == 422
-        assert invalid.json() == {"detail": detail}
+        assert invalid.json()["detail"][0]["loc"] == ["query", field]
+        assert invalid.json()["detail"][0]["ctx"] == bound
 
 
 @pytest.mark.django_db
@@ -1695,7 +1696,8 @@ def test_insights_contains_only_non_gating_reports(
         },
     )
     assert oversized.status_code == 422
-    assert oversized.json() == {"detail": "Project insight page limit must be between 1 and 25."}
+    assert oversized.json()["detail"][0]["loc"] == ["query", "limit"]
+    assert oversized.json()["detail"][0]["ctx"] == {"le": 25}
 
 
 @pytest.mark.django_db
@@ -1866,6 +1868,29 @@ def test_sirenity_owns_project_collection_continuation_links() -> None:
                 },
             }
         }
+
+
+def test_project_bounded_page_schemas_publish_service_limits() -> None:
+    schema = Client().get("/api/openapi.json").json()
+    operations = {
+        "/api/projects/{project_id}/architecture-configurations/{configuration_id}/content": {
+            "offset": {"minimum": 0},
+            "limit": {"minimum": 1, "maximum": 1024},
+        },
+        "/api/projects/{project_id}/workspaces/{workspace_id}/insights/pages": {
+            "offset": {"minimum": 0},
+            "limit": {"minimum": 1, "maximum": 25},
+        },
+    }
+
+    for path, expected_bounds in operations.items():
+        parameters = {
+            parameter["name"]: parameter["schema"]
+            for parameter in schema["paths"][path]["get"]["parameters"]
+            if parameter["in"] == "query"
+        }
+        for name, bounds in expected_bounds.items():
+            assert {key: parameters[name][key] for key in bounds} == bounds
 
 
 @pytest.mark.django_db
