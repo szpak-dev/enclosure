@@ -350,8 +350,8 @@ class ReadArchitectureConfigurationContent(Schema):
         description="Architecture configuration document to read."
     )
     expected_revision: str = Field(description="Configuration revision on which this read is based.")
-    offset: int = Field(description="Character offset at which the bounded read starts.")
-    limit: int = Field(description="Maximum characters returned by the bounded read.")
+    offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
+    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1, le=1024)
 
 
 class ArchitectureConfigurationContent(Schema):
@@ -362,7 +362,7 @@ class ArchitectureConfigurationContent(Schema):
         description="Architecture configuration document that was read."
     )
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1, le=1024)
     total_characters: int = Field(description="Total characters in the selected document.", ge=0)
     content: str = Field(description="Bounded configuration content.")
     has_more: bool = Field(description="Whether another bounded page remains.")
@@ -423,8 +423,8 @@ class InsightsReport(Schema):
 class ReadInsightPage(Schema):
     path: str = Field(description="Absolute JSON pointer identifying an insight collection.", pattern=r"/")
     expected_revision: str = Field(description="Insights revision on which this read is based.")
-    offset: int = Field(description="Item offset at which the bounded page starts.")
-    limit: int = Field(description="Maximum items returned by the bounded page.")
+    offset: int = Field(description="Item offset at which the bounded page starts.", ge=0)
+    limit: int = Field(description="Maximum items returned by the bounded page.", ge=1, le=25)
 
 
 class InsightPage(Schema):
@@ -433,7 +433,7 @@ class InsightPage(Schema):
     revision: str = Field(description="Deterministic revision of the complete insights report.")
     path: str = Field(description="Absolute JSON pointer identifying the paged insight collection.")
     offset: int = Field(description="Item offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum items requested for this page.", ge=1)
+    limit: int = Field(description="Maximum items requested for this page.", ge=1, le=25)
     total: int = Field(description="Total items in the selected collection.", ge=0)
     items: tuple[JsonValue, ...] = Field(description="Bounded projected insight items.")
     has_more: bool = Field(description="Whether another page remains.")

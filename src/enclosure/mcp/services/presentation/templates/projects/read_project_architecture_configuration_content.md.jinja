@@ -1,13 +1,13 @@
 # Architecture configuration content
 
-- Project: `{{ data.project_id }}`
-- Configuration: `{{ data.configuration_id }}`
-- Document: `{{ data.document }}`
-- Revision: `{{ data.revision }}`
-- Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}
+- Project: `{{ properties.project_id }}`
+- Configuration: `{{ properties.configuration_id }}`
+- Document: `{{ properties.document }}`
+- Revision: `{{ properties.revision }}`
+- Characters: {{ properties.offset }}–{{ properties.next_offset }} of {{ properties.total_characters }}
 
 ```yaml
-{{ data.content }}
+{{ properties.content }}
 ```
 {% if follow_ups %}
 Use the supplied typed continuation to read the remaining configuration content.

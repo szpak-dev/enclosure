@@ -25,6 +25,9 @@ EXAMPLE_BOUNDARIES_YAML = """boundaries:
     layers: []
     analyzers: []
 """
+EXAMPLE_PAGED_BOUNDARIES_YAML = EXAMPLE_BOUNDARIES_YAML + "".join(
+    f"# example-boundary-detail-{index}: zażółć\n" for index in range(40)
+)
 EXAMPLE_HEALTHY_SHAPE_YAML = """shape:
   realms:
     - name: example-project
@@ -624,7 +627,10 @@ class PublicMcpClient:
             )
             return overview, page
 
-    async def project_configuration_content(self, root: Path) -> tuple[CallToolResult, CallToolResult]:
+    async def project_configuration_content(
+        self,
+        root: Path,
+    ) -> tuple[CallToolResult, CallToolResult, CallToolResult]:
         async with self.session() as (session, http_client):
             await session.initialize()
             project_id, _ = await self._register_example_project(
@@ -632,6 +638,7 @@ class PublicMcpClient:
                 root,
                 {"summary": "Example project guidance."},
                 EXAMPLE_HEALTHY_SHAPE_YAML,
+                boundaries_yaml=EXAMPLE_PAGED_BOUNDARIES_YAML,
             )
             configurations = await session.call_tool(
                 "find_project_architecture_configurations",
@@ -642,7 +649,7 @@ class PublicMcpClient:
                 "get_project_architecture_configuration",
                 {"project_id": project_id, "configuration_id": reference["id"]},
             )
-            content = await session.call_tool(
+            first = await session.call_tool(
                 "read_project_architecture_configuration_content",
                 {
                     "project_id": project_id,
@@ -650,10 +657,14 @@ class PublicMcpClient:
                     "document": "boundaries_yaml",
                     "expected_revision": reference["revision"],
                     "offset": 0,
-                    "limit": 12,
+                    "limit": 1024,
                 },
             )
-            return configuration, content
+            final = await session.call_tool(
+                "read_project_architecture_configuration_content",
+                first.structured_content["follow_ups"][0]["arguments"],
+            )
+            return configuration, first, final
 
     async def workspace_rebinding(
         self,
@@ -707,6 +718,7 @@ class PublicMcpClient:
         guidance: Mapping[str, Any],
         shape_yaml: str,
         bind_guidance: bool = True,
+        boundaries_yaml: str = EXAMPLE_BOUNDARIES_YAML,
     ) -> tuple[str, str]:
         category = await http_client.post(
             "/api/records/categories",
@@ -762,7 +774,7 @@ class PublicMcpClient:
             json={
                 "discovery": discovery.json(),
                 "architecture_root": str(root),
-                "boundaries_yaml": EXAMPLE_BOUNDARIES_YAML,
+                "boundaries_yaml": boundaries_yaml,
                 "shape_yaml": shape_yaml,
                 "scaffolding_id": scaffolding.json()["id"],
                 "record_ids": [record.json()["id"]] if bind_guidance else [],
@@ -1139,25 +1151,39 @@ def test_presents_complete_project_insights_with_bounded_pages_available(tmp_pat
 
 
 @pytest.mark.django_db(transaction=True)
-def test_presents_bounded_configuration_content_from_a_siren_action(tmp_path: Path) -> None:
+def test_presents_exact_bounded_configuration_content_from_a_siren_action(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
         "class ExampleApplication:\n    pass\n",
         encoding="utf-8",
     )
 
-    configuration, content = asyncio.run(
+    configuration, first, final = asyncio.run(
         PublicMcpClient(PublicCompositeApplication()).project_configuration_content(tmp_path)
     )
 
     actions = {action["name"] for action in configuration.structured_content["data"]["actions"]}
+    first_data = first.structured_content["data"]
+    final_data = final.structured_content["data"]
+
     assert "read_project_architecture_configuration_content" in actions
-    assert content.is_error is False
-    assert content.structured_content["status"] == "ok"
-    assert content.structured_content["data"]["content"] == EXAMPLE_BOUNDARIES_YAML[:12]
-    assert content.structured_content["data"]["next_offset"] == 12
-    assert len(content.content[0].text.encode("utf-8")) <= 16_384
-    assert len(json.dumps(content.structured_content).encode("utf-8")) <= 8_192
+    assert first.is_error is False
+    assert first.structured_content["status"] == "ok"
+    assert first_data["content"] == EXAMPLE_PAGED_BOUNDARIES_YAML[:1024]
+    assert len(first_data["content"]) == first_data["next_offset"] - first_data["offset"]
+    assert first_data["has_more"] is True
+    assert first.structured_content["follow_ups"]
+    assert final.is_error is False
+    assert final.structured_content["status"] == "ok"
+    assert final_data["content"] == EXAMPLE_PAGED_BOUNDARIES_YAML[1024:]
+    assert len(final_data["content"]) == final_data["next_offset"] - final_data["offset"]
+    assert final_data["has_more"] is False
+    assert final.structured_content["follow_ups"] == []
+    assert first_data["content"] + final_data["content"] == EXAMPLE_PAGED_BOUNDARIES_YAML
+    assert first_data["content"] in first.content[0].text
+    assert final_data["content"] in final.content[0].text
+    assert len(first.content[0].text.encode("utf-8")) <= 16_384
+    assert len(json.dumps(first.structured_content).encode("utf-8")) <= 8_192
 
 
 @pytest.mark.django_db(transaction=True)

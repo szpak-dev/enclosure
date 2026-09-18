@@ -1,2 +1,9 @@
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", "Bounded architecture configuration content.", data, follow_ups) }}
+{% set exact_data = properties.copy() %}
+{% if data.actions | default([]) %}
+{% do exact_data.update({"actions": data.actions}) %}
+{% endif %}
+{% if data.links | default([]) %}
+{% do exact_data.update({"links": data.links}) %}
+{% endif %}
+{{ envelope(operation_id, "ok", "Bounded architecture configuration content.", exact_data, follow_ups) }}
