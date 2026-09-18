@@ -53,7 +53,14 @@ class SirenGatewayAdapter(SirenGateway):
                     operation_id=continuation.operation_id,
                     arguments=continuation.arguments,
                 )
-                for continuation in getattr(result, "continuations", ())
+                for continuation in result.continuations
+            ),
+            verifications=tuple(
+                ToolInvocation(
+                    operation_id=verification.operation_id,
+                    arguments=verification.arguments,
+                )
+                for verification in result.verifications
             ),
             is_error=result.is_error,
             classes=tuple(document.get("class", ())),

@@ -29,6 +29,7 @@ class SirenDocument(McpValue):
     arguments: Mapping[str, JsonValue]
     document: Mapping[str, JsonValue]
     continuations: tuple[ToolInvocation, ...]
+    verifications: tuple[ToolInvocation, ...]
     is_error: bool
     classes: tuple[str, ...]
     title: str

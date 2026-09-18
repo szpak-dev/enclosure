@@ -7,7 +7,7 @@ SNAKE_CASE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 HTTP_METHODS = {"delete", "get", "patch", "post", "put"}
 
 
-def find_operation_ids(schema: dict) -> Iterator[object]:
+def find_operation_ids(schema: dict) -> Iterator[str]:
     for path in schema["paths"].values():
         for method, operation in path.items():
             if method in HTTP_METHODS:
@@ -19,7 +19,7 @@ def test_api_operation_ids_are_unique_snake_case() -> None:
     operation_ids = list(find_operation_ids(schema))
 
     assert operation_ids
-    assert all(isinstance(operation_id, str) and SNAKE_CASE.fullmatch(operation_id) for operation_id in operation_ids)
+    assert all(SNAKE_CASE.fullmatch(operation_id) for operation_id in operation_ids)
     assert len(operation_ids) == len(set(operation_ids))
 
 

@@ -845,7 +845,6 @@ def test_bounds_oversized_workspace_guidance_before_rendering(tmp_path: Path) ->
     assert result.structured_content["status"] == "error"
     assert result.structured_content["data"]["readiness"] == "incomplete"
     projected_guidance = result.structured_content["data"]["guidance"][0]["guidance"][0]
-    assert isinstance(projected_guidance, str)
     assert projected_guidance.startswith("Example mandatory directive.")
     assert projected_guidance.endswith("...")
     assert len(projected_guidance) == 512
