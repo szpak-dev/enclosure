@@ -2,7 +2,6 @@ import hashlib
 import json
 import mimetypes
 from dataclasses import dataclass
-from typing import ClassVar
 
 from wireup import injectable
 
@@ -27,8 +26,6 @@ from .model import (
 class RecordContentService:
     records: RecordService
     categories: CategoryService
-
-    MAX_CONTENT_CHARACTERS: ClassVar[int] = 512
 
     def record_detail(self, record: Record) -> RecordDetail:
         return RecordDetail(
@@ -149,8 +146,6 @@ class RecordContentService:
             raise RecordsError("Record content changed; get its manifest again before reading content.")
 
     def _next_offset(self, content: str, offset: int, limit: int) -> int:
-        if limit < 1 or limit > self.MAX_CONTENT_CHARACTERS:
-            raise RecordsError(f"Record content limit must be between 1 and {self.MAX_CONTENT_CHARACTERS}.")
-        if offset < 0 or offset > len(content):
+        if offset > len(content):
             raise RecordsError("Record content offset is outside the document.")
         return min(offset + limit, len(content))

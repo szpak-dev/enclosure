@@ -1,12 +1,12 @@
 # Diagram content
 
-- Diagram: `{{ data.diagram_id }}`
-- Document: `{{ data.document }}`
-- Revision: `{{ data.revision }}`
-- Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}
+- Diagram: `{{ properties.diagram_id }}`
+- Document: `{{ properties.document }}`
+- Revision: `{{ properties.revision }}`
+- Characters: {{ properties.offset }}–{{ properties.next_offset }} of {{ properties.total_characters }}
 
 ```
-{{ data.content }}
+{{ properties.content }}
 ```
 {% if follow_ups %}
 Use the supplied typed continuation to read the remaining diagram content.

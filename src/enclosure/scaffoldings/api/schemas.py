@@ -88,7 +88,7 @@ class ReadScaffoldingTemplate(Schema):
         description="SHA-256 template revision on which the read is based.", pattern=r"^[0-9a-f]{64}$"
     )
     offset: int = Field(default=0, description="Character offset at which the read starts.", ge=0)
-    limit: int = Field(default=512, description="Maximum characters returned.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters returned.", ge=1)
 
 
 class ScaffoldingTemplateContent(Schema):
@@ -99,7 +99,7 @@ class ScaffoldingTemplateContent(Schema):
     )
     revision: str = Field(description="SHA-256 revision of the complete template content.")
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum characters requested for this page.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
     total_characters: int = Field(description="Total characters in the template body.", ge=0)
     content: str = Field(description="Bounded template content.")
     has_more: bool = Field(description="Whether another bounded page remains.")
@@ -135,7 +135,7 @@ class ReadScaffoldingRenderedFile(Schema):
         description="SHA-256 rendered-file revision on which the read is based.", pattern=r"^[0-9a-f]{64}$"
     )
     offset: int = Field(default=0, description="Character offset at which the read starts.", ge=0)
-    limit: int = Field(default=512, description="Maximum characters returned.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters returned.", ge=1)
 
 
 class RenderedFileContent(Schema):
@@ -144,7 +144,7 @@ class RenderedFileContent(Schema):
     overwrite: bool = Field(description="Whether generation may replace an existing file.")
     revision: str = Field(description="SHA-256 revision of the complete rendered content.")
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum characters requested for this page.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
     total_characters: int = Field(description="Total characters in the rendered file.", ge=0)
     content: str = Field(description="Bounded rendered-file content.")
     has_more: bool = Field(description="Whether another bounded page remains.")

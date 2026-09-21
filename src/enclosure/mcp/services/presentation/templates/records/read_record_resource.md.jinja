@@ -1,12 +1,12 @@
 # Record resource content
 
-Record: `{{ data.record_id }}`
-Path: `{{ data.path }}`
-Revision: `{{ data.revision }}`
-Characters: {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}
+Record: `{{ properties.record_id }}`
+Path: `{{ properties.path }}`
+Revision: `{{ properties.revision }}`
+Characters: {{ properties.offset }}–{{ properties.next_offset }} of {{ properties.total_characters }}
 
-```{{ data.language }}
-{{ data.content }}
+```{{ properties.language }}
+{{ properties.content }}
 ```
 {% if follow_ups %}
 

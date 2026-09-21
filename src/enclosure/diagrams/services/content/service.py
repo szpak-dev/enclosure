@@ -1,6 +1,5 @@
 import json
 from dataclasses import dataclass
-from typing import ClassVar
 
 from wireup import injectable
 
@@ -14,8 +13,6 @@ from .model import DiagramContentDocument, DiagramContentPage
 class DiagramContentService:
     editing: DiagramEditingService
 
-    MAX_CONTENT_CHARACTERS: ClassVar[int] = 512
-
     def read(
         self,
         diagram_id: str,
@@ -27,8 +24,6 @@ class DiagramContentService:
         diagram = self.editing.get(diagram_id)
         if diagram.revision != expected_revision:
             raise DiagramsError("Diagram changed; get it again before reading content.")
-        if limit < 1 or limit > self.MAX_CONTENT_CHARACTERS:
-            raise DiagramsError(f"Diagram content limit must be between 1 and {self.MAX_CONTENT_CHARACTERS}.")
         content = {
             DiagramContentDocument.SOURCE: diagram.source,
             DiagramContentDocument.SNAPSHOT: json.dumps(
@@ -38,7 +33,7 @@ class DiagramContentService:
                 sort_keys=True,
             ),
         }[document]
-        if offset < 0 or offset > len(content):
+        if offset > len(content):
             raise DiagramsError("Diagram content offset is outside the document.")
         next_offset = min(offset + limit, len(content))
         return DiagramContentPage(

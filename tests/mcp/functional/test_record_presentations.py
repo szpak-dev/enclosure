@@ -45,7 +45,18 @@ def test_every_record_operation_has_a_complete_bounded_presentation() -> None:
     for operation in ("create_record", "get_record", "update_record"):
         data = results[operation].structured_content["data"]
         assert "content" not in data["resources"][0], operation
-        assert results[operation].structured_content["follow_ups"][0]["operation_id"] == "read_record_resource"
+        follow_up = results[operation].structured_content["follow_ups"][0]
+        assert follow_up["operation_id"] == "read_record_resource"
+        assert follow_up["arguments"]["limit"] == 4096
+
+    for operation in (
+        "create_record_category",
+        "get_record_category",
+        "update_record_category_content_schema",
+    ):
+        follow_up = results[operation].structured_content["follow_ups"][0]
+        assert follow_up["operation_id"] == "read_record_category_content_schema"
+        assert follow_up["arguments"]["limit"] == 4096
 
     for operation in ("find_record_tags", "find_record_categories", "find_records"):
         data = results[operation].structured_content["data"]

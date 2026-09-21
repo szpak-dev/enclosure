@@ -129,7 +129,7 @@ class ReadDiagramContent(Schema):
     document: Literal["source", "snapshot"] = Field(description="Diagram document to read.")
     expected_revision: int = Field(description="Diagram revision on which this read is based.", ge=1)
     offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1)
 
 
 class DiagramContent(Schema):

@@ -1,7 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import ClassVar
 
 from wireup import injectable
 
@@ -22,8 +21,6 @@ from .repository import ProjectRepository
 @dataclass(frozen=True)
 class RegistryService:
     repository: ProjectRepository
-
-    MAX_CONTENT_CHARACTERS: ClassVar[int] = 1024
 
     def find_all(self) -> tuple[Project, ...]:
         return tuple(self._project(project) for project in self.repository.find_all())
@@ -90,15 +87,11 @@ class RegistryService:
         configuration = self.get_architecture_configuration(project_id, configuration_id)
         if configuration.revision != expected_revision:
             raise ProjectsError("Architecture configuration changed; get it again before reading content.")
-        if limit < 1 or limit > self.MAX_CONTENT_CHARACTERS:
-            raise ProjectsError(
-                f"Architecture configuration content limit must be between 1 and {self.MAX_CONTENT_CHARACTERS}."
-            )
         content = {
             ArchitectureConfigurationDocument.BOUNDARIES: configuration.boundaries_yaml,
             ArchitectureConfigurationDocument.SHAPE: configuration.shape_yaml,
         }[document]
-        if offset < 0 or offset > len(content):
+        if offset > len(content):
             raise ProjectsError("Architecture configuration content offset is outside the document.")
         next_offset = min(offset + limit, len(content))
         return ArchitectureConfigurationContent(

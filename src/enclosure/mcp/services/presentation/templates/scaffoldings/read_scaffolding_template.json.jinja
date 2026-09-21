@@ -1,7 +1,14 @@
+{% set exact_data = properties.copy() %}
+{% if data.actions | default([]) %}
+{% do exact_data.update({"actions": data.actions}) %}
+{% endif %}
+{% if data.links | default([]) %}
+{% do exact_data.update({"links": data.links}) %}
+{% endif %}
 {
   "operation_id": {{ operation_id | tojson }},
   "status": "ok",
   "summary": "Bounded scaffolding template content.",
-  "data": {{ data | tojson }},
+  "data": {{ exact_data | tojson }},
   "follow_ups": {{ follow_ups | tojson }}
 }
