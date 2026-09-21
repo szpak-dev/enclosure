@@ -134,3 +134,75 @@ def test_oversized_mutation_returns_identity_and_verification() -> None:
     assert verified.structured_content["data"]["reason"] == "presentation_budget_exceeded"
     assert verified.structured_content["data"]["id"] == data["id"]
     assert_bounded(verified)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_document_follow_up_uses_the_presentation_budget_and_reconstructs_exact_content() -> None:
+    source = "example_value = 'bounded document content'\n" * 240
+
+    async def exercise() -> tuple[CallToolResult, list[CallToolResult]]:
+        client = PublicMcpClient(PublicCompositeApplication())
+        async with client.session() as (session, http_client):
+            await session.initialize()
+            category = await session.call_tool(
+                "create_record_category",
+                {"title": "Example document category", "content_schema": {"type": "object"}},
+            )
+            tag = await session.call_tool("create_record_tag", {"name": "Example document tag"})
+            created = await session.call_tool(
+                "create_record",
+                {
+                    "title": "Example document record",
+                    "content": {},
+                    "category_id": category.structured_content["data"]["id"],
+                    "tag_ids": [tag.structured_content["data"]["id"]],
+                    "resources": [
+                        {
+                            "path": "examples/document.py",
+                            "language": "python",
+                            "content": "example_value = True\n",
+                        }
+                    ],
+                },
+            )
+            assert created.is_error is False, json.dumps(created.structured_content, indent=2)
+            assert created.structured_content["status"] == "ok", json.dumps(created.structured_content, indent=2)
+            record_id = created.structured_content["data"]["id"]
+            updated = await http_client.put(
+                f"/api/records/{record_id}",
+                json={
+                    "title": "Example document record",
+                    "content": {},
+                    "category_id": category.structured_content["data"]["id"],
+                    "tag_ids": [tag.structured_content["data"]["id"]],
+                    "resources": [
+                        {
+                            "path": "examples/document.py",
+                            "language": "python",
+                            "content": source,
+                        }
+                    ],
+                },
+            )
+            assert updated.status_code == 200
+            record = await session.call_tool("get_record", {"record_id": record_id})
+            follow_up = record.structured_content["follow_ups"][0]
+            pages = []
+            while follow_up:
+                page = await session.call_tool(follow_up["operation_id"], follow_up["arguments"])
+                pages.append(page)
+                follow_up = page.structured_content["follow_ups"]
+                follow_up = follow_up[0] if follow_up else None
+            return record, pages
+
+    record, pages = asyncio.run(exercise())
+
+    initial = record.structured_content["follow_ups"][0]
+    assert initial["operation_id"] == "read_record_resource"
+    assert initial["arguments"]["limit"] == 4096
+    assert all(page.is_error is False for page in pages)
+    assert all(page.structured_content["status"] == "ok" for page in pages)
+    assert "".join(page.structured_content["data"]["content"] for page in pages) == source
+    assert [page.structured_content["data"]["offset"] for page in pages] == [0, 4096, 8192]
+    for page in pages:
+        assert_bounded(page)

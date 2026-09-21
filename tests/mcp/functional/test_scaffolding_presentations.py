@@ -35,7 +35,9 @@ def test_every_scaffolding_operation_has_a_complete_bounded_presentation() -> No
     for operation in ("create_scaffolding", "get_scaffolding", "update_scaffolding"):
         data = results[operation].structured_content["data"]
         assert "content" not in data["spec"]["templates"][0]
-        assert results[operation].structured_content["follow_ups"][0]["operation_id"] == ("read_scaffolding_template")
+        follow_up = results[operation].structured_content["follow_ups"][0]
+        assert follow_up["operation_id"] == "read_scaffolding_template"
+        assert follow_up["arguments"]["limit"] == 4096
 
     catalogue = results["find_scaffoldings"].structured_content
     assert len(catalogue["data"]["items"]) == 1
@@ -54,6 +56,12 @@ def test_every_scaffolding_operation_has_a_complete_bounded_presentation() -> No
         "read_scaffolding_rendered_file",
         "render_scaffolding",
     }
+    content_follow_up = next(
+        follow_up
+        for follow_up in rendering["follow_ups"]
+        if follow_up["operation_id"] == "read_scaffolding_rendered_file"
+    )
+    assert content_follow_up["arguments"]["limit"] == 4096
 
     rendered = results["read_scaffolding_rendered_file"].structured_content
     assert rendered["data"]["has_more"] is True

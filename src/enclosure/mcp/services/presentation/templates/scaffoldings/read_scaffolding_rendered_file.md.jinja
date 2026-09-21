@@ -1,8 +1,8 @@
-# Rendered file `{{ data.path }}`
+# Rendered file `{{ properties.path }}`
 
-Revision `{{ data.revision }}`, characters {{ data.offset }}–{{ data.next_offset }} of {{ data.total_characters }}.
+Revision `{{ properties.revision }}`, characters {{ properties.offset }}–{{ properties.next_offset }} of {{ properties.total_characters }}.
 
 ```text
-{{ data.content }}
+{{ properties.content }}
 ```
-{% if data.has_more %}Continue with `read_scaffolding_rendered_file` at offset {{ data.next_offset }} using the same rendering parameters.{% endif %}
+{% if properties.has_more %}Continue with `read_scaffolding_rendered_file` at offset {{ properties.next_offset }} using the same rendering parameters.{% endif %}

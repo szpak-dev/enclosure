@@ -351,7 +351,7 @@ class ReadArchitectureConfigurationContent(Schema):
     )
     expected_revision: str = Field(description="Configuration revision on which this read is based.")
     offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1, le=1024)
+    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1)
 
 
 class ArchitectureConfigurationContent(Schema):
@@ -362,7 +362,7 @@ class ArchitectureConfigurationContent(Schema):
         description="Architecture configuration document that was read."
     )
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum characters requested for this page.", ge=1, le=1024)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
     total_characters: int = Field(description="Total characters in the selected document.", ge=0)
     content: str = Field(description="Bounded configuration content.")
     has_more: bool = Field(description="Whether another bounded page remains.")

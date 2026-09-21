@@ -45,7 +45,7 @@ def test_reads_revision_pinned_source_and_canonical_snapshot_pages() -> None:
     )
     snapshot = client.get(
         f"/api/diagrams/{diagram['id']}/content",
-        data={"document": "snapshot", "expected_revision": diagram["revision"], "offset": 0, "limit": 512},
+        data={"document": "snapshot", "expected_revision": diagram["revision"], "offset": 0, "limit": 4096},
     )
 
     assert source.status_code == 200
@@ -67,13 +67,14 @@ def test_reads_revision_pinned_source_and_canonical_snapshot_pages() -> None:
         sort_keys=True,
     )
     assert snapshot.status_code == 200
-    assert snapshot.json()["content"] == canonical_snapshot[:512]
+    assert snapshot.json()["content"] == canonical_snapshot
+    assert snapshot.json()["limit"] == 4096
     assert snapshot.json()["total_characters"] == len(canonical_snapshot)
-    assert snapshot.json()["next_offset"] == min(512, len(canonical_snapshot))
+    assert snapshot.json()["next_offset"] == len(canonical_snapshot)
 
 
 @pytest.mark.django_db
-def test_rejected_content_reads_do_not_change_the_diagram() -> None:
+def test_stale_and_outside_content_reads_do_not_change_the_diagram() -> None:
     client = Client()
     diagram = create_renderable_diagram(client)
     before = client.get(f"/api/diagrams/{diagram['id']}").json()
@@ -81,10 +82,6 @@ def test_rejected_content_reads_do_not_change_the_diagram() -> None:
     stale = client.get(
         f"/api/diagrams/{diagram['id']}/content",
         data={"document": "source", "expected_revision": diagram["revision"] - 1, "offset": 0, "limit": 12},
-    )
-    oversized = client.get(
-        f"/api/diagrams/{diagram['id']}/content",
-        data={"document": "snapshot", "expected_revision": diagram["revision"], "offset": 0, "limit": 513},
     )
     outside = client.get(
         f"/api/diagrams/{diagram['id']}/content",
@@ -98,6 +95,5 @@ def test_rejected_content_reads_do_not_change_the_diagram() -> None:
 
     assert stale.status_code == 422
     assert stale.json() == {"detail": "Diagram changed; get it again before reading content."}
-    assert oversized.status_code == 422
     assert outside.status_code == 422
     assert client.get(f"/api/diagrams/{diagram['id']}").json() == before

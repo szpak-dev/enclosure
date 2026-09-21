@@ -56,6 +56,7 @@ class PresentationService:
     def _render(self, document: SirenDocument, template: PresentationTemplate) -> McpPresentation:
         context = {
             "bootstrap": self.bootstrap.load(),
+            "content_limit": self.recovery.PREFERRED_CONTENT_CHARACTERS,
             "data": self.projection.project(document),
             "document": document.document,
             "follow_ups": [continuation.model_dump(mode="json") for continuation in document.continuations],

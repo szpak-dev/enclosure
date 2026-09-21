@@ -131,7 +131,7 @@ class ReadRecordContent(Schema):
         pattern=r"^[0-9a-f]{64}$",
     )
     offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1)
 
 
 class ReadRecordResource(ReadRecordContent):
@@ -149,7 +149,7 @@ class RecordResourceContent(Schema):
     media_type: str = Field(description="Media type inferred from the resource path.")
     revision: str = Field(description="SHA-256 revision of the complete source text.")
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum characters requested for this page.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
     total_characters: int = Field(description="Total characters in the source resource.", ge=0)
     content: str = Field(description="Bounded source-resource content.")
     has_more: bool = Field(description="Whether another bounded page remains.")
@@ -161,7 +161,7 @@ class RecordCategoryContentSchema(Schema):
     schema_version: int = Field(description="Category-local schema version used for this read.", ge=1)
     revision: str = Field(description="SHA-256 revision of the canonical JSON Schema document.")
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
-    limit: int = Field(description="Maximum characters requested for this page.", ge=1, le=512)
+    limit: int = Field(description="Maximum characters requested for this page.", ge=1)
     total_characters: int = Field(description="Total characters in the canonical JSON Schema document.", ge=0)
     content: str = Field(description="Bounded canonical JSON Schema content.")
     has_more: bool = Field(description="Whether another bounded page remains.")

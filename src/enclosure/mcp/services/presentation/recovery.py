@@ -15,6 +15,7 @@ class PresentationRecoveryService:
     MAX_TEXT_BYTES: ClassVar[int] = 16_384
     MAX_STRUCTURED_BYTES: ClassVar[int] = 8_192
     MAX_OPERATION_ID_BYTES: ClassVar[int] = 256
+    PREFERRED_CONTENT_CHARACTERS: ClassVar[int] = MAX_STRUCTURED_BYTES // 2
 
     def bound(
         self,
