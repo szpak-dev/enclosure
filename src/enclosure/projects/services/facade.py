@@ -33,7 +33,7 @@ from .registry.model import (
 )
 from .registry.service import RegistryService
 from .reports.adapters import ArchitectureAdapter
-from .reports.model import HealthReport, InsightPage, InsightReportSet, InsightSource, InsightsReport
+from .reports.model import ArchitectureSource, HealthReport, InsightPage, InsightReportSet, InsightsReport
 from .reports.service import ReportsService
 from .routing.model import GuidanceScope, GuidanceScopePage
 from .routing.service import WorkspaceRoutingService
@@ -351,7 +351,7 @@ class ProjectsService:
         project = self.registry.get(project_id)
         workspace = self.workspaces.get(project_id, workspace_id)
         return self.reports.generate_insights_report(
-            InsightSource(
+            ArchitectureSource(
                 project_id=project_id,
                 workspace_id=workspace_id,
                 architecture_root=workspace.architecture_root,

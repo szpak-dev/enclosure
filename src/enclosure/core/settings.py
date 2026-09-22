@@ -64,6 +64,8 @@ MODWIRE = {
     "APPLICATION": "enclosure.autowiring.application",
     "NINJA": {"title": "Enclosure API", "version": RELEASE_VERSION},
 }
+MODWIRE_CACHE_DIRECTORY = os.getenv("MODWIRE_CACHE_DIRECTORY", str(BASE_DIR / ".dev" / "modwire-cache"))
+MODWIRE_CACHE_MAX_BYTES = int(os.getenv("MODWIRE_CACHE_MAX_BYTES", "1073741824"))
 SIRENITY = {
     "MCP_OPENAPI": "enclosure.core.api.openapi_schema",
     "OPENAPI": "enclosure.core.api.api",
