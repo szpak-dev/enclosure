@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "pgvector.django",
     "modwire_hex.django.apps.ModwireConfig",
     "enclosure.browser.adapters.http.apps.BrowserHttpConfig",
+    "enclosure.diagnostics.apps.DiagnosticsConfig",
     "enclosure.diagrams.apps.DiagramsConfig",
     "enclosure.languages.apps.LanguagesConfig",
     "enclosure.mcp.apps.McpConfig",
