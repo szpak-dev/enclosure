@@ -8,6 +8,8 @@ from modwire.architecture.config.models.architecture_config import ArchitectureC
 from wireup import injectable
 from yaml import YAMLError
 
+from enclosure.diagnostics.services import CacheDiagnosticsContext
+
 from ....errors import ProjectsError
 from ..model import ArchitectureSource
 
@@ -15,6 +17,8 @@ from ..model import ArchitectureSource
 @injectable
 @dataclass(frozen=True)
 class ArchitectureAdapter:
+    cache_diagnostics: CacheDiagnosticsContext
+
     def validate_yaml_config(self, boundaries_yaml: str, shape_yaml: str) -> None:
         self._configuration(ModwireApplication.create(), boundaries_yaml, shape_yaml)
 
@@ -25,14 +29,16 @@ class ArchitectureAdapter:
         application = ModwireApplication.create()
         config = self._configuration(application, source.boundaries_yaml, source.shape_yaml)
         cache = self._cache_options(source.workspace_id)
-        code_map = application.generate_queryable_map_cached(
+        code_map = application.generate_queryable_map_cached_with_diagnostics(
             source.language,
             source.architecture_root,
             ScanPolicy(excluded_patterns=config.excluded_patterns),
             cache,
         )
-        reports = application.analyze_cached(code_map, config, cache)
-        return tuple(report.to_dict(mode="json") for report in reports)
+        self.cache_diagnostics.record(code_map.outcomes)
+        reports = application.analyze_cached_with_diagnostics(code_map.value, config, cache)
+        self.cache_diagnostics.record(reports.outcomes)
+        return tuple(report.to_dict(mode="json") for report in reports.value)
 
     def _configuration(
         self,
