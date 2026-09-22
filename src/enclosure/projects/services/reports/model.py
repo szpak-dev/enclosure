@@ -34,7 +34,7 @@ class HealthReportSet(ReportValue):
     reports: tuple[dict[str, JsonValue], ...]
 
 
-class InsightSource(ReportValue):
+class ArchitectureSource(ReportValue):
     project_id: str
     workspace_id: str
     architecture_root: str

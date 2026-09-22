@@ -9,10 +9,15 @@ x-runtime: &runtime
     DATABASE_PORT: "5432"
     DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
     DEBUG: "0"
+    MODWIRE_CACHE_DIRECTORY: /var/cache/enclosure/modwire
+    MODWIRE_CACHE_MAX_BYTES: ${MODWIRE_CACHE_MAX_BYTES:-1073741824}
     RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
     RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
     SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
   volumes:
+    - type: volume
+      source: modwire-cache
+      target: /var/cache/enclosure/modwire
     - type: bind
       source: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
       target: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
@@ -39,3 +44,6 @@ networks:
   database:
     external: true
     name: resumed-api_default
+
+volumes:
+  modwire-cache:

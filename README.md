@@ -56,6 +56,8 @@ server running as `enclosure-mcp`. Configure `.env` as needed:
   the moving `latest` tag for the machine-wide runtime.
 - `ENCLOSURE_PROJECTS_DIR` selects the host projects directory mounted into
   the container at the same absolute path.
+- `MODWIRE_CACHE_MAX_BYTES` caps the persistent Modwire scan and analysis
+  cache stored in the dedicated `modwire-cache` volume.
 
 Start or update the runtime:
 

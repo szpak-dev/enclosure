@@ -7,6 +7,7 @@ from wireup import injectable
 
 from .adapters import ArchitectureAdapter
 from .model import (
+    ArchitectureSource,
     HealthFinding,
     HealthOutcome,
     HealthReport,
@@ -16,7 +17,6 @@ from .model import (
     InsightFindingKind,
     InsightPage,
     InsightReportSet,
-    InsightSource,
     InsightsReport,
 )
 from .paging import InsightPagingService
@@ -32,17 +32,9 @@ class ReportsService:
 
     def generate_health_report(
         self,
-        architecture_root: str,
-        language: str,
-        boundaries_yaml: str,
-        shape_yaml: str,
+        source: ArchitectureSource,
     ) -> HealthReportSet:
-        reports = self.architecture.generate_reports(
-            architecture_root,
-            language,
-            boundaries_yaml,
-            shape_yaml,
-        )
+        reports = self.architecture.generate_reports(source)
         health_reports = tuple(report for report in reports if "violations" in report)
         return HealthReportSet(
             healthy=all(not report["violations"] for report in health_reports),
@@ -94,14 +86,9 @@ class ReportsService:
 
     def generate_insights_report(
         self,
-        source: InsightSource,
+        source: ArchitectureSource,
     ) -> InsightReportSet:
-        reports = self.architecture.generate_reports(
-            source.architecture_root,
-            source.language,
-            source.boundaries_yaml,
-            source.shape_yaml,
-        )
+        reports = self.architecture.generate_reports(source)
         insights = tuple(report for report in reports if "violations" not in report)
         return InsightReportSet(
             project_id=source.project_id,
