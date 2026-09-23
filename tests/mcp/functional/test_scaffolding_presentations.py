@@ -3,12 +3,12 @@ import json
 
 import pytest
 
-from .test_runtime import PublicCompositeApplication, PublicMcpClient
+from .test_runtime import ConfiguredApplication, PublicMcpClient
 
 
 @pytest.mark.django_db(transaction=True)
 def test_every_scaffolding_operation_has_a_complete_bounded_presentation() -> None:
-    results = asyncio.run(PublicMcpClient(PublicCompositeApplication()).scaffolding_presentations())
+    results = asyncio.run(PublicMcpClient(ConfiguredApplication()).scaffolding_presentations())
 
     assert set(results) == {
         "create_scaffolding",

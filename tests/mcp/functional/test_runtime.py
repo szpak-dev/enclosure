@@ -13,7 +13,7 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, InitializeResult, ListToolsResult
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from enclosure.core.asgi import application, django_application
+from enclosure.core.asgi import ApplicationFactory
 from enclosure.mcp.application import McpApplication
 
 EXAMPLE_BOUNDARIES_YAML = """boundaries:
@@ -81,17 +81,12 @@ class ApplicationLifespan:
             await asyncio.wait_for(task, timeout=5)
 
 
-class PublicCompositeApplication:
+class ConfiguredApplication:
     def __init__(self) -> None:
-        self.mcp_application = McpApplication().build()
+        self.application = ApplicationFactory().build()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "lifespan":
-            await self.mcp_application(scope, receive, send)
-        elif scope["type"] == "http" and scope["path"].rstrip("/") == "/mcp":
-            await self.mcp_application(scope, receive, send)
-        else:
-            await django_application(scope, receive, send)
+        await self.application(scope, receive, send)
 
 
 class PublicMcpClient:
@@ -832,7 +827,7 @@ def test_bounds_oversized_workspace_guidance_before_rendering(tmp_path: Path) ->
         encoding="utf-8",
     )
     _, result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).workspace_context(
+        PublicMcpClient(ConfiguredApplication()).workspace_context(
             tmp_path,
             {
                 "summary": "Example oversized guidance.",
@@ -907,7 +902,7 @@ def test_installs_workspace_agent_instructions_through_public_mcp(tmp_path: Path
     target.write_text("replace me\n", encoding="utf-8")
 
     initialization, result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).install_workspace_agent_instructions(tmp_path)
+        PublicMcpClient(ConfiguredApplication()).install_workspace_agent_instructions(tmp_path)
     )
 
     assert result.is_error is False
@@ -942,7 +937,7 @@ def test_rebinds_a_workspace_through_public_mcp(tmp_path: Path) -> None:
     (root / "example_app.py").write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
 
     bound, stale, replaced, resolved, rest_resolution = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).workspace_rebinding(root, worktree, relocated)
+        PublicMcpClient(ConfiguredApplication()).workspace_rebinding(root, worktree, relocated)
     )
 
     assert bound.is_error is False
@@ -963,7 +958,7 @@ def test_rebinds_a_workspace_through_public_mcp(tmp_path: Path) -> None:
 @pytest.mark.django_db(transaction=True)
 def test_creates_operating_contract_through_public_mcp() -> None:
     result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).call_tool(
+        PublicMcpClient(ConfiguredApplication()).call_tool(
             "create_operating_contract",
             {
                 "title": "Example operating contract",
@@ -987,7 +982,7 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
         encoding="utf-8",
     )
     rest_response, result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).project_health(
+        PublicMcpClient(ConfiguredApplication()).project_health(
             tmp_path,
             EXAMPLE_UNHEALTHY_SHAPE_YAML,
         )
@@ -1013,9 +1008,7 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    rest_response, result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).oversized_guidance_health(tmp_path)
-    )
+    rest_response, result = asyncio.run(PublicMcpClient(ConfiguredApplication()).oversized_guidance_health(tmp_path))
 
     assert rest_response.json()["failures"][0]["rule"] == "guidance-oversized"
     assert result.is_error is True
@@ -1035,7 +1028,7 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     )
     directives = [f"Preserve example behavior {index}." for index in range(26)]
     rest_response, result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).workspace_context(
+        PublicMcpClient(ConfiguredApplication()).workspace_context(
             tmp_path,
             {
                 "summary": "Example guidance summary.",
@@ -1088,7 +1081,7 @@ def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    result = asyncio.run(PublicMcpClient(PublicCompositeApplication()).incomplete_workspace_context(tmp_path))
+    result = asyncio.run(PublicMcpClient(ConfiguredApplication()).incomplete_workspace_context(tmp_path))
 
     assert result.is_error is True
     assert result.structured_content["status"] == "error"
@@ -1109,7 +1102,7 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     rest_response, result = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).project_health(
+        PublicMcpClient(ConfiguredApplication()).project_health(
             tmp_path,
             EXAMPLE_HEALTHY_SHAPE_YAML,
         )
@@ -1132,7 +1125,7 @@ def test_presents_complete_project_insights_with_bounded_pages_available(tmp_pat
         encoding="utf-8",
     )
 
-    overview, page = asyncio.run(PublicMcpClient(PublicCompositeApplication()).project_insights(tmp_path))
+    overview, page = asyncio.run(PublicMcpClient(ConfiguredApplication()).project_insights(tmp_path))
     data = overview.structured_content["data"]
 
     assert overview.is_error is False
@@ -1158,7 +1151,7 @@ def test_presents_exact_bounded_configuration_content_from_a_siren_action(tmp_pa
     )
 
     configuration, first, final = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).project_configuration_content(tmp_path)
+        PublicMcpClient(ConfiguredApplication()).project_configuration_content(tmp_path)
     )
 
     actions = {action["name"] for action in configuration.structured_content["data"]["actions"]}
@@ -1187,7 +1180,7 @@ def test_presents_exact_bounded_configuration_content_from_a_siren_action(tmp_pa
 
 @pytest.mark.django_db(transaction=True)
 def test_presents_every_diagram_operation_from_siren_documents() -> None:
-    results = asyncio.run(PublicMcpClient(PublicCompositeApplication()).diagram_presentations())
+    results = asyncio.run(PublicMcpClient(ConfiguredApplication()).diagram_presentations())
 
     assert set(results) == {
         "apply_diagram_command",
@@ -1387,7 +1380,7 @@ def test_presents_project_and_diagram_collection_continuations(tmp_path: Path) -
         "find_diagrams": {},
         "find_diagram_set_diagrams": {"diagram_set_id": diagram_set["id"]},
     }
-    results = asyncio.run(PublicMcpClient(PublicCompositeApplication()).collection_pages(identities))
+    results = asyncio.run(PublicMcpClient(ConfiguredApplication()).collection_pages(identities))
 
     for operation, (first, final, empty) in results.items():
         for page, result in zip(("first", "final", "empty"), (first, final, empty), strict=True):
@@ -1472,7 +1465,7 @@ def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up(
         assert applied.status_code == 200
         revision = applied.json()["revision"]
     source = applied.json()["source"]
-    client = PublicMcpClient(PublicCompositeApplication())
+    client = PublicMcpClient(ConfiguredApplication())
 
     result = asyncio.run(client.call_tool("get_diagram", {"diagram_id": diagram.json()["id"]}))
     data = result.structured_content["data"]
@@ -1488,7 +1481,7 @@ def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up(
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
     content = asyncio.run(
-        PublicMcpClient(PublicCompositeApplication()).call_tool(
+        PublicMcpClient(ConfiguredApplication()).call_tool(
             "read_diagram_content",
             {
                 "diagram_id": diagram.json()["id"],
@@ -1505,7 +1498,7 @@ def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up(
 
 
 def test_serves_rest_and_mcp_from_the_composite_application() -> None:
-    rest_response, result = asyncio.run(PublicMcpClient(application).call_tool_with_rest())
+    rest_response, result = asyncio.run(PublicMcpClient(ConfiguredApplication()).call_tool_with_rest())
 
     assert rest_response.status_code == 200
     assert result.is_error is False

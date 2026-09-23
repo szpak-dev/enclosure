@@ -1,22 +1,26 @@
 from dataclasses import dataclass
 from time import perf_counter_ns
+from typing import ClassVar
 
 import structlog
 from wireup import injectable
 
+from ...errors import ProjectHealthCanceled, ProjectHealthTimedOut
 from ..contracts.model import ConfiguredOperatingContractBinding, UnconfiguredOperatingContractBinding
 from ..registry.model import ArchitectureConfiguration, Project
 from ..reports.model import ArchitectureSource, HealthReport, HealthReportSet
 from ..reports.service import ReportsService
 from ..workspaces.model import WorkspaceBinding
+from .execution import HealthExecutionService, HealthRunOutcome
 from .validation import GuidanceHealthService
-
-logger = structlog.get_logger(__name__)
 
 
 @injectable
 @dataclass(frozen=True)
 class ProjectHealthService:
+    logger: ClassVar = structlog.get_logger(__name__)
+
+    execution: HealthExecutionService
     reports: ReportsService
     guidance: GuidanceHealthService
 
@@ -28,14 +32,15 @@ class ProjectHealthService:
         binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
     ) -> HealthReport:
         started_ns = perf_counter_ns()
-        logger.info(
+        outcome = HealthRunOutcome.FAILED
+        self.logger.info(
             "project_health_started",
             started_ns=started_ns,
             project_id=project.id,
             workspace_id=workspace.id,
         )
         try:
-            architecture = self.reports.generate_health_report(
+            architecture = self.execution.execute(
                 ArchitectureSource(
                     project_id=project.id,
                     workspace_id=workspace.id,
@@ -46,16 +51,25 @@ class ProjectHealthService:
                 )
             )
             guidance = self.guidance.check(project.id, binding)
-            return self.reports.summarize_health_report(
+            report = self.reports.summarize_health_report(
                 HealthReportSet(
                     healthy=architecture.healthy and guidance.healthy,
                     reports=(*architecture.reports, guidance.model_dump(mode="json")),
                 )
             )
+            outcome = HealthRunOutcome.COMPLETED
+            return report
+        except ProjectHealthCanceled:
+            outcome = HealthRunOutcome.CANCELED
+            raise
+        except ProjectHealthTimedOut:
+            outcome = HealthRunOutcome.TIMED_OUT
+            raise
         finally:
             finished_ns = perf_counter_ns()
-            logger.info(
-                "project_health_finished",
+            self.logger.info(
+                "project_health_terminal",
+                outcome=outcome.value,
                 started_ns=started_ns,
                 finished_ns=finished_ns,
                 duration_ns=finished_ns - started_ns,

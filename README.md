@@ -58,6 +58,10 @@ server running as `enclosure-mcp`. Configure `.env` as needed:
   the container at the same absolute path.
 - `MODWIRE_CACHE_MAX_BYTES` caps the persistent Modwire scan and analysis
   cache stored in the dedicated `modwire-cache` volume.
+- `PROJECT_HEALTH_MAX_CONCURRENCY` bounds architecture-health processes across
+  all web workers. Excess requests fail immediately instead of queueing.
+- `PROJECT_HEALTH_TIMEOUT_SECONDS` bounds each architecture-health process;
+  the default is 60 seconds. Client disconnects cancel it sooner.
 
 Start or update the runtime:
 
@@ -66,6 +70,10 @@ make runtime-config
 make runtime-up
 curl --fail http://127.0.0.1:8666/health/
 ```
+
+`/health/` remains the container liveness probe. Project-health capacity is
+reported by the existing project-health operation, which returns 503 rather
+than queueing when every execution slot is occupied.
 
 `runtime-up` migrates with the selected image before starting MCP and retains
 the previous image locally as `:previous`. Back up PostgreSQL before deploying
