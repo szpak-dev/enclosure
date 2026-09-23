@@ -16,7 +16,7 @@ class DiagramSetService:
     repository: DiagramsRepository
     validation: DiagramValidationService
 
-    def create(self, data: Mapping[str, object]) -> DiagramSet:
+    def create(self, data: Mapping[str, str]) -> DiagramSet:
         return self.repository.create_set(self.validation.diagram_set(data, require_title=True))
 
     def get(self, id: str) -> DiagramSet:
@@ -35,7 +35,7 @@ class DiagramSetService:
             limit=limit,
         )
 
-    def update(self, id: str, data: Mapping[str, object]) -> DiagramSet:
+    def update(self, id: str, data: Mapping[str, str]) -> DiagramSet:
         return self.repository.update_set(id, self.validation.diagram_set(data))
 
     def delete(self, id: str) -> None:

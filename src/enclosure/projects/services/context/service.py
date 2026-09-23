@@ -31,7 +31,7 @@ class WorkspaceContextService:
         binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
         task: str,
     ) -> WorkspaceContext:
-        if isinstance(binding, UnconfiguredOperatingContractBinding):
+        if binding.state == "unconfigured":
             route = GuidanceRoute(
                 items=(),
                 missing_mandatory_ids=(),

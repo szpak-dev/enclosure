@@ -1,23 +1,32 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from pydantic import JsonValue
 from wireup import injectable
 
 from .adapters import ArchitectureAdapter
 from .model import (
+    ArchitectureReportMetadata,
     ArchitectureSource,
-    HealthFinding,
+    ClusterInput,
+    FlowFindingInput,
+    FlowHealthFinding,
+    GuidanceFindingInput,
+    GuidanceHealthFinding,
     HealthOutcome,
     HealthReport,
     HealthReportSet,
     HealthReportSummary,
+    HotspotInput,
     InsightFinding,
     InsightFindingKind,
     InsightPage,
+    InsightReportInput,
     InsightReportSet,
     InsightsReport,
+    ShapeFindingInput,
+    ShapeHealthFinding,
 )
 from .paging import InsightPagingService
 
@@ -125,87 +134,108 @@ class ReportsService:
         return self.paging.page(report, path, expected_revision, offset, limit)
 
     def _metadata(self, report: Mapping[str, JsonValue]) -> tuple[str, str]:
-        metadata = report.get("metadata")
-        if not isinstance(metadata, Mapping):
-            return ("unknown", "Architecture report")
-        report_id = metadata.get("id")
-        title = metadata.get("title")
-        return (
-            report_id if isinstance(report_id, str) and report_id else "unknown",
-            title if isinstance(title, str) and title else "Architecture report",
-        )
+        metadata = cast(ArchitectureReportMetadata, report["metadata"])
+        return metadata["id"], metadata["title"]
 
-    def _health_finding(self, finding: Mapping[str, JsonValue], report_id: str) -> HealthFinding:
-        rule_value = finding.get("rule", finding.get("rule_name", "unknown-rule"))
-        rule = rule_value if isinstance(rule_value, str) else str(rule_value)
-        source_id = finding.get("source_id")
-        path = finding.get("path")
-        target = (
-            source_id
-            if isinstance(source_id, str) and source_id
-            else " → ".join(str(segment) for segment in path)
-            if isinstance(path, list | tuple) and path
-            else report_id
-        )
-        message_value = finding.get("message")
-        if isinstance(message_value, str) and message_value:
-            message = message_value
-        else:
-            message = f"Actual {finding.get('actual', 'unknown')}; configured limit {finding.get('limit', 'unknown')}."
-        related_ids_value = finding.get("guidance_ids", [])
-        related_ids = (
-            tuple(str(identifier) for identifier in related_ids_value)
-            if isinstance(related_ids_value, list | tuple)
-            else ()
-        )
-        remediation_value = finding.get("remediation", "architecture")
-        return HealthFinding(
+    def _health_finding(
+        self,
+        finding: Mapping[str, JsonValue],
+        report_id: str,
+    ) -> ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding:
+        if report_id == "architecture.violations.shape":
+            return self._shape_health_finding(cast(ShapeFindingInput, finding))
+        if report_id == "architecture.violations.flow":
+            return self._flow_health_finding(cast(FlowFindingInput, finding))
+        if report_id == "guidance-graph":
+            return self._guidance_health_finding(cast(GuidanceFindingInput, finding))
+        raise ValueError(f"Unsupported health report {report_id!r}.")
+
+    def _shape_health_finding(self, finding: ShapeFindingInput) -> ShapeHealthFinding:
+        source_file = finding["source_id"]
+        rule = finding["rule_name"]
+        realm = finding["realm"]
+        symbol_kind = finding["symbol_kind"]
+        symbol_name = finding["symbol_name"]
+        actual = finding["actual"]
+        limit = finding["limit"]
+        location = f"{symbol_kind} {symbol_name}" if symbol_name else symbol_kind
+        target = f"{source_file}::{symbol_kind}:{symbol_name}" if symbol_name else source_file
+        return ShapeHealthFinding(
+            kind="shape",
             rule=rule,
             target=target,
-            message=message,
-            related_ids=related_ids,
-            remediation=remediation_value if isinstance(remediation_value, str) else str(remediation_value),
+            message=f"{location} reports {actual!r}; configured limit is {limit!r} in realm {realm!r}.",
+            next_action=(f"Review {location} in {source_file}: {rule} is {actual!r}; configured limit is {limit!r}."),
+            source_file=source_file,
+            realm=realm,
+            symbol_kind=symbol_kind,
+            symbol_name=symbol_name,
+            actual=actual,
+            limit=limit,
+        )
+
+    def _flow_health_finding(self, finding: FlowFindingInput) -> FlowHealthFinding:
+        path = tuple(finding["path"])
+        violation_index = finding["violation_index"]
+        rule = finding["rule_name"]
+        target = " → ".join(path)
+        edge = (
+            f"{path[violation_index - 1]} → {path[violation_index]}" if violation_index > 0 else path[violation_index]
+        )
+        return FlowHealthFinding(
+            kind="flow",
+            rule=rule,
+            target=target,
+            message=finding["message"],
+            next_action=f"Review dependency location {edge} at path index {violation_index} against {rule}.",
+            violation_type=finding["violation_type"],
+            path=path,
+            violation_index=violation_index,
+            source_module=finding["source_module"],
+            target_module=finding["target_module"],
+        )
+
+    def _guidance_health_finding(self, finding: GuidanceFindingInput) -> GuidanceHealthFinding:
+        target = finding["source_id"]
+        rule = finding["rule"]
+        return GuidanceHealthFinding(
+            kind="guidance",
+            rule=rule,
+            target=target,
+            message=finding["message"],
             next_action=f"Review {target} against {rule}.",
+            related_ids=tuple(finding["guidance_ids"]),
+            remediation=finding["remediation"],
         )
 
     def _insight_findings(self, reports: tuple[dict[str, JsonValue], ...]) -> list[InsightFinding]:
         findings = []
         for report in reports:
-            findings.extend(self._find_pressure_values(report))
+            metadata = cast(ArchitectureReportMetadata, report["metadata"])
+            if metadata["id"] != "architecture.insights":
+                continue
+            insight = cast(InsightReportInput, report)
+            findings.extend(self._hotspot_finding(hotspot) for hotspot in insight["hotspots"]["hotspots"])
+            findings.extend(self._cluster_finding(cluster) for cluster in insight["clusters"]["clusters"])
         return findings
 
-    def _find_pressure_values(self, value: JsonValue) -> list[InsightFinding]:
-        findings = []
-        if isinstance(value, Mapping):
-            pressure = value.get("pressure_score")
-            source_id = value.get("source_id")
-            name = value.get("name")
-            if (
-                isinstance(pressure, int | float)
-                and not isinstance(pressure, bool)
-                and (isinstance(source_id, str) or isinstance(name, str))
-            ):
-                area = source_id if isinstance(source_id, str) else name if isinstance(name, str) else "unknown"
-                findings.append(
-                    InsightFinding(
-                        kind=InsightFindingKind.HOTSPOT if isinstance(source_id, str) else InsightFindingKind.CLUSTER,
-                        area=area,
-                        pressure_score=float(pressure),
-                        incoming_count=self._integer(value.get("incoming_count")),
-                        outgoing_count=self._integer(value.get("outgoing_count")),
-                    )
-                )
-            for item in value.values():
-                findings.extend(self._find_pressure_values(item))
-        elif isinstance(value, list | tuple):
-            for item in value:
-                findings.extend(self._find_pressure_values(item))
-        return findings
+    def _hotspot_finding(self, hotspot: HotspotInput) -> InsightFinding:
+        return InsightFinding(
+            kind=InsightFindingKind.HOTSPOT,
+            area=hotspot["source_id"],
+            pressure_score=hotspot["pressure_score"],
+            incoming_count=hotspot["incoming_count"],
+            outgoing_count=hotspot["outgoing_count"],
+        )
+
+    def _cluster_finding(self, cluster: ClusterInput) -> InsightFinding:
+        return InsightFinding(
+            kind=InsightFindingKind.CLUSTER,
+            area=cluster["name"],
+            pressure_score=cluster["pressure_score"],
+            incoming_count=cluster["incoming_count"],
+            outgoing_count=cluster["outgoing_count"],
+        )
 
     def _mappings(self, value: JsonValue) -> tuple[Mapping[str, JsonValue], ...]:
-        if not isinstance(value, list | tuple):
-            return ()
-        return tuple(item for item in value if isinstance(item, Mapping))
-
-    def _integer(self, value: JsonValue) -> int:
-        return value if isinstance(value, int) and not isinstance(value, bool) else 0
+        return tuple(cast(list[dict[str, JsonValue]], value))

@@ -22,7 +22,7 @@ class DiagramEditingService:
     mermaiden: MermaidenService
     validation: DiagramValidationService
 
-    def create(self, diagram_set_id: str, data: Mapping[str, object]) -> Diagram:
+    def create(self, diagram_set_id: str, data: Mapping[str, str]) -> Diagram:
         self.diagram_sets.get(diagram_set_id)
         values = self.validation.diagram_creation(data)
         diagram = self.mermaiden.create(values["kind"])
@@ -37,7 +37,7 @@ class DiagramEditingService:
     def create_batch(
         self,
         diagram_set_id: str,
-        data: Mapping[str, object],
+        data: Mapping[str, str],
         commands: Sequence[tuple[str, Mapping[str, object]]],
     ) -> dict[str, object]:
         self.diagram_sets.get(diagram_set_id)

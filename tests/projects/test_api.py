@@ -43,6 +43,14 @@ boundaries:
         module_tag: example-module
     analyzers: []
 """
+FLOW_BOUNDARIES_YAML = """boundaries:
+  tags:
+    - name: example-module
+      match: "src/*"
+  flow:
+    module_tag: example-module
+    analyzers: [module-boundaries]
+"""
 HEALTHY_SHAPE_YAML = """shape:
   realms:
     - name: project
@@ -1719,6 +1727,66 @@ def test_health_fails_when_architecture_has_a_shape_violation(
     assert response.status_code == 200
     assert response.json()["healthy"] is False
     assert response.json()["failure_count"] > 0
+    finding = next(finding for finding in response.json()["failures"] if finding["rule"] == "max_classes_per_file")
+    assert finding == {
+        "kind": "shape",
+        "rule": "max_classes_per_file",
+        "target": "app.py",
+        "message": "file reports 1; configured limit is 0 in realm 'project'.",
+        "next_action": "Review file in app.py: max_classes_per_file is 1; configured limit is 0.",
+        "source_file": "app.py",
+        "realm": "project",
+        "symbol_kind": "file",
+        "symbol_name": "",
+        "actual": 1,
+        "limit": 0,
+    }
+
+
+@pytest.mark.django_db
+def test_health_preserves_exact_dependency_flow_location(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_tool.py").write_text(
+        "from src.example_module import example_value\n",
+        encoding="utf-8",
+    )
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "__init__.py").write_text("", encoding="utf-8")
+    module = source / "example_module"
+    module.mkdir(parents=True)
+    (module / "__init__.py").write_text("", encoding="utf-8")
+    (module / "example_value.py").write_text("EXAMPLE_VALUE = 1\n", encoding="utf-8")
+    payload = registration(discover(client, tmp_path), dependencies)
+    payload["boundaries_yaml"] = FLOW_BOUNDARIES_YAML
+    resolution = client.post("/api/projects", data=payload, content_type="application/json").json()
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 200
+    finding = next(
+        finding
+        for finding in response.json()["failures"]
+        if finding["kind"] == "flow" and finding["target"] == "example_tool.py"
+    )
+    assert finding == {
+        "kind": "flow",
+        "rule": "boundary:unclassified",
+        "target": "example_tool.py",
+        "message": "tracked file does not match an architecture module",
+        "next_action": ("Review dependency location example_tool.py at path index 0 against boundary:unclassified."),
+        "violation_type": "module-boundaries",
+        "path": ["example_tool.py"],
+        "violation_index": 0,
+        "source_module": "",
+        "target_module": "",
+    }
 
 
 @override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=1, PROJECT_HEALTH_TIMEOUT_SECONDS=2)

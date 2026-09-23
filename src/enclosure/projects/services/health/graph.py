@@ -72,7 +72,7 @@ class GuidanceGraphService:
     ) -> GuidanceGraph:
         entry_point_ids = (
             ()
-            if isinstance(binding, UnconfiguredOperatingContractBinding)
+            if binding.state == "unconfigured"
             else tuple(
                 reference.id for reference in binding.effective_revision.references if reference.kind == "guidance"
             )

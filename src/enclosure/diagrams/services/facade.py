@@ -30,7 +30,7 @@ class DiagramsService:
     def get_command_schema(self, kind: str, operation: str) -> dict[str, object]:
         return self.catalog.get_command_schema(kind, operation)
 
-    def create_set(self, data: Mapping[str, object]) -> DiagramSet:
+    def create_set(self, data: Mapping[str, str]) -> DiagramSet:
         return self.diagram_sets.create(data)
 
     def get_set(self, id: str) -> DiagramSet:
@@ -42,19 +42,19 @@ class DiagramsService:
     def find_set_page(self, offset: int, limit: int) -> DiagramSetPage:
         return self.diagram_sets.find_page(offset, limit)
 
-    def update_set(self, id: str, data: Mapping[str, object]) -> DiagramSet:
+    def update_set(self, id: str, data: Mapping[str, str]) -> DiagramSet:
         return self.diagram_sets.update(id, data)
 
     def delete_set(self, id: str) -> None:
         self.diagram_sets.delete(id)
 
-    def create_diagram(self, diagram_set_id: str, data: Mapping[str, object]) -> Diagram:
+    def create_diagram(self, diagram_set_id: str, data: Mapping[str, str]) -> Diagram:
         return self.editing.create(diagram_set_id, data)
 
     def create_diagram_batch(
         self,
         diagram_set_id: str,
-        data: Mapping[str, object],
+        data: Mapping[str, str],
         commands: Sequence[tuple[str, Mapping[str, object]]],
     ) -> dict[str, object]:
         return self.editing.create_batch(diagram_set_id, data, commands)
