@@ -3,11 +3,11 @@ import json
 
 from mcp.types import CallToolResult
 
-from .test_runtime import PublicCompositeApplication, PublicMcpClient
+from .test_runtime import ConfiguredApplication, PublicMcpClient
 
 
 async def language_presentations() -> dict[str, CallToolResult]:
-    client = PublicMcpClient(PublicCompositeApplication())
+    client = PublicMcpClient(ConfiguredApplication())
     async with client.session() as (session, _):
         await session.initialize()
         return {

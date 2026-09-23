@@ -67,6 +67,8 @@ MODWIRE = {
 }
 MODWIRE_CACHE_DIRECTORY = os.getenv("MODWIRE_CACHE_DIRECTORY", str(BASE_DIR / ".dev" / "modwire-cache"))
 MODWIRE_CACHE_MAX_BYTES = int(os.getenv("MODWIRE_CACHE_MAX_BYTES", "1073741824"))
+PROJECT_HEALTH_MAX_CONCURRENCY = int(os.getenv("PROJECT_HEALTH_MAX_CONCURRENCY", "1"))
+PROJECT_HEALTH_TIMEOUT_SECONDS = int(os.getenv("PROJECT_HEALTH_TIMEOUT_SECONDS", "60"))
 SIRENITY = {
     "MCP_OPENAPI": "enclosure.core.api.openapi_schema",
     "OPENAPI": "enclosure.core.api.api",

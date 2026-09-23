@@ -1,8 +1,19 @@
+import asyncio
+import json
+import multiprocessing
+import os
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from pathlib import Path
+from time import monotonic
+from typing import cast
 
 import pytest
 from django.test import Client
 from django.test.utils import override_settings
+from starlette.types import ASGIApp, Message, Scope
+
+from enclosure.core.asgi import ApplicationFactory
 
 BOUNDARIES_YAML = """boundaries:
   tags:
@@ -149,6 +160,80 @@ def registration(
 def python_project(root: Path) -> None:
     (root / "uv.lock").write_text("", encoding="utf-8")
     (root / "app.py").write_text("class Application:\n    pass\n", encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class BlockingArchitectureSource:
+    path: Path
+
+    @classmethod
+    def create(cls, root: Path) -> "BlockingArchitectureSource":
+        (root / "uv.lock").write_text("", encoding="utf-8")
+        path = root / "app.py"
+        os.mkfifo(path)
+        return cls(path=path)
+
+    def connect_reader(self) -> int:
+        return os.open(self.path, os.O_WRONLY)
+
+    def replace(self) -> None:
+        self.path.unlink()
+        self.path.write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
+
+    def block(self) -> None:
+        self.path.unlink()
+        os.mkfifo(self.path)
+
+
+@dataclass
+class DisconnectingHealthRequest:
+    application: ASGIApp
+    path: str
+    source: BlockingArchitectureSource
+    receive_count: int = 0
+    writers: list[int] = field(default_factory=list)
+    messages: list[Message] = field(default_factory=list)
+
+    async def run(self) -> None:
+        scope = cast(
+            Scope,
+            {
+                "type": "http",
+                "asgi": {"version": "3.0", "spec_version": "2.3"},
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": self.path,
+                "raw_path": self.path.encode(),
+                "query_string": b"",
+                "root_path": "",
+                "headers": [(b"host", b"testserver")],
+                "client": ("127.0.0.1", 40000),
+                "server": ("testserver", 80),
+            },
+        )
+        try:
+            await asyncio.wait_for(self.application(scope, self.receive, self.send), timeout=5)
+        finally:
+            for writer in self.writers:
+                os.close(writer)
+            self.source.replace()
+
+    async def receive(self) -> Message:
+        self.receive_count += 1
+        if self.receive_count == 1:
+            return {"type": "http.request", "body": b"", "more_body": False}
+        writer = await asyncio.to_thread(self.source.connect_reader)
+        self.writers.append(writer)
+        return {"type": "http.disconnect"}
+
+    async def send(self, message: Message) -> None:
+        self.messages.append(message)
+
+    async def run_before(self, following: "DisconnectingHealthRequest") -> None:
+        await self.run()
+        self.source.block()
+        await following.run()
 
 
 @pytest.mark.django_db
@@ -1634,6 +1719,111 @@ def test_health_fails_when_architecture_has_a_shape_violation(
     assert response.status_code == 200
     assert response.json()["healthy"] is False
     assert response.json()["failure_count"] > 0
+
+
+@override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=1, PROJECT_HEALTH_TIMEOUT_SECONDS=2)
+@pytest.mark.django_db(transaction=True)
+def test_health_rejects_excess_concurrency_and_recovers_capacity(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    source = BlockingArchitectureSource.create(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        active_request = executor.submit(Client().get, path)
+        writer = source.connect_reader()
+        started = monotonic()
+        unavailable = client.get(path)
+        unavailable_duration = monotonic() - started
+        os.close(writer)
+        bounded = active_request.result(timeout=5)
+
+    source.replace()
+    recovery_started = monotonic()
+    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=5):
+        recovered = client.get(path)
+    recovery_duration = monotonic() - recovery_started
+
+    assert unavailable.status_code == 503
+    assert unavailable.json() == {"detail": "Project health execution capacity is exhausted."}
+    assert unavailable_duration < 1
+    assert bounded.status_code == 504
+    assert recovered.status_code == 200
+    assert recovery_duration < 5
+
+
+@override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=1)
+@pytest.mark.django_db(transaction=True)
+def test_health_times_out_blocked_work_and_recovers_capacity(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    source = BlockingArchitectureSource.create(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    started = monotonic()
+    timed_out = client.get(path)
+    timeout_duration = monotonic() - started
+    source.replace()
+    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=5):
+        recovered = client.get(path)
+
+    assert timed_out.status_code == 504
+    assert timed_out.json() == {"detail": "Project health execution timed out."}
+    assert 1 <= timeout_duration < 3
+    assert recovered.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True)
+def test_health_disconnect_cancels_work_without_leaking_processes_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    source = BlockingArchitectureSource.create(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    process_ids = {process.pid for process in multiprocessing.active_children()}
+    first_request = DisconnectingHealthRequest(
+        application=ApplicationFactory().build(),
+        path=path,
+        source=source,
+    )
+
+    second_request = DisconnectingHealthRequest(
+        application=ApplicationFactory().build(),
+        path=path,
+        source=source,
+    )
+    asyncio.run(first_request.run_before(second_request))
+    recovered = client.get(path)
+    terminal_events = [
+        json.loads(line) for line in capfd.readouterr().err.splitlines() if '"event": "project_health_terminal"' in line
+    ]
+
+    assert first_request.messages == []
+    assert second_request.messages == []
+    assert {process.pid for process in multiprocessing.active_children()} == process_ids
+    assert recovered.status_code == 200
+    assert [event["outcome"] for event in terminal_events] == ["canceled", "canceled", "completed"]
 
 
 @pytest.mark.django_db

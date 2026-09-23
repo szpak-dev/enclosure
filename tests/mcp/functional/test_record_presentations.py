@@ -3,12 +3,12 @@ import json
 
 import pytest
 
-from .test_runtime import PublicCompositeApplication, PublicMcpClient
+from .test_runtime import ConfiguredApplication, PublicMcpClient
 
 
 @pytest.mark.django_db(transaction=True)
 def test_every_record_operation_has_a_complete_bounded_presentation() -> None:
-    results = asyncio.run(PublicMcpClient(PublicCompositeApplication()).record_presentations())
+    results = asyncio.run(PublicMcpClient(ConfiguredApplication()).record_presentations())
 
     assert set(results) == {
         "create_record_tag",

@@ -4,7 +4,7 @@ import json
 import pytest
 from mcp.types import CallToolResult
 
-from .test_runtime import PublicCompositeApplication, PublicMcpClient
+from .test_runtime import ConfiguredApplication, PublicMcpClient
 
 
 def assert_bounded(result: CallToolResult) -> None:
@@ -13,7 +13,7 @@ def assert_bounded(result: CallToolResult) -> None:
 
 
 async def read_oversized_diagram_set_page() -> tuple[CallToolResult, CallToolResult, CallToolResult]:
-    client = PublicMcpClient(PublicCompositeApplication())
+    client = PublicMcpClient(ConfiguredApplication())
     async with client.session() as (session, _):
         await session.initialize()
         for index in range(25):
@@ -35,7 +35,7 @@ async def read_oversized_diagram_set_page() -> tuple[CallToolResult, CallToolRes
 
 
 async def create_oversized_record() -> tuple[CallToolResult, CallToolResult]:
-    client = PublicMcpClient(PublicCompositeApplication())
+    client = PublicMcpClient(ConfiguredApplication())
     async with client.session() as (session, _):
         await session.initialize()
         tag = await session.call_tool("create_record_tag", {"name": "Example recovery tag"})
@@ -141,7 +141,7 @@ def test_document_follow_up_uses_the_presentation_budget_and_reconstructs_exact_
     source = "example_value = 'bounded document content'\n" * 240
 
     async def exercise() -> tuple[CallToolResult, list[CallToolResult]]:
-        client = PublicMcpClient(PublicCompositeApplication())
+        client = PublicMcpClient(ConfiguredApplication())
         async with client.session() as (session, http_client):
             await session.initialize()
             category = await session.call_tool(

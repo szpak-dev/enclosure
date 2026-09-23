@@ -1,4 +1,16 @@
-from enclosure.shared import DomainError
+from enclosure.shared.errors import DomainError, GatewayTimeoutError, InternalExecutionError, ServiceUnavailableError
 
 
 class ProjectsError(DomainError): ...
+
+
+class ProjectHealthCapacityUnavailable(ServiceUnavailableError): ...
+
+
+class ProjectHealthCanceled(ServiceUnavailableError): ...
+
+
+class ProjectHealthTimedOut(GatewayTimeoutError): ...
+
+
+class ProjectHealthExecutionFailed(InternalExecutionError): ...
