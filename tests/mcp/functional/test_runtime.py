@@ -995,7 +995,21 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
     assert result.structured_content["data"]["failure_count"] > 0
     assert "example_app.py" in " ".join(result.structured_content["data"]["targets"])
     assert result.structured_content["data"]["next_actions"]
+    assert result.structured_content["data"]["failures"] == rest_response.json()["failures"]
+    finding = next(
+        finding
+        for finding in result.structured_content["data"]["failures"]
+        if finding["rule"] == "max_classes_per_file"
+    )
+    assert finding["kind"] == "shape"
+    assert finding["source_file"] == "example_app.py"
+    assert finding["realm"] == "example-project"
+    assert finding["symbol_kind"] == "file"
+    assert finding["symbol_name"] == ""
+    assert finding["actual"] == 1
+    assert finding["limit"] == 0
     assert "## Gating failures" in result.content[0].text
+    assert "actual `1`, configured `0`" in result.content[0].text
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 

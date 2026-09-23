@@ -15,10 +15,6 @@ class JsonSchemaError(DomainError):
         super().__init__("; ".join(issue.message for issue in issues))
 
 
-class InvalidShape(JsonSchemaError):
-    pass
-
-
 class InvalidSchema(JsonSchemaError):
     pass
 

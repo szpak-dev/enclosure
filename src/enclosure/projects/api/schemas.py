@@ -371,11 +371,34 @@ class ArchitectureConfigurationContent(Schema):
 
 class HealthFinding(Schema):
     rule: str = Field(description="Rule that produced the finding.")
-    target: str = Field(description="Project area affected by the finding.")
+    target: str = Field(description="Precise finding location used in report summaries.")
     message: str = Field(description="Actionable explanation of the finding.")
-    related_ids: tuple[str, ...] = Field(description="Stable identifiers related to the finding.")
-    remediation: str = Field(description="Remediation category supplied by the owning health rule.")
     next_action: str = Field(description="Deterministic remediation instruction.")
+
+
+class ShapeHealthFinding(HealthFinding):
+    kind: Literal["shape"] = Field(description="Shape-evidence discriminator.")
+    source_file: str = Field(description="Exact source file containing the violation.")
+    realm: str = Field(description="Configured shape realm that selected the source file.")
+    symbol_kind: str = Field(description="Kind of source symbol evaluated by the rule.")
+    symbol_name: str = Field(description="Exact symbol name, empty only for a file-level finding.")
+    actual: int | str | bool = Field(description="Observed rule value.")
+    limit: int | str | bool = Field(description="Configured rule value.")
+
+
+class FlowHealthFinding(HealthFinding):
+    kind: Literal["flow"] = Field(description="Dependency-flow evidence discriminator.")
+    violation_type: str = Field(description="Analyzer-defined flow violation type.")
+    path: tuple[str, ...] = Field(description="Ordered dependency path containing the violation.")
+    violation_index: int = Field(description="Index of the violating path destination or item.", ge=0)
+    source_module: str = Field(description="Configured source-module identity when applicable.")
+    target_module: str = Field(description="Configured target-module identity when applicable.")
+
+
+class GuidanceHealthFinding(HealthFinding):
+    kind: Literal["guidance"] = Field(description="Guidance-evidence discriminator.")
+    related_ids: tuple[str, ...] = Field(description="Stable guidance identifiers related to the finding.")
+    remediation: str = Field(description="Remediation category supplied by the owning guidance rule.")
 
 
 class HealthReportSummary(Schema):
@@ -391,10 +414,16 @@ class HealthReport(Schema):
     reports: tuple[HealthReportSummary, ...] = Field(description="Compact architecture and guidance report summaries.")
     failure_count: int = Field(description="Total gating failures.", ge=0)
     advisory_count: int = Field(description="Total advisory findings.", ge=0)
-    targets: tuple[str, ...] = Field(description="Distinct project areas affected by findings.")
+    targets: tuple[str, ...] = Field(description="Distinct precise locations affected by findings.")
     next_actions: tuple[str, ...] = Field(description="Distinct deterministic remediation instructions.")
-    failures: tuple[HealthFinding, ...] = Field(description="Normalized gating findings.")
-    advisories: tuple[HealthFinding, ...] = Field(description="Normalized advisory findings.")
+    failures: tuple[
+        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        ...,
+    ] = Field(description="Typed gating findings.")
+    advisories: tuple[
+        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        ...,
+    ] = Field(description="Typed advisory findings.")
 
 
 class InsightSection(Schema):

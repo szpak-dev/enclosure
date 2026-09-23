@@ -3,7 +3,6 @@ from typing import Any
 
 from wireup import injectable
 
-from .compiler import ShapeCompiler
 from .schema import Schema
 from .validator import JsonSchemaValidator
 
@@ -11,13 +10,7 @@ from .validator import JsonSchemaValidator
 @injectable
 @dataclass(frozen=True)
 class JsonSchemaService:
-    compiler: ShapeCompiler
     validator: JsonSchemaValidator
-
-    def define(self, shape: dict[str, Any]) -> Schema:
-        document = self.compiler.compile(shape)
-        self.validator.require_valid_schema(document)
-        return Schema(document, self.validator)
 
     def load(self, document: dict[str, Any]) -> Schema:
         canonical_document = {"$schema": "https://json-schema.org/draft/2020-12/schema", **document}
