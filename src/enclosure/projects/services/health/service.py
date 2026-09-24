@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from time import perf_counter_ns
 from typing import ClassVar
+from uuid import uuid4
 
 import structlog
 from wireup import injectable
@@ -31,16 +32,19 @@ class ProjectHealthService:
         configuration: ArchitectureConfiguration,
         binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
     ) -> HealthReport:
+        run_id = uuid4().hex
         started_ns = perf_counter_ns()
         outcome = HealthRunOutcome.FAILED
         self.logger.info(
             "project_health_started",
+            run_id=run_id,
             started_ns=started_ns,
             project_id=project.id,
             workspace_id=workspace.id,
         )
         try:
             architecture = self.execution.execute(
+                run_id,
                 ArchitectureSource(
                     project_id=project.id,
                     workspace_id=workspace.id,
@@ -48,15 +52,55 @@ class ProjectHealthService:
                     language=project.language_id,
                     boundaries_yaml=configuration.boundaries_yaml,
                     shape_yaml=configuration.shape_yaml,
-                )
+                ),
             )
-            guidance = self.guidance.check(project.id, binding)
-            report = self.reports.summarize_health_report(
-                HealthReportSet(
-                    healthy=architecture.healthy and guidance.healthy,
-                    reports=(*architecture.reports, guidance.model_dump(mode="json")),
-                )
+            guidance_started_ns = perf_counter_ns()
+            self.logger.info(
+                "project_health_guidance_started",
+                run_id=run_id,
+                started_ns=guidance_started_ns,
+                project_id=project.id,
+                workspace_id=workspace.id,
             )
+            try:
+                guidance = self.guidance.check(project.id, binding)
+            finally:
+                guidance_finished_ns = perf_counter_ns()
+                self.logger.info(
+                    "project_health_guidance_terminal",
+                    run_id=run_id,
+                    started_ns=guidance_started_ns,
+                    finished_ns=guidance_finished_ns,
+                    duration_ns=guidance_finished_ns - guidance_started_ns,
+                    project_id=project.id,
+                    workspace_id=workspace.id,
+                )
+            summarization_started_ns = perf_counter_ns()
+            self.logger.info(
+                "project_health_summarization_started",
+                run_id=run_id,
+                started_ns=summarization_started_ns,
+                project_id=project.id,
+                workspace_id=workspace.id,
+            )
+            try:
+                report = self.reports.summarize_health_report(
+                    HealthReportSet(
+                        healthy=architecture.healthy and guidance.healthy,
+                        reports=(*architecture.reports, guidance.model_dump(mode="json")),
+                    )
+                )
+            finally:
+                summarization_finished_ns = perf_counter_ns()
+                self.logger.info(
+                    "project_health_summarization_terminal",
+                    run_id=run_id,
+                    started_ns=summarization_started_ns,
+                    finished_ns=summarization_finished_ns,
+                    duration_ns=summarization_finished_ns - summarization_started_ns,
+                    project_id=project.id,
+                    workspace_id=workspace.id,
+                )
             outcome = HealthRunOutcome.COMPLETED
             return report
         except ProjectHealthCanceled:
@@ -69,6 +113,7 @@ class ProjectHealthService:
             finished_ns = perf_counter_ns()
             self.logger.info(
                 "project_health_terminal",
+                run_id=run_id,
                 outcome=outcome.value,
                 started_ns=started_ns,
                 finished_ns=finished_ns,

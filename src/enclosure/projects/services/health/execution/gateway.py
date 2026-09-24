@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 
 from enclosure.shared.execution import CancellationSignal
 
-from ...reports.model import ArchitectureSource
-from .model import HealthExecutionResult
+from .model import HealthExecutionRequest, HealthExecutionResult
 
 
 class HealthWorkerGateway(ABC):
@@ -12,7 +11,7 @@ class HealthWorkerGateway(ABC):
     @abstractmethod
     def execute(
         self,
-        source: ArchitectureSource,
+        request: HealthExecutionRequest,
         signal: CancellationSignal,
         timeout_seconds: int,
     ) -> HealthExecutionResult:
