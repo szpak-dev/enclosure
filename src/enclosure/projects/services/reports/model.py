@@ -126,6 +126,11 @@ class HealthOutcome(StrEnum):
     GATING_FAILURE = "gating-failure"
 
 
+class HealthFindingKind(StrEnum):
+    FAILURE = "failure"
+    ADVISORY = "advisory"
+
+
 class HealthFinding(ReportValue):
     rule: str
     target: str
@@ -180,11 +185,14 @@ class ArchitectureSource(ReportValue):
 
 
 class HealthReport(ReportValue):
+    revision: str
     outcome: HealthOutcome
     healthy: bool
     reports: tuple[HealthReportSummary, ...]
     failure_count: int
     advisory_count: int
+    failure_kind: HealthFindingKind
+    advisory_kind: HealthFindingKind
     targets: tuple[str, ...]
     next_actions: tuple[str, ...]
     failures: tuple[
@@ -195,6 +203,20 @@ class HealthReport(ReportValue):
         Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
         ...,
     ]
+
+
+class HealthFindingPage(ReportValue):
+    revision: str
+    kind: HealthFindingKind
+    offset: int
+    limit: int
+    total: int
+    items: tuple[
+        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        ...,
+    ]
+    has_more: bool
+    next_offset: int
 
 
 class InsightFindingKind(StrEnum):
@@ -226,6 +248,7 @@ class InsightsReport(ReportValue):
     project_id: str
     workspace_id: str
     revision: str
+    report_count: int
     reports: tuple[dict[str, JsonValue], ...]
     sections: tuple[InsightSection, ...]
     affected_areas: tuple[str, ...]
@@ -243,3 +266,16 @@ class InsightPage(ReportValue):
     items: tuple[JsonValue, ...]
     has_more: bool
     next_offset: int
+
+
+class InsightContentPage(ReportValue):
+    revision: str
+    section_offset: int
+    path: str
+    item_offset: int
+    limit: int
+    section_total: int
+    items: tuple[JsonValue, ...]
+    has_more: bool
+    next_section_offset: int
+    next_item_offset: int

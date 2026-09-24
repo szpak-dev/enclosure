@@ -16,6 +16,7 @@ from ..model import (
     ExportInput,
     HotspotInput,
     InsightPage,
+    InsightContentPage,
     InsightReportInput,
     InsightReportSet,
     InsightSection,
@@ -72,6 +73,58 @@ class InsightPagingService:
     def sections(self, report: InsightReportSet) -> tuple[InsightSection, ...]:
         return tuple(
             InsightSection(path=path, total=len(items)) for path, items in self._collections(report).items() if items
+        )
+
+    def content(
+        self,
+        report: InsightReportSet,
+        expected_revision: str,
+        section_offset: int,
+        item_offset: int,
+        limit: int,
+    ) -> InsightContentPage:
+        if report.revision != expected_revision:
+            raise ProjectsError("Project insights changed; read them again before requesting content.")
+        if section_offset < 0 or item_offset < 0 or limit < 0:
+            raise ProjectsError("Project insight content offsets and limit must be non-negative.")
+        sections = self.sections(report)
+        if section_offset > len(sections):
+            raise ProjectsError("Project insight section offset is outside the report.")
+        if section_offset == len(sections):
+            if item_offset:
+                raise ProjectsError("Project insight item offset is outside the report.")
+            return InsightContentPage(
+                revision=report.revision,
+                section_offset=section_offset,
+                path="",
+                item_offset=0,
+                limit=max(1, limit),
+                section_total=0,
+                items=(),
+                has_more=False,
+                next_section_offset=section_offset,
+                next_item_offset=0,
+            )
+        section = sections[section_offset]
+        collection = self._collections(report)[section.path]
+        if item_offset > len(collection):
+            raise ProjectsError("Project insight item offset is outside the section.")
+        effective_limit = max(1, len(collection) - item_offset) if limit == 0 else limit
+        items = collection[item_offset : item_offset + effective_limit]
+        next_item_offset = item_offset + len(items)
+        section_complete = next_item_offset >= len(collection)
+        next_section_offset = section_offset + 1 if section_complete else section_offset
+        return InsightContentPage(
+            revision=report.revision,
+            section_offset=section_offset,
+            path=section.path,
+            item_offset=item_offset,
+            limit=effective_limit,
+            section_total=len(collection),
+            items=items,
+            has_more=not section_complete or next_section_offset < len(sections),
+            next_section_offset=next_section_offset,
+            next_item_offset=0 if section_complete else next_item_offset,
         )
 
     def escape(self, segment: str) -> str:

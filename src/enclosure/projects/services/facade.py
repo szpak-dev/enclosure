@@ -33,7 +33,16 @@ from .registry.model import (
 )
 from .registry.service import RegistryService
 from .reports.adapters import ArchitectureAdapter
-from .reports.model import ArchitectureSource, HealthReport, InsightPage, InsightReportSet, InsightsReport
+from .reports.model import (
+    ArchitectureSource,
+    HealthFindingKind,
+    HealthFindingPage,
+    HealthReport,
+    InsightContentPage,
+    InsightPage,
+    InsightReportSet,
+    InsightsReport,
+)
 from .reports.service import ReportsService
 from .routing.model import GuidanceScope, GuidanceScopePage
 from .routing.service import WorkspaceRoutingService
@@ -343,6 +352,23 @@ class ProjectsService:
             self.contracts.get_binding(project_id),
         )
 
+    def read_health_findings(
+        self,
+        project_id: str,
+        workspace_id: str,
+        kind: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> HealthFindingPage:
+        return self.reports.read_health_findings(
+            self.check_health(project_id, workspace_id),
+            HealthFindingKind(kind),
+            expected_revision,
+            offset,
+            limit,
+        )
+
     def read_insights(self, project_id: str, workspace_id: str) -> InsightsReport:
         return self.reports.summarize_insights_report(self._generate_insights_report(project_id, workspace_id))
 
@@ -375,6 +401,23 @@ class ProjectsService:
             path,
             expected_revision,
             offset,
+            limit,
+        )
+
+    def read_insight_content(
+        self,
+        project_id: str,
+        workspace_id: str,
+        expected_revision: str,
+        section_offset: int,
+        item_offset: int,
+        limit: int,
+    ) -> InsightContentPage:
+        return self.reports.read_insight_content(
+            self._generate_insights_report(project_id, workspace_id),
+            expected_revision,
+            section_offset,
+            item_offset,
             limit,
         )
 

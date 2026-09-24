@@ -96,7 +96,11 @@ class RecordSummary(Schema):
 
 class Record(RecordSummary):
     content: dict[str, JsonValue] = Field(description="Content validated against the category's schema.")
+    content_revision: str = Field(description="SHA-256 revision of the canonical record JSON document.")
+    content_total_characters: int = Field(description="Canonical record JSON size in characters.", ge=0)
     resources: list[ResourceManifest] = Field(description="Source-resource manifests without complete bodies.")
+    resources_revision: str = Field(description="SHA-256 revision of the canonical resource-manifest document.")
+    resource_count: int = Field(description="Number of source-resource manifests.", ge=0)
 
 
 class FindPage(Schema):
@@ -130,8 +134,17 @@ class ReadRecordContent(Schema):
         description="SHA-256 revision on which the read is based.",
         pattern=r"^[0-9a-f]{64}$",
     )
-    offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1)
+    offset: int = Field(default=0, description="Character offset at which the bounded read starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
+
+
+class ReadRecordResourceManifests(Schema):
+    expected_revision: str = Field(
+        description="SHA-256 manifest revision on which the read is based.",
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    offset: int = Field(default=0, description="Manifest offset at which the page starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum manifests returned; zero selects the remainder.", ge=0)
 
 
 class ReadRecordResource(ReadRecordContent):
@@ -154,6 +167,28 @@ class RecordResourceContent(Schema):
     content: str = Field(description="Bounded source-resource content.")
     has_more: bool = Field(description="Whether another bounded page remains.")
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
+
+
+class RecordJsonContent(Schema):
+    record_id: RecordId
+    revision: str = Field(description="SHA-256 revision of the canonical record JSON document.")
+    offset: int = Field(description="Character offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum characters selected for this page.", ge=1)
+    total_characters: int = Field(description="Total characters in the canonical record JSON document.", ge=0)
+    content: str = Field(description="Bounded canonical record JSON content.")
+    has_more: bool = Field(description="Whether another bounded page remains.")
+    next_offset: int = Field(description="Character offset for the next read.", ge=0)
+
+
+class ResourceManifestPage(Schema):
+    record_id: RecordId
+    revision: str = Field(description="SHA-256 revision of the canonical resource-manifest document.")
+    offset: int = Field(description="Manifest offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum manifests selected for this page.", ge=1)
+    total: int = Field(description="Total resource manifests.", ge=0)
+    items: list[ResourceManifest] = Field(description="Resource manifests in this bounded page.")
+    has_more: bool = Field(description="Whether another resource-manifest page remains.")
+    next_offset: int = Field(description="Manifest offset for the next read.", ge=0)
 
 
 class RecordCategoryContentSchema(Schema):

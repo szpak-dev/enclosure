@@ -13,8 +13,10 @@ from .content import (
     RecordCategoryDetail,
     RecordContentService,
     RecordDetail,
+    RecordJsonContent,
     RecordPage,
     RecordResourceContent,
+    ResourceManifestPage,
     TagPage,
 )
 from .records.service import RecordService
@@ -152,6 +154,24 @@ class RecordsService:
         limit: int,
     ) -> RecordResourceContent:
         return self.content.read_record_resource(record_id, path, expected_revision, offset, limit)
+
+    def read_record_content(
+        self,
+        record_id: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> RecordJsonContent:
+        return self.content.read_record_content(record_id, expected_revision, offset, limit)
+
+    def read_record_resource_manifests(
+        self,
+        record_id: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> ResourceManifestPage:
+        return self.content.read_record_resource_manifests(record_id, expected_revision, offset, limit)
 
     def read_record_category_content_schema(
         self,

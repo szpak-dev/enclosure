@@ -93,14 +93,15 @@ class RegistryService:
         }[document]
         if offset > len(content):
             raise ProjectsError("Architecture configuration content offset is outside the document.")
-        next_offset = min(offset + limit, len(content))
+        effective_limit = max(1, len(content) - offset) if limit == 0 else limit
+        next_offset = min(offset + effective_limit, len(content))
         return ArchitectureConfigurationContent(
             project_id=project_id,
             configuration_id=configuration_id,
             revision=configuration.revision,
             document=document,
             offset=offset,
-            limit=limit,
+            limit=effective_limit,
             total_characters=len(content),
             content=content[offset:next_offset],
             has_more=next_offset < len(content),
@@ -144,6 +145,8 @@ class RegistryService:
             revision=self._configuration_revision(configuration.boundaries_yaml, configuration.shape_yaml),
             boundaries_yaml=configuration.boundaries_yaml,
             shape_yaml=configuration.shape_yaml,
+            boundaries_total_characters=len(configuration.boundaries_yaml),
+            shape_total_characters=len(configuration.shape_yaml),
         )
 
     def _configuration_revision(self, boundaries_yaml: str, shape_yaml: str) -> str:

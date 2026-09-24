@@ -70,7 +70,8 @@ class PresentationRecoveryService:
 
     def _paged(self, document: SirenDocument, envelope: PresentationEnvelope) -> McpPresentation:
         offset = cast(int, document.arguments.get("offset", envelope.data.get("offset", 0)))
-        requested_limit = cast(int, document.arguments.get("limit", envelope.data["limit"]))
+        argument_limit = cast(int, document.arguments.get("limit", 0))
+        requested_limit = argument_limit if argument_limit > 0 else cast(int, envelope.data["limit"])
         retry_limit = max(1, requested_limit // 2)
         if retry_limit == requested_limit:
             if "collection" in document.classes:
@@ -80,7 +81,6 @@ class PresentationRecoveryService:
             operation_id=document.operation_id,
             arguments={
                 **document.arguments,
-                "offset": offset,
                 "limit": retry_limit,
             },
         )

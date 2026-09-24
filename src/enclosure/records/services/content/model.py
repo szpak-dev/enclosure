@@ -22,6 +22,10 @@ class RecordResourceContent(RecordContentPage):
     media_type: str
 
 
+class RecordJsonContent(RecordContentPage):
+    record_id: str
+
+
 class RecordCategoryContentSchema(RecordContentPage):
     category_id: str
     schema_version: int
@@ -35,6 +39,19 @@ class ResourceManifest(BaseModel):
     media_type: str
     size_bytes: int
     revision: str
+
+
+class ResourceManifestPage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    record_id: str
+    revision: str
+    offset: int
+    limit: int
+    total: int
+    items: tuple[ResourceManifest, ...]
+    has_more: bool
+    next_offset: int
 
 
 class RecordCategory(BaseModel):
@@ -61,7 +78,11 @@ class RecordDetail(BaseModel):
     schema_version: int
     tags: tuple[RecordTag, ...]
     content: dict[str, JsonValue]
+    content_revision: str
+    content_total_characters: int
     resources: tuple[ResourceManifest, ...]
+    resources_revision: str
+    resource_count: int
 
 
 class RecordCategoryDetail(BaseModel):

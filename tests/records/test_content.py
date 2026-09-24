@@ -45,6 +45,25 @@ def test_record_detail_exposes_a_manifest_and_reads_one_exact_resource_in_pages(
     }
     assert "content" not in manifest
 
+    canonical_content = json.dumps(record["content"], ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    assert record["content_revision"] == hashlib.sha256(canonical_content.encode()).hexdigest()
+    assert record["content_total_characters"] == len(canonical_content)
+    content = client.get(
+        f"/api/records/{record['id']}/content",
+        {"expected_revision": record["content_revision"]},
+    )
+    manifests = client.get(
+        f"/api/records/{record['id']}/resource-manifests",
+        {"expected_revision": record["resources_revision"]},
+    )
+    assert content.status_code == 200
+    assert content.json()["content"] == canonical_content
+    assert content.json()["limit"] == len(canonical_content)
+    assert manifests.status_code == 200
+    assert manifests.json()["items"] == record["resources"]
+    assert manifests.json()["total"] == record["resource_count"] == 1
+    assert manifests.json()["has_more"] is False
+
     first = client.get(
         f"/api/records/{record['id']}/resources/content",
         {

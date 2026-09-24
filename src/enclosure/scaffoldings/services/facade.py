@@ -8,7 +8,7 @@ from wireup import injectable
 from enclosure.shared.source_code.package import SourceCodePackage
 
 from ..models import Scaffolding
-from .content.model import ScaffoldingDetail, ScaffoldingPage, ScaffoldingTemplateContent
+from .content.model import ScaffoldingDetail, ScaffoldingPage, ScaffoldingTemplateContent, TemplateManifestPage
 from .content.service import ScaffoldingContentService
 from .renderings.model import RenderedFile, RenderedFileContent, RenderingPage
 from .renderings.service import RenderingService
@@ -78,6 +78,15 @@ class ScaffoldingService:
         limit: int,
     ) -> ScaffoldingTemplateContent:
         return self.content.read_template(self.get(id), path, expected_revision, offset, limit)
+
+    def read_template_manifests(
+        self,
+        id: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> TemplateManifestPage:
+        return self.content.read_template_manifests(self.get(id), expected_revision, offset, limit)
 
     def render_page(
         self,

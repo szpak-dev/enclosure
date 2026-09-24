@@ -29,6 +29,21 @@ class ScaffoldingDetail(BaseModel):
     name: str
     description: str
     spec: ScaffoldingSpecManifest
+    templates_revision: str
+    template_count: int
+
+
+class TemplateManifestPage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    scaffolding_id: str
+    revision: str
+    offset: int
+    limit: int
+    total: int
+    items: tuple[TemplateManifest, ...]
+    has_more: bool
+    next_offset: int
 
 
 class ScaffoldingTemplateContent(BaseModel):

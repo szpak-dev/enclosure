@@ -7,4 +7,8 @@ Category: `{{ data.category.id }}` — {{ data.category.title }} (schema version
 Tags:{% for tag in data.tags %} `{{ tag.name }}`{% endfor %}
 {% endif %}
 
-Resources: {{ data.resources | length }} manifest{% if data.resources | length != 1 %}s{% endif %}; bodies are available through `read_record_resource`.
+Content: {{ data.content_total_characters }} characters at revision `{{ data.content_revision }}`.
+
+Resources: {{ data.resource_count }} manifest{% if data.resource_count != 1 %}s{% endif %} at revision `{{ data.resources_revision }}`.
+
+Use the typed follow-ups to read canonical content and resource manifests.

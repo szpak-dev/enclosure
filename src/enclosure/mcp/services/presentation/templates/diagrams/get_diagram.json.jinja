@@ -1,3 +1,16 @@
-{% set summary = "Bounded diagram details with Siren navigation to complete content." %}
-{% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", summary, data, []) }}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Diagram metadata with revision-pinned source and snapshot reads.",
+  "data": {
+    "id": {{ data.id | tojson }},
+    "title": {{ data.title | tojson }},
+    "kind": {{ data.kind | tojson }},
+    "revision": {{ data.revision | tojson }},
+    "source_document": {{ data.source_document | tojson }},
+    "snapshot_document": {{ data.snapshot_document | tojson }},
+    "source_total_characters": {{ data.source_total_characters | tojson }},
+    "snapshot_total_characters": {{ data.snapshot_total_characters | tojson }}
+  },
+  "follow_ups": {{ follow_ups | tojson }}
+}

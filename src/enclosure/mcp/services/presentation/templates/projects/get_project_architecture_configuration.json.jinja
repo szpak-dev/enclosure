@@ -1,2 +1,15 @@
-{% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", "Architecture configuration reference; content is available through bounded reads.", data, []) }}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Architecture configuration reference with revision-pinned document reads.",
+  "data": {
+    "id": {{ data.id | tojson }},
+    "project_id": {{ data.project_id | tojson }},
+    "revision": {{ data.revision | tojson }},
+    "boundaries_document": {{ data.boundaries_document | tojson }},
+    "shape_document": {{ data.shape_document | tojson }},
+    "boundaries_total_characters": {{ data.boundaries_total_characters | tojson }},
+    "shape_total_characters": {{ data.shape_total_characters | tojson }}
+  },
+  "follow_ups": {{ follow_ups | tojson }}
+}

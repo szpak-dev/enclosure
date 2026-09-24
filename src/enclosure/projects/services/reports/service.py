@@ -1,10 +1,13 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 from typing import ClassVar, cast
 
 from pydantic import JsonValue
 from wireup import injectable
 
+from ...errors import ProjectsError
 from .adapters import ArchitectureAdapter
 from .model import (
     ArchitectureReportMetadata,
@@ -15,11 +18,14 @@ from .model import (
     GuidanceFindingInput,
     GuidanceHealthFinding,
     HealthOutcome,
+    HealthFindingKind,
+    HealthFindingPage,
     HealthReport,
     HealthReportSet,
     HealthReportSummary,
     HotspotInput,
     InsightFinding,
+    InsightContentPage,
     InsightFindingKind,
     InsightPage,
     InsightReportInput,
@@ -82,15 +88,45 @@ class ReportsService:
             else HealthOutcome.HEALTHY
         )
         return HealthReport(
+            revision=self._revision(report.reports),
             outcome=outcome,
             healthy=report.healthy,
             reports=tuple(summaries),
             failure_count=len(failures),
             advisory_count=len(advisories),
+            failure_kind=HealthFindingKind.FAILURE,
+            advisory_kind=HealthFindingKind.ADVISORY,
             targets=targets,
             next_actions=next_actions,
             failures=tuple(failures),
             advisories=tuple(advisories),
+        )
+
+    def read_health_findings(
+        self,
+        report: HealthReport,
+        kind: HealthFindingKind,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> HealthFindingPage:
+        if report.revision != expected_revision:
+            raise ProjectsError("Project health changed; check it again before requesting findings.")
+        findings = report.failures if kind is HealthFindingKind.FAILURE else report.advisories
+        if offset < 0 or offset > len(findings) or limit < 0:
+            raise ProjectsError("Project health finding offset and limit must identify a valid page.")
+        effective_limit = max(1, len(findings) - offset) if limit == 0 else limit
+        items = findings[offset : offset + effective_limit]
+        next_offset = offset + len(items)
+        return HealthFindingPage(
+            revision=report.revision,
+            kind=kind,
+            offset=offset,
+            limit=effective_limit,
+            total=len(findings),
+            items=items,
+            has_more=next_offset < len(findings),
+            next_offset=next_offset,
         )
 
     def generate_insights_report(
@@ -117,11 +153,22 @@ class ReportsService:
             project_id=report.project_id,
             workspace_id=report.workspace_id,
             revision=report.revision,
+            report_count=len(report.reports),
             reports=report.reports,
             sections=sections,
             affected_areas=tuple(dict.fromkeys(finding.area for finding in findings)),
             top_findings=tuple(findings),
         )
+
+    def read_insight_content(
+        self,
+        report: InsightReportSet,
+        expected_revision: str,
+        section_offset: int,
+        item_offset: int,
+        limit: int,
+    ) -> InsightContentPage:
+        return self.paging.content(report, expected_revision, section_offset, item_offset, limit)
 
     def read_insight_page(
         self,
@@ -239,3 +286,7 @@ class ReportsService:
 
     def _mappings(self, value: JsonValue) -> tuple[Mapping[str, JsonValue], ...]:
         return tuple(cast(list[dict[str, JsonValue]], value))
+
+    def _revision(self, reports: tuple[dict[str, JsonValue], ...]) -> str:
+        canonical = json.dumps(reports, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        return sha256(canonical.encode("utf-8")).hexdigest()

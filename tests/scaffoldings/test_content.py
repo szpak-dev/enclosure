@@ -29,6 +29,14 @@ def test_reads_template_and_rendered_content_by_exact_revision() -> None:
     assert created.status_code == 201
     scaffolding = created.json()
     manifest = scaffolding["spec"]["templates"][0]
+    manifests = client.get(
+        f"/api/scaffoldings/{scaffolding['id']}/template-manifests",
+        data={"expected_revision": scaffolding["templates_revision"]},
+    )
+    assert manifests.status_code == 200
+    assert manifests.json()["items"] == scaffolding["spec"]["templates"]
+    assert manifests.json()["total"] == scaffolding["template_count"] == 1
+    assert manifests.json()["has_more"] is False
 
     first = client.get(
         f"/api/scaffoldings/{scaffolding['id']}/template-content",

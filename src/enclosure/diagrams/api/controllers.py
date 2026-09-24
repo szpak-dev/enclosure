@@ -3,7 +3,15 @@ from typing import Annotated
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
-from sirenity import SirenContinuation, siren_pagination
+from sirenity import (
+    SirenContinuation,
+    SirenFollowUp,
+    SirenItemFollowUp,
+    SirenScope,
+    SirenSourceInput,
+    siren_follow_ups,
+    siren_pagination,
+)
 
 from ..services.facade import DiagramsService
 from . import schemas
@@ -21,15 +29,54 @@ class DiagramKindsController(ControllerBase):
     def find_all(self, request):
         return DjangoRequest.resolve(request, DiagramsService).find_kinds()
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{kind}",
         response=schemas.DiagramKindDescription,
         operation_id="get_diagram_kind",
+        follow_ups={
+            "content": SirenFollowUp(
+                operation_id="read_diagram_kind_content",
+                parameters={
+                    "path.kind": "id",
+                    "query.expected_revision": "content_revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            )
+        },
+        status=200,
         summary="Get a diagram kind",
         description="Return the objects, placements, and commands available for a diagram kind.",
     )
     def get(self, request, kind: Annotated[str, Path(description="Mermaiden diagram-kind identifier.")]):
         return DjangoRequest.resolve(request, DiagramsService).describe_kind(kind)
+
+    @SirenContinuation(
+        http_get,
+        "/{kind}/content",
+        response=schemas.DiagramKindContent,
+        operation_id="read_diagram_kind_content",
+        continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "kind": SirenSourceInput(location="path", name="kind"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
+        summary="Read diagram-kind content",
+        description="Read one bounded page from a revision-pinned diagram-kind contract.",
+    )
+    def read_kind_content(
+        self,
+        request,
+        kind: Annotated[str, Path(description="Mermaiden diagram-kind identifier.")],
+        query: Query[schemas.ReadDiagramKindContent],
+    ):
+        return DjangoRequest.resolve(request, DiagramsService).read_kind_content(
+            kind,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )
 
     @route.get(
         "/{kind}/commands/{operation}",
@@ -67,6 +114,17 @@ class DiagramSetsController(ControllerBase):
         response=schemas.DiagramSetPage,
         operation_id="find_diagram_sets",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={},
+        item_follow_ups={
+            "diagram_set": SirenItemFollowUp(
+                operation_id="get_diagram_set",
+                parameters={"path.diagram_set_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List diagram sets",
         description="Return one bounded page of diagram-set summaries.",
     )
@@ -165,6 +223,18 @@ class DiagramSetsController(ControllerBase):
         response=schemas.DiagramPage,
         operation_id="find_diagram_set_diagrams",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={"diagram_set_id": SirenSourceInput(location="path", name="diagram_set_id")},
+        item_follow_ups={
+            "diagram": SirenItemFollowUp(
+                operation_id="get_diagram_set_diagram",
+                parameters={"path.diagram_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={"diagram_set_id": SirenSourceInput(location="path", name="diagram_set_id")},
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List diagrams in a diagram set",
         description="Return one bounded page of diagrams belonging to one diagram set.",
     )
@@ -180,10 +250,34 @@ class DiagramSetsController(ControllerBase):
             query.limit,
         )
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{diagram_set_id}/diagrams/{diagram_id}",
         response=schemas.Diagram,
         operation_id="get_diagram_set_diagram",
+        follow_ups={
+            "source": SirenFollowUp(
+                operation_id="read_diagram_content",
+                parameters={
+                    "path.diagram_id": "id",
+                    "query.document": "source_document",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            ),
+            "snapshot": SirenFollowUp(
+                operation_id="read_diagram_content",
+                parameters={
+                    "path.diagram_id": "id",
+                    "query.document": "snapshot_document",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            ),
+        },
+        status=200,
         summary="Get a diagram from a diagram set",
         description="Return a diagram only when it belongs to the selected diagram set.",
     )
@@ -207,6 +301,17 @@ class DiagramsController(ControllerBase):
         response=schemas.DiagramPage,
         operation_id="find_diagrams",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={},
+        item_follow_ups={
+            "diagram": SirenItemFollowUp(
+                operation_id="get_diagram",
+                parameters={"path.diagram_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List diagrams",
         description="Return one bounded page of diagram summaries.",
     )
@@ -219,6 +324,11 @@ class DiagramsController(ControllerBase):
         response=schemas.DiagramContent,
         operation_id="read_diagram_content",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "diagram_id": SirenSourceInput(location="path", name="diagram_id"),
+            "document": SirenSourceInput(location="query", name="document"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
         summary="Read diagram content",
         description="Read one revision-pinned bounded page from a diagram's source or canonical snapshot.",
     )
@@ -236,10 +346,34 @@ class DiagramsController(ControllerBase):
             query.limit,
         )
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{diagram_id}",
         response=schemas.Diagram,
         operation_id="get_diagram",
+        follow_ups={
+            "source": SirenFollowUp(
+                operation_id="read_diagram_content",
+                parameters={
+                    "path.diagram_id": "id",
+                    "query.document": "source_document",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            ),
+            "snapshot": SirenFollowUp(
+                operation_id="read_diagram_content",
+                parameters={
+                    "path.diagram_id": "id",
+                    "query.document": "snapshot_document",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            ),
+        },
+        status=200,
         summary="Get a diagram",
         description="Return a diagram's canonical snapshot and Mermaid source when renderable.",
     )

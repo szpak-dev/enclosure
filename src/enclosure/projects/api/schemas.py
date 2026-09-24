@@ -301,6 +301,10 @@ class ProjectArchitectureConfigurationReference(Schema):
 class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference):
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
     shape_yaml: str = Field(description="Modwire architecture-shape configuration in YAML.")
+    boundaries_document: Literal["boundaries_yaml"] = Field(description="Document selector for boundaries YAML.")
+    shape_document: Literal["shape_yaml"] = Field(description="Document selector for architecture-shape YAML.")
+    boundaries_total_characters: int = Field(description="Total characters in boundaries YAML.", ge=0)
+    shape_total_characters: int = Field(description="Total characters in architecture-shape YAML.", ge=0)
 
 
 class FindPage(Schema):
@@ -350,8 +354,8 @@ class ReadArchitectureConfigurationContent(Schema):
         description="Architecture configuration document to read."
     )
     expected_revision: str = Field(description="Configuration revision on which this read is based.")
-    offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1)
+    offset: int = Field(default=0, description="Character offset at which the bounded read starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
 class ArchitectureConfigurationContent(Schema):
@@ -409,11 +413,14 @@ class HealthReportSummary(Schema):
 
 
 class HealthReport(Schema):
+    revision: str = Field(description="SHA-256 revision of the complete canonical health report.")
     outcome: Literal["healthy", "advisory", "gating-failure"] = Field(description="Overall health outcome.")
     healthy: bool = Field(description="Whether all gating architecture and guidance rules pass.")
     reports: tuple[HealthReportSummary, ...] = Field(description="Compact architecture and guidance report summaries.")
     failure_count: int = Field(description="Total gating failures.", ge=0)
     advisory_count: int = Field(description="Total advisory findings.", ge=0)
+    failure_kind: Literal["failure"] = Field(description="Typed selector for gating findings.")
+    advisory_kind: Literal["advisory"] = Field(description="Typed selector for advisory findings.")
     targets: tuple[str, ...] = Field(description="Distinct precise locations affected by findings.")
     next_actions: tuple[str, ...] = Field(description="Distinct deterministic remediation instructions.")
     failures: tuple[
@@ -424,6 +431,27 @@ class HealthReport(Schema):
         Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
         ...,
     ] = Field(description="Typed advisory findings.")
+
+
+class ReadHealthFindings(Schema):
+    kind: Literal["failure", "advisory"] = Field(description="Finding collection to read.")
+    expected_revision: str = Field(description="Health revision on which the read is based.")
+    offset: int = Field(default=0, description="Finding offset at which the page starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum findings returned; zero selects the remainder.", ge=0)
+
+
+class HealthFindingPage(Schema):
+    revision: str = Field(description="SHA-256 revision of the complete canonical health report.")
+    kind: Literal["failure", "advisory"] = Field(description="Finding collection read by this page.")
+    offset: int = Field(description="Finding offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum findings selected for this page.", ge=1)
+    total: int = Field(description="Total findings in the selected collection.", ge=0)
+    items: tuple[
+        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        ...,
+    ] = Field(description="Typed health findings in this bounded page.")
+    has_more: bool = Field(description="Whether another health-finding page remains.")
+    next_offset: int = Field(description="Finding offset for the next read.", ge=0)
 
 
 class InsightSection(Schema):
@@ -443,6 +471,7 @@ class InsightsReport(Schema):
     project_id: ProjectId
     workspace_id: WorkspaceId
     revision: str = Field(description="Deterministic revision of the complete insights report.")
+    report_count: int = Field(description="Number of complete non-gating architecture reports.", ge=0)
     reports: tuple[dict[str, JsonValue], ...] = Field(description="Complete non-gating architecture reports.")
     sections: tuple[InsightSection, ...] = Field(description="Collections available through bounded page reads.")
     affected_areas: tuple[str, ...] = Field(description="Distinct areas represented by the highest-priority findings.")
@@ -467,3 +496,23 @@ class InsightPage(Schema):
     items: tuple[JsonValue, ...] = Field(description="Bounded projected insight items.")
     has_more: bool = Field(description="Whether another page remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
+
+
+class ReadInsightContent(Schema):
+    expected_revision: str = Field(description="Insights revision on which the read is based.")
+    section_offset: int = Field(default=0, description="Sequential section offset.", ge=0)
+    item_offset: int = Field(default=0, description="Item offset within the selected section.", ge=0)
+    limit: int = Field(default=0, description="Maximum items returned; zero selects the section remainder.", ge=0)
+
+
+class InsightContentPage(Schema):
+    revision: str = Field(description="Deterministic revision of the complete insights report.")
+    section_offset: int = Field(description="Sequential section offset read by this page.", ge=0)
+    path: str = Field(description="Absolute JSON pointer for the selected insight section.")
+    item_offset: int = Field(description="Item offset within the selected section.", ge=0)
+    limit: int = Field(description="Maximum items selected for this page.", ge=1)
+    section_total: int = Field(description="Total items in the selected section.", ge=0)
+    items: tuple[JsonValue, ...] = Field(description="Bounded insight items.")
+    has_more: bool = Field(description="Whether another insight-content page remains.")
+    next_section_offset: int = Field(description="Section offset for the next read.", ge=0)
+    next_item_offset: int = Field(description="Item offset for the next read.", ge=0)

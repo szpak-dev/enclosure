@@ -1,22 +1,7 @@
-{% set title = "Diagram kind" %}
-{% set summary = "Diagram-kind contract derived from Siren." %}
+# Diagram kind
 
-# {{ title }}
+`{{ data.id }}` — {{ data.name }}.
 
-{{ summary }}
-{% for field, value in data.items() if field not in ["actions", "links"] %}- {{ field | replace("_", " ") | title }}: `{{ value | tojson }}`
-{% endfor %}
-{% if data.actions | default([]) %}
+Canonical contract: {{ data.content_total_characters }} characters at revision `{{ data.content_revision }}`.
 
-## Available actions
-{% for action in data.actions %}
-- `{{ action.name }}` — {{ action.method }} `{{ action.href }}`
-{% endfor %}
-{% endif %}
-{% if data.links | default([]) %}
-
-## Links
-{% for link in data.links %}
-- {{ link.rel | join(", ") }} — `{{ link.href }}`
-{% endfor %}
-{% endif %}
+Use the typed follow-up to read the complete contract.

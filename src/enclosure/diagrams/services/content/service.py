@@ -35,13 +35,14 @@ class DiagramContentService:
         }[document]
         if offset > len(content):
             raise DiagramsError("Diagram content offset is outside the document.")
-        next_offset = min(offset + limit, len(content))
+        effective_limit = max(1, len(content) - offset) if limit == 0 else limit
+        next_offset = min(offset + effective_limit, len(content))
         return DiagramContentPage(
             diagram_id=diagram_id,
             revision=diagram.revision,
             document=document,
             offset=offset,
-            limit=limit,
+            limit=effective_limit,
             total_characters=len(content),
             content=content[offset:next_offset],
             has_more=next_offset < len(content),

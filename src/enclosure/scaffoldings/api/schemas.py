@@ -62,6 +62,8 @@ class ScaffoldingSpecManifest(Schema):
 
 class Scaffolding(ScaffoldingSummary):
     spec: ScaffoldingSpecManifest = Field(description="Variables and bounded template manifests.")
+    templates_revision: str = Field(description="SHA-256 revision of the canonical template-manifest document.")
+    template_count: int = Field(description="Number of template manifests.", ge=0)
 
 
 class FindPage(Schema):
@@ -88,7 +90,26 @@ class ReadScaffoldingTemplate(Schema):
         description="SHA-256 template revision on which the read is based.", pattern=r"^[0-9a-f]{64}$"
     )
     offset: int = Field(default=0, description="Character offset at which the read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned.", ge=1)
+    limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
+
+
+class ReadTemplateManifests(Schema):
+    expected_revision: str = Field(
+        description="SHA-256 manifest revision on which the read is based.", pattern=r"^[0-9a-f]{64}$"
+    )
+    offset: int = Field(default=0, description="Template-manifest offset at which the page starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum manifests returned; zero selects the remainder.", ge=0)
+
+
+class TemplateManifestPage(Schema):
+    scaffolding_id: ScaffoldingId
+    revision: str = Field(description="SHA-256 revision of the canonical template-manifest document.")
+    offset: int = Field(description="Template-manifest offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum manifests selected for this page.", ge=1)
+    total: int = Field(description="Total template manifests.", ge=0)
+    items: list[TemplateManifest] = Field(description="Template manifests in this bounded page.")
+    has_more: bool = Field(description="Whether another template-manifest page remains.")
+    next_offset: int = Field(description="Template-manifest offset for the next read.", ge=0)
 
 
 class ScaffoldingTemplateContent(Schema):
