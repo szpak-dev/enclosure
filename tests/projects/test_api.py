@@ -1,6 +1,5 @@
 import asyncio
 import json
-import multiprocessing
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -1833,6 +1832,7 @@ def test_health_times_out_blocked_work_and_recovers_capacity(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     source = BlockingArchitectureSource.create(tmp_path)
     resolution = client.post(
@@ -1842,21 +1842,38 @@ def test_health_times_out_blocked_work_and_recovers_capacity(
     ).json()
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
+    caplog.clear()
     started = monotonic()
     timed_out = client.get(path)
     timeout_duration = monotonic() - started
     source.replace()
     with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=5):
         recovered = client.get(path)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+    completed_run_id = next(
+        event["run_id"]
+        for event in events
+        if event.get("event") == "project_health_terminal" and event["outcome"] == "completed"
+    )
+    replacement = next(
+        event
+        for event in events
+        if event.get("event") == "project_health_worker_started" and event["run_id"] == completed_run_id
+    )
 
     assert timed_out.status_code == 504
     assert timed_out.json() == {"detail": "Project health execution timed out."}
     assert 1 <= timeout_duration < 3
     assert recovered.status_code == 200
+    assert replacement["replacement"] is True
 
 
 @pytest.mark.django_db(transaction=True)
-def test_health_disconnect_cancels_work_without_leaking_processes_and_recovers(
+def test_health_disconnect_cancels_work_and_recovers(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -1869,7 +1886,6 @@ def test_health_disconnect_cancels_work_without_leaking_processes_and_recovers(
         content_type="application/json",
     ).json()
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
-    process_ids = {process.pid for process in multiprocessing.active_children()}
     first_request = DisconnectingHealthRequest(
         application=ApplicationFactory().build(),
         path=path,
@@ -1886,12 +1902,57 @@ def test_health_disconnect_cancels_work_without_leaking_processes_and_recovers(
     terminal_events = [
         json.loads(line) for line in capfd.readouterr().err.splitlines() if '"event": "project_health_terminal"' in line
     ]
+    canceled_events = [event for event in terminal_events if event["outcome"] == "canceled"]
 
     assert first_request.messages == []
     assert second_request.messages == []
-    assert {process.pid for process in multiprocessing.active_children()} == process_ids
     assert recovered.status_code == 200
     assert [event["outcome"] for event in terminal_events] == ["canceled", "canceled", "completed"]
+    assert len(canceled_events) == 2
+
+
+@pytest.mark.django_db
+def test_repeated_health_reuses_warm_execution_and_observes_source_changes(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    caplog.clear()
+    healthy = client.get(path)
+    (tmp_path / "app.py").write_text(
+        "class ExampleApplication:\n    pass\n\nclass ExampleHandler:\n    pass\n",
+        encoding="utf-8",
+    )
+    changed = client.get(path)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+    terminal_events = [event for event in events if event.get("event") == "project_health_terminal"]
+    changed_run_id = terminal_events[-1]["run_id"]
+    changed_worker_events = [
+        event["event"]
+        for event in events
+        if event.get("run_id") == changed_run_id
+        and event.get("event") in {"project_health_worker_started", "project_health_worker_reused"}
+    ]
+
+    assert healthy.status_code == 200
+    assert healthy.json()["healthy"] is True
+    assert changed.status_code == 200
+    assert changed.json()["healthy"] is False
+    assert "max_classes_per_file" in {finding["rule"] for finding in changed.json()["failures"]}
+    assert changed_worker_events == ["project_health_worker_reused"]
 
 
 @pytest.mark.django_db

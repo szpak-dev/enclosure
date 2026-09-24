@@ -8,7 +8,7 @@ from enclosure.shared.execution import RequestCancellationContext
 from ....errors import ProjectHealthCanceled, ProjectHealthExecutionFailed, ProjectHealthTimedOut
 from ...reports.model import ArchitectureSource, HealthReportSet
 from .gateway import HealthWorkerGateway
-from .model import HealthRunOutcome
+from .model import HealthExecutionRequest, HealthRunOutcome
 
 
 @injectable
@@ -18,9 +18,9 @@ class HealthExecutionService:
     cancellation: RequestCancellationContext
     cache: CacheDiagnosticsContext
 
-    def execute(self, source: ArchitectureSource) -> HealthReportSet:
+    def execute(self, run_id: str, source: ArchitectureSource) -> HealthReportSet:
         result = self.worker.execute(
-            source,
+            HealthExecutionRequest(run_id=run_id, source=source),
             self.cancellation.current(),
             self.worker.timeout_seconds,
         )
