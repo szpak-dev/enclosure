@@ -5,7 +5,7 @@ from ninja import Path
 from ninja_extra import ControllerBase, api_controller, route
 
 from ...security.adapters.http import SecurityPermission
-from ..services import LanguagesService
+from ..services.facade import LanguagesService
 from . import schemas
 
 

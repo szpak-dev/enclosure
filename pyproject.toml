@@ -19,7 +19,7 @@ dependencies = [
     "jinja2",
     "mcp>=2,<3",
     "markdown-it-py",
-    "modwire==9.2.3",
+    "modwire==9.2.4",
     "modwire-hex",
     "mermaiden==10.0.0",
     "sirenity==8.0.2",

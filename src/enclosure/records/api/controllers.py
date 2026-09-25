@@ -14,7 +14,7 @@ from sirenity import (
 )
 
 from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
-from ..services import RecordsService
+from ..services.facade import RecordsService
 from . import schemas
 
 
