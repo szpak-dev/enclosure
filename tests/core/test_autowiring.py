@@ -12,5 +12,6 @@ def test_discovers_shared_and_app_service_packages() -> None:
         "enclosure.records.services",
         "enclosure.projects.services",
         "enclosure.scaffoldings.services",
+        "enclosure.security.services",
         "enclosure.shared",
     }

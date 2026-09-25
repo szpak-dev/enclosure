@@ -3,6 +3,8 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from django.test import Client
 
+pytestmark = pytest.mark.django_db
+
 SIREN_MEDIA_TYPE = "application/vnd.siren+json"
 
 
@@ -35,6 +37,7 @@ def scaffolding_payload() -> dict[str, object]:
 def test_siren_discovers_and_creates_scaffoldings(
     client: Client,
     scaffolding_payload: dict[str, object],
+    approve_operation,
 ) -> None:
     root = client.get("/siren/")
 
@@ -150,6 +153,8 @@ def test_siren_discovers_and_creates_scaffoldings(
     assert rendered_content.json()["properties"]["content"] == ""
 
     action = next(action for action in details.json()["actions"] if action["name"] == "delete_scaffolding")
+    deleted = client.delete(action["href"].removeprefix("http://testserver"))
+    approve_operation(client, deleted)
     deleted = client.delete(action["href"].removeprefix("http://testserver"))
 
     assert deleted.status_code == 204

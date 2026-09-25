@@ -14,6 +14,8 @@ from starlette.types import ASGIApp, Message, Scope
 
 from enclosure.core.asgi import ApplicationFactory
 
+pytestmark = pytest.mark.django_db
+
 BOUNDARIES_YAML = """boundaries:
   tags:
     - name: module
@@ -517,6 +519,7 @@ def test_binds_multiple_worktrees_and_uses_the_selected_workspace(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
+    approve_operation,
 ) -> None:
     main = tmp_path / "main"
     feature = tmp_path / "feature"
@@ -548,6 +551,12 @@ def test_binds_multiple_worktrees_and_uses_the_selected_workspace(
     )
     workspaces = client.get(f"/api/projects/{project['id']}/workspaces")
     fetched = client.get(f"/api/projects/{project['id']}/workspaces/{bound.json()['id']}")
+    deleted = client.delete(
+        f"/api/projects/{project['id']}/workspaces/{bound.json()['id']}",
+        data={"expected_revision": 1},
+        content_type="application/json",
+    )
+    approve_operation(client, deleted)
     deleted = client.delete(
         f"/api/projects/{project['id']}/workspaces/{bound.json()['id']}",
         data={"expected_revision": 1},
@@ -961,6 +970,7 @@ def test_protects_guidance_published_in_an_operating_contract(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
+    approve_operation,
 ) -> None:
     python_project(tmp_path)
     client.post(
@@ -968,6 +978,8 @@ def test_protects_guidance_published_in_an_operating_contract(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     )
+    deleted = client.delete(f"/api/records/{dependencies['record_id']}")
+    approve_operation(client, deleted)
     deleted = client.delete(f"/api/records/{dependencies['record_id']}")
 
     response = client.post(

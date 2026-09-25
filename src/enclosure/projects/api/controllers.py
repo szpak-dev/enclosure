@@ -13,11 +13,12 @@ from sirenity import (
     siren_pagination,
 )
 
+from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
 from ..services.facade import ProjectsService
 from . import schemas
 
 
-@api_controller("/projects", tags=["Projects"])
+@api_controller("/projects", tags=["Projects"], permissions=[SecurityPermission])
 class ProjectsController(ControllerBase):
     @route.post(
         "/operating-contracts",
@@ -86,6 +87,7 @@ class ProjectsController(ControllerBase):
 
     @route.post(
         "/workspace-contexts",
+        permissions=[ReadSecurityPermission],
         response=schemas.WorkspaceContext,
         operation_id="get_workspace_context",
         summary="Get workspace context",
@@ -207,6 +209,7 @@ class ProjectsController(ControllerBase):
 
     @route.post(
         "/discoveries",
+        permissions=[ReadSecurityPermission],
         response=schemas.DiscoveredProject,
         operation_id="discover_project",
         summary="Discover a project",
@@ -240,6 +243,7 @@ class ProjectsController(ControllerBase):
 
     @route.post(
         "/root-search-results",
+        permissions=[ReadSecurityPermission],
         response=schemas.Project,
         operation_id="find_project_by_root",
         summary="Find a project by root",
@@ -250,6 +254,7 @@ class ProjectsController(ControllerBase):
 
     @route.post(
         "/workspace-resolutions",
+        permissions=[ReadSecurityPermission],
         response=schemas.WorkspaceResolution,
         operation_id="resolve_workspace",
         summary="Resolve a workspace",

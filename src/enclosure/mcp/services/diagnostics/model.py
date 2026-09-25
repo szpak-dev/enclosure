@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import ClassVar
 
@@ -55,3 +56,10 @@ class McpDiagnostics(DiagnosticValue):
 class McpInvocationResult(DiagnosticValue):
     presentation: McpPresentation
     diagnostics: McpDiagnostics
+
+
+@dataclass
+class DiagnosticTrace:
+    request: McpDiagnosticRequest
+    started_ns: int
+    stages: list[DiagnosticStage] = field(default_factory=list)

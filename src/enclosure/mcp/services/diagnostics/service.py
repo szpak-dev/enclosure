@@ -1,31 +1,32 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from time import perf_counter_ns
+from typing import ClassVar
 
 import structlog
 from wireup import injectable
 
 from enclosure.diagnostics.services import CacheDiagnosticsContext
 
-from .model import DiagnosticOwner, DiagnosticStage, DiagnosticStageName, McpDiagnosticRequest, McpDiagnostics
-
-logger = structlog.get_logger(__name__)
-
-
-@dataclass
-class DiagnosticTrace:
-    request: McpDiagnosticRequest
-    started_ns: int
-    stages: list[DiagnosticStage] = field(default_factory=list)
+from .model import (
+    DiagnosticOwner,
+    DiagnosticStage,
+    DiagnosticStageName,
+    DiagnosticTrace,
+    McpDiagnosticRequest,
+    McpDiagnostics,
+)
 
 
 @injectable
 @dataclass(frozen=True)
 class McpDiagnosticsService:
+    logger: ClassVar = structlog.get_logger(__name__)
+
     cache: CacheDiagnosticsContext
 
     def begin(self, request: McpDiagnosticRequest) -> DiagnosticTrace:
         started_ns = perf_counter_ns()
-        logger.info(
+        self.logger.info(
             "mcp_tool_started",
             correlation_id=request.correlation_id,
             started_ns=started_ns,
@@ -56,7 +57,7 @@ class McpDiagnosticsService:
             duration_ns=finished_ns - started_ns,
         )
         trace.stages.append(stage)
-        logger.info(
+        self.logger.info(
             "mcp_stage_finished",
             correlation_id=trace.request.correlation_id,
             **stage.model_dump(mode="json"),

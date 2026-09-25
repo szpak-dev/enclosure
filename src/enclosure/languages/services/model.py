@@ -3,7 +3,7 @@ from typing import Literal, Protocol
 
 from .errors import LanguagesError
 
-PackageManagerCommand = Literal[
+type PackageManagerCommand = Literal[
     "init",
     "install",
     "add_runtime",
@@ -17,7 +17,7 @@ PackageManagerCommand = Literal[
     "publish",
     "audit",
 ]
-ToolCommand = Literal[
+type ToolCommand = Literal[
     "init",
     "check",
     "fix",
@@ -28,7 +28,7 @@ ToolCommand = Literal[
     "audit",
     "render",
 ]
-ToolRole = Literal[
+type ToolRole = Literal[
     "build",
     "coverage",
     "development_runner",
@@ -41,8 +41,8 @@ ToolRole = Literal[
     "test_runner",
     "type_checker",
 ]
-VersionProviderKind = Literal["endoflife", "npm"]
-VersionPathItem = str | int
+type VersionProviderKind = Literal["endoflife", "npm"]
+type VersionPathItem = str | int
 
 
 @dataclass(frozen=True)

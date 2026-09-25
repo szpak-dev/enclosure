@@ -1,4 +1,7 @@
+import pytest
 from django.test import Client
+
+pytestmark = pytest.mark.django_db
 
 SIREN_MEDIA_TYPE = "application/vnd.siren+json"
 

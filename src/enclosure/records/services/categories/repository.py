@@ -17,16 +17,17 @@ class CategoryRepository(DjangoRepository):
     @transaction.atomic
     def save(self, title: str, content_schema: dict) -> Category:
         try:
-            category = super().save(
-                title=title,
-                content_schema=content_schema,
-                schema_version=1,
-            )
-            CategorySchemaRevision.objects.create(
-                category=category,
-                version=category.schema_version,
-                content_schema=content_schema,
-            )
+            with transaction.atomic():
+                category = super().save(
+                    title=title,
+                    content_schema=content_schema,
+                    schema_version=1,
+                )
+                CategorySchemaRevision.objects.create(
+                    category=category,
+                    version=category.schema_version,
+                    content_schema=content_schema,
+                )
         except IntegrityError as error:
             raise RecordsError("A category with this title already exists.") from error
         return category
@@ -35,7 +36,8 @@ class CategoryRepository(DjangoRepository):
         category = self.get(id)
         category.title = title
         try:
-            category.save()
+            with transaction.atomic():
+                category.save()
         except IntegrityError as error:
             raise RecordsError("A category with this title already exists.") from error
         return category
@@ -64,6 +66,7 @@ class CategoryRepository(DjangoRepository):
 
     def delete(self, id: str) -> None:
         try:
-            self.get(id).delete()
+            with transaction.atomic():
+                self.get(id).delete()
         except ProtectedError as error:
             raise RecordsError("A category assigned to records cannot be deleted.") from error

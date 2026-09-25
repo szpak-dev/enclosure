@@ -1,6 +1,8 @@
 import pytest
 from django.test import Client
 
+pytestmark = pytest.mark.django_db
+
 
 @pytest.mark.django_db
 def test_record_collections_are_deterministically_paginated() -> None:

@@ -1,8 +1,10 @@
 from django.conf import settings
 from ninja_extra import ControllerBase, api_controller, route
 
+from ..security.adapters.http import SecurityPermission
 
-@api_controller("", tags=["Root"])
+
+@api_controller("", tags=["Root"], permissions=[SecurityPermission])
 class RootController(ControllerBase):
     @route.get(
         "/",

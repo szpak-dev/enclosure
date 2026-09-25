@@ -2,11 +2,12 @@ from .model import (
     DiagnosticOwner,
     DiagnosticStage,
     DiagnosticStageName,
+    DiagnosticTrace,
     McpDiagnosticRequest,
     McpDiagnostics,
     McpInvocationResult,
 )
-from .service import DiagnosticTrace, McpDiagnosticsService
+from .service import McpDiagnosticsService
 
 __all__ = [
     "DiagnosticOwner",

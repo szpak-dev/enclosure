@@ -1,8 +1,8 @@
 import yaml
 from wireup import injectable
 
-from ..base import Language, PackageManager, Tool, VersionProvider
 from ..errors import LanguagesError
+from ..model import Language, PackageManager, Tool, VersionProvider
 
 
 @injectable(as_type=Language, qualifier="yaml")
