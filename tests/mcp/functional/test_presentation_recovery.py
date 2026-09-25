@@ -125,9 +125,9 @@ def test_oversized_mutation_stays_compact_and_recoverable() -> None:
     assert data["resource_count"] == 16
     assert "content" not in data
     assert "resources" not in data
-    assert {follow_up["operation_id"] for follow_up in created.structured_content["follow_ups"]}.issuperset(
-        {"read_record_content", "read_record_resource_manifests"}
-    )
+    assert created.structured_content["follow_ups"] == [
+        {"operation_id": "get_record", "arguments": {"record_id": data["id"]}}
+    ]
     assert_bounded(created)
 
     assert verified.is_error is False
@@ -135,6 +135,10 @@ def test_oversized_mutation_stays_compact_and_recoverable() -> None:
     assert verified.structured_content["data"]["id"] == data["id"]
     assert "content" not in verified.structured_content["data"]
     assert "resources" not in verified.structured_content["data"]
+    assert {follow_up["operation_id"] for follow_up in verified.structured_content["follow_ups"]} == {
+        "read_record_content",
+        "read_record_resource_manifests",
+    }
     assert_bounded(verified)
 
 
@@ -221,8 +225,15 @@ def test_document_follow_up_uses_the_presentation_budget_and_reconstructs_exact_
     assert initial["arguments"]["expected_revision"]
     assert manifests.structured_content["data"]["items"][0]["path"] == "examples/document.py"
     assert all(page.is_error is False for page in pages)
-    assert all(page.structured_content["status"] == "ok" for page in pages)
-    assert "".join(page.structured_content["data"]["content"] for page in pages) == source
-    assert [page.structured_content["data"]["offset"] for page in pages] == [0, 4096, 8192]
+    assert pages[0].structured_content["status"] == "incomplete"
+    assert pages[0].structured_content["data"]["reason"] == "presentation_budget_exceeded"
+    content_pages = [page for page in pages if page.structured_content["status"] == "ok"]
+    assert "".join(page.structured_content["data"]["content"] for page in content_pages) == source
+    assert content_pages[0].structured_content["data"]["offset"] == 0
+    assert all(
+        current.structured_content["data"]["next_offset"] == following.structured_content["data"]["offset"]
+        for current, following in zip(content_pages, content_pages[1:])
+    )
+    assert content_pages[-1].structured_content["data"]["has_more"] is False
     for page in pages:
         assert_bounded(page)

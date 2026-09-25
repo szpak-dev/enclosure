@@ -56,7 +56,7 @@ def test_every_scaffolding_operation_has_a_complete_bounded_presentation() -> No
     }
 
     manifests = results["read_scaffolding_template_manifests"].structured_content
-    assert manifests["data"]["items"][0]["path"] == "package.py.jinja"
+    assert manifests["data"]["items"][0]["path"] == "README.md.jinja"
     assert manifests["data"]["has_more"] is True
     assert {follow_up["operation_id"] for follow_up in manifests["follow_ups"]} == {
         "read_scaffolding_template",
@@ -64,8 +64,9 @@ def test_every_scaffolding_operation_has_a_complete_bounded_presentation() -> No
     }
 
     template = results["read_scaffolding_template"].structured_content
-    assert template["data"]["has_more"] is True
-    assert template["follow_ups"][0]["operation_id"] == "read_scaffolding_template"
+    assert template["data"]["content"] == "# {{ name }}\n"
+    assert template["data"]["has_more"] is False
+    assert template["follow_ups"] == []
 
     rendering = results["render_scaffolding"].structured_content
     assert len(rendering["data"]["items"]) == 1

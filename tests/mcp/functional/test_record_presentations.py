@@ -63,14 +63,17 @@ def test_every_record_operation_has_a_complete_bounded_presentation() -> None:
     )
     assert all(follow_up["arguments"]["expected_revision"] for follow_up in detail_follow_ups)
 
-    for operation in (
-        "create_record_category",
-        "get_record_category",
-        "update_record_category_content_schema",
-    ):
-        follow_up = results[operation].structured_content["follow_ups"][0]
-        assert follow_up["operation_id"] == "read_record_category_content_schema"
-        assert follow_up["arguments"]["limit"] == 4096
+    category_follow_up = results["get_record_category"].structured_content["follow_ups"][0]
+    assert category_follow_up["operation_id"] == "read_record_category_content_schema"
+    assert set(category_follow_up["arguments"]) == {"category_id", "schema_version", "expected_revision"}
+
+    verification = results["create_record_category"].structured_content["follow_ups"][0]
+    assert verification["operation_id"] == "get_record_category"
+    assert verification["arguments"]["category_id"]
+
+    schema_verification = results["update_record_category_content_schema"].structured_content["follow_ups"][0]
+    assert schema_verification["operation_id"] == "read_record_category_content_schema"
+    assert set(schema_verification["arguments"]) == {"category_id", "schema_version", "expected_revision"}
 
     item_operations = {
         "find_record_tags": "get_record_tag",

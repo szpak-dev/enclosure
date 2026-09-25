@@ -77,7 +77,6 @@ def test_siren_discovers_and_creates_scaffoldings(
         "delete_scaffolding",
         "get_scaffolding",
         "read_scaffolding_rendered_file",
-        "read_scaffolding_template_manifests",
         "read_scaffolding_template",
         "render_scaffolding",
         "update_scaffolding",

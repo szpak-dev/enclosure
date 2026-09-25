@@ -1265,11 +1265,11 @@ def test_presents_exact_bounded_configuration_content_from_a_siren_action(tmp_pa
         PublicMcpClient(ConfiguredApplication()).project_configuration_content(tmp_path)
     )
 
-    actions = {action["name"] for action in configuration.structured_content["data"]["actions"]}
+    follow_ups = {follow_up["operation_id"] for follow_up in configuration.structured_content["follow_ups"]}
     first_data = first.structured_content["data"]
     final_data = final.structured_content["data"]
 
-    assert "read_project_architecture_configuration_content" in actions
+    assert "read_project_architecture_configuration_content" in follow_ups
     assert first.is_error is False
     assert first.structured_content["status"] == "ok"
     assert first_data["content"] == EXAMPLE_PAGED_BOUNDARIES_YAML[:1024]
@@ -1598,15 +1598,16 @@ def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up(
 
     result = asyncio.run(client.call_tool("get_diagram", {"diagram_id": diagram.json()["id"]}))
     data = result.structured_content["data"]
-    action_names = {action["name"] for action in data["actions"]}
+    follow_up_names = {follow_up["operation_id"] for follow_up in result.structured_content["follow_ups"]}
 
     assert result.is_error is False
     assert result.structured_content["status"] == "ok"
-    assert data["source"] == f"{source[:509]}..."
-    assert data["snapshot"]["kind"] == "flowchart"
-    assert data["snapshot"]["draft"] is False
-    assert data["snapshot"]["elements"] == {"summary": "collection", "count": 20}
-    assert "read_diagram_content" in action_names
+    assert data["revision"] == revision
+    assert data["source_document"] == "source"
+    assert data["snapshot_document"] == "snapshot"
+    assert data["source_total_characters"] == len(source)
+    assert data["snapshot_total_characters"] > 0
+    assert follow_up_names == {"read_diagram_content"}
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
     content = asyncio.run(

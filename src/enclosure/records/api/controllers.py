@@ -216,10 +216,24 @@ class RecordsController(ControllerBase):
             body.model_dump(mode="json"),
         )
 
-    @route.put(
+    @siren_follow_ups(
+        route.put,
         "/categories/{category_id}/content-schema",
         response=schemas.CategorySchemaRevision,
         operation_id="update_record_category_content_schema",
+        follow_ups={
+            "content_schema": SirenFollowUp(
+                operation_id="read_record_category_content_schema",
+                parameters={
+                    "path.category_id": "category_id",
+                    "query.schema_version": "version",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            )
+        },
+        status=200,
         summary="Update a record category content schema",
         description="Replace an unreferenced schema or publish its next immutable version.",
     )

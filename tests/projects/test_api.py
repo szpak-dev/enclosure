@@ -1173,6 +1173,10 @@ def test_updates_registered_project(
         "revision": references[0]["revision"],
         "boundaries_yaml": BOUNDARIES_YAML,
         "shape_yaml": UNHEALTHY_SHAPE_YAML,
+        "boundaries_document": "boundaries_yaml",
+        "shape_document": "shape_yaml",
+        "boundaries_total_characters": len(BOUNDARIES_YAML),
+        "shape_total_characters": len(UNHEALTHY_SHAPE_YAML),
     }
 
 
