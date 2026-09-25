@@ -1,4 +1,6 @@
-from .identity import ActorExecutionContext, BearerIdentityProvider, DjangoSignedBearerIdentityProvider
+from .context import ActorExecutionContext
+from .contract import BearerIdentityProvider
+from .identity import DjangoSignedBearerIdentityProvider
 from .model import Actor, ActorKind, AuthenticationMethod
 
 __all__ = [

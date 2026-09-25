@@ -12,7 +12,7 @@ from ...services.actors import (
     AuthenticationMethod,
     BearerIdentityProvider,
 )
-from ...services.actors.identity import InvalidBearerTokenError
+from ...services.actors.errors import InvalidBearerTokenError
 
 
 @injectable

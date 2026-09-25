@@ -9,7 +9,7 @@ from pydantic import AnyHttpUrl
 
 from enclosure.security.errors import SecurityAuthenticationError
 from enclosure.security.services.actors import Actor, ActorKind, AuthenticationMethod, BearerIdentityProvider
-from enclosure.security.services.actors.identity import InvalidBearerTokenError
+from enclosure.security.services.actors.errors import InvalidBearerTokenError
 
 
 @dataclass(frozen=True)

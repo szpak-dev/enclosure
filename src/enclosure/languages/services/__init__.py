@@ -1,4 +1,4 @@
-from .base import Language
+from .model import Language
 from .facade import LanguagesService
 
 __all__ = [

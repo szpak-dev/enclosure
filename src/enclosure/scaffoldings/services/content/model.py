@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from ...models import Scaffolding
-from ..spec.template import WriteMode
+from ..spec.model import WriteMode
 
 
 class TemplateManifest(BaseModel):

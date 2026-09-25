@@ -1,4 +1,14 @@
+from typing import NotRequired, TypedDict
+
 from pydantic import BaseModel, ConfigDict
+
+
+class GuidanceContent(TypedDict):
+    authority: NotRequired[str]
+    summary: NotRequired[str]
+    applies_when: NotRequired[list[str]]
+    guidance: NotRequired[list[str]]
+    checks: NotRequired[list[str]]
 
 
 class WorkspaceGuidance(BaseModel):

@@ -1,7 +1,7 @@
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import NotRequired, TypedDict, cast
+from typing import cast
 
 from django.core.exceptions import ObjectDoesNotExist
 from wireup import injectable
@@ -9,15 +9,7 @@ from wireup import injectable
 from enclosure.records.models import Record
 from enclosure.records.services import RecordsService
 
-from .model import GuidanceRanking, WorkspaceGuidance, WorkspaceGuidanceResolution
-
-
-class GuidanceContent(TypedDict):
-    authority: NotRequired[str]
-    summary: NotRequired[str]
-    applies_when: NotRequired[list[str]]
-    guidance: NotRequired[list[str]]
-    checks: NotRequired[list[str]]
+from .model import GuidanceContent, GuidanceRanking, WorkspaceGuidance, WorkspaceGuidanceResolution
 
 
 @injectable

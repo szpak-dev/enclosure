@@ -10,7 +10,7 @@ from enclosure.shared.source_code.renderer import SourceCodeRenderer
 from ...errors import ScaffoldingError
 from ..spec.model import ScaffoldingSpec
 from ..spec.service import ScaffoldingSpecService
-from ..spec.template import WriteMode
+from ..spec.model import WriteMode
 from .model import RenderedFile, RenderedFileContent, RenderedFileManifest, RenderingPage
 
 

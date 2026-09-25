@@ -7,7 +7,7 @@ from ninja_extra.controllers import ControllerBase
 from ninja_extra.permissions import BasePermission
 
 from ...errors import UnmappedOperationError
-from ...services.enforcement.service import OperationIntentFactory
+from ...services.enforcement.factory import OperationIntentFactory
 from ...services.facade import SecurityService
 from ...services.policies.model import OperationClassification
 from ...services.policies.registry import OperationPolicyRegistry

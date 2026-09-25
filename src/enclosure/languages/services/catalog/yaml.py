@@ -1,7 +1,7 @@
 import yaml
 from wireup import injectable
 
-from ..base import Language, PackageManager, Tool, VersionProvider
+from ..model import Language, PackageManager, Tool, VersionProvider
 from ..errors import LanguagesError
 
 

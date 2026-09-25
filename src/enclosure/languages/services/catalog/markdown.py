@@ -1,7 +1,7 @@
 from markdown_it import MarkdownIt
 from wireup import injectable
 
-from ..base import Language, PackageManager, Tool, VersionProvider
+from ..model import Language, PackageManager, Tool, VersionProvider
 
 
 @injectable(as_type=Language, qualifier="markdown")
