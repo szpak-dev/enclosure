@@ -13,11 +13,12 @@ from sirenity import (
     siren_pagination,
 )
 
+from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
 from ..services import RecordsService
 from . import schemas
 
 
-@api_controller("/records/tags", tags=["Record tags"])
+@api_controller("/records/tags", tags=["Record tags"], permissions=[SecurityPermission])
 class TagsController(ControllerBase):
     @route.post(
         "",
@@ -90,7 +91,7 @@ class TagsController(ControllerBase):
         return Status(204, None)
 
 
-@api_controller("/records", tags=["Records"])
+@api_controller("/records", tags=["Records"], permissions=[SecurityPermission])
 class RecordsController(ControllerBase):
     @route.post(
         "",
@@ -128,6 +129,7 @@ class RecordsController(ControllerBase):
 
     @route.post(
         "/search-results",
+        permissions=[ReadSecurityPermission],
         response=list[schemas.RecordSummary],
         operation_id="search_records",
         summary="Search records",

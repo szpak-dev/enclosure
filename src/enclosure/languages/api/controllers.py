@@ -4,11 +4,12 @@ from modwire_hex.django import DjangoRequest
 from ninja import Path
 from ninja_extra import ControllerBase, api_controller, route
 
+from ...security.adapters.http import SecurityPermission
 from ..services import LanguagesService
 from . import schemas
 
 
-@api_controller("/languages", tags=["Languages"])
+@api_controller("/languages", tags=["Languages"], permissions=[SecurityPermission])
 class LanguagesController(ControllerBase):
     @route.get(
         "",

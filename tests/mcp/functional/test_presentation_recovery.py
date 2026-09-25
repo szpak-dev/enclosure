@@ -6,6 +6,8 @@ from mcp.types import CallToolResult
 
 from .test_runtime import ConfiguredApplication, PublicMcpClient
 
+pytestmark = pytest.mark.django_db
+
 
 def assert_bounded(result: CallToolResult) -> None:
     assert len(result.content[0].text.encode("utf-8")) <= 16_384

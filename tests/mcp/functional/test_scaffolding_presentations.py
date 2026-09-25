@@ -5,6 +5,8 @@ import pytest
 
 from .test_runtime import ConfiguredApplication, PublicMcpClient
 
+pytestmark = pytest.mark.django_db
+
 
 @pytest.mark.django_db(transaction=True)
 def test_every_scaffolding_operation_has_a_complete_bounded_presentation() -> None:

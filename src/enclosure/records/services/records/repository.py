@@ -70,7 +70,8 @@ class RecordRepository(DjangoRepository):
     @transaction.atomic
     def delete(self, id: str) -> None:
         try:
-            self.get(id).delete()
+            with transaction.atomic():
+                self.get(id).delete()
         except ProtectedError as error:
             raise RecordsError("A record published in an operating contract cannot be deleted.") from error
 

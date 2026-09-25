@@ -13,11 +13,12 @@ from sirenity import (
     siren_pagination,
 )
 
+from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
 from ..services.facade import ScaffoldingService
 from . import schemas
 
 
-@api_controller("/scaffoldings", tags=["Scaffoldings"])
+@api_controller("/scaffoldings", tags=["Scaffoldings"], permissions=[SecurityPermission])
 class ScaffoldingController(ControllerBase):
     @route.post(
         "",
@@ -55,6 +56,7 @@ class ScaffoldingController(ControllerBase):
 
     @route.post(
         "/name-search-results",
+        permissions=[ReadSecurityPermission],
         response=list[schemas.ScaffoldingSummary],
         operation_id="search_scaffoldings",
         summary="Search scaffoldings",
@@ -173,6 +175,7 @@ class ScaffoldingController(ControllerBase):
 
     @route.post(
         "/{scaffolding_id}/renderings",
+        permissions=[ReadSecurityPermission],
         response=schemas.RenderingPage,
         operation_id="render_scaffolding",
         summary="Render a scaffolding",
@@ -193,6 +196,7 @@ class ScaffoldingController(ControllerBase):
 
     @route.post(
         "/{scaffolding_id}/rendered-file-content",
+        permissions=[ReadSecurityPermission],
         response=schemas.RenderedFileContent,
         operation_id="read_scaffolding_rendered_file",
         summary="Read rendered scaffolding content",

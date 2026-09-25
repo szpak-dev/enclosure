@@ -1,6 +1,8 @@
 import pytest
 from django.test import Client
 
+pytestmark = pytest.mark.django_db
+
 
 def create_record_with_resource(client: Client) -> dict:
     category = client.post(

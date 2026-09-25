@@ -1,6 +1,9 @@
+import pytest
 from django.test import Client
 
 from enclosure.shared.diagrams import DiagramsError, DiagramsService
+
+pytestmark = pytest.mark.django_db
 
 
 def test_lists_supported_languages() -> None:

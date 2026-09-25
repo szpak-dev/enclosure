@@ -1,9 +1,11 @@
 import pytest
 from django.test import Client
 
+pytestmark = pytest.mark.django_db
+
 
 @pytest.mark.django_db
-def test_scaffolding_crud() -> None:
+def test_scaffolding_crud(approve_operation) -> None:
     client = Client()
     payload = {
         "language_id": "python",
@@ -83,6 +85,8 @@ def test_scaffolding_crud() -> None:
     assert updated.status_code == 200
     assert updated.json()["name"] == "Renamed package"
 
+    deleted = client.delete(f"/api/scaffoldings/{scaffolding_id}")
+    approve_operation(client, deleted)
     deleted = client.delete(f"/api/scaffoldings/{scaffolding_id}")
 
     assert deleted.status_code == 204

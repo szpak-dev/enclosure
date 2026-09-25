@@ -42,10 +42,12 @@ INSTALLED_APPS = [
     "enclosure.scaffoldings.apps.ScaffoldingsDjangoConfig",
     "enclosure.records.apps.RecordsConfig",
     "enclosure.projects.apps.ProjectsConfig",
+    "enclosure.security.apps.SecurityConfig",
 ]
 
 MIDDLEWARE = [
     "modwire_hex.django.middleware.RequestScopeMiddleware",
+    "enclosure.security.adapters.http.middleware.SecurityOutcomeMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -59,7 +61,7 @@ MIDDLEWARE = [
 ]
 if LOCAL_DEVELOPMENT:
     CORS_ALLOW_ALL_ORIGINS = True
-    CORS_ALLOW_HEADERS = [*default_headers, "x-actor-id", "x-actor-type"]
+    CORS_ALLOW_HEADERS = list(default_headers)
     CORS_ALLOW_METHODS = list(default_methods)
 MODWIRE = {
     "APPLICATION": "enclosure.autowiring.application",
@@ -69,6 +71,12 @@ MODWIRE_CACHE_DIRECTORY = os.getenv("MODWIRE_CACHE_DIRECTORY", str(BASE_DIR / ".
 MODWIRE_CACHE_MAX_BYTES = int(os.getenv("MODWIRE_CACHE_MAX_BYTES", "1073741824"))
 PROJECT_HEALTH_MAX_CONCURRENCY = int(os.getenv("PROJECT_HEALTH_MAX_CONCURRENCY", "1"))
 PROJECT_HEALTH_TIMEOUT_SECONDS = int(os.getenv("PROJECT_HEALTH_TIMEOUT_SECONDS", "60"))
+SECURITY_APPROVAL_TTL_SECONDS = int(os.getenv("SECURITY_APPROVAL_TTL_SECONDS", "900"))
+SECURITY_BEARER_MAX_AGE_SECONDS = int(os.getenv("SECURITY_BEARER_MAX_AGE_SECONDS", "3600"))
+SECURITY_LOCAL_ACTOR_ID = os.getenv("SECURITY_LOCAL_ACTOR_ID", "local-development")
+SECURITY_MCP_AUTH_REQUIRED = os.getenv("SECURITY_MCP_AUTH_REQUIRED", "0" if LOCAL_DEVELOPMENT else "1") == "1"
+SECURITY_MCP_ISSUER_URL = os.getenv("SECURITY_MCP_ISSUER_URL", "https://localhost/")
+SECURITY_MCP_RESOURCE_URL = os.getenv("SECURITY_MCP_RESOURCE_URL", "https://localhost/mcp")
 SIRENITY = {
     "MCP_OPENAPI": "enclosure.core.api.openapi_schema",
     "OPENAPI": "enclosure.core.api.api",

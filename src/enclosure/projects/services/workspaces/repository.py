@@ -28,11 +28,12 @@ class WorkspaceRepository:
 
     def create(self, project_id: str, location: WorkspaceLocation) -> models.WorkspaceBinding:
         try:
-            return self.model.objects.create(
-                project_id=project_id,
-                root=location.root,
-                architecture_root=location.architecture_root,
-            )
+            with transaction.atomic():
+                return self.model.objects.create(
+                    project_id=project_id,
+                    root=location.root,
+                    architecture_root=location.architecture_root,
+                )
         except IntegrityError as error:
             raise ProjectsError(f"Workspace root is already bound: {location.root}") from error
 
@@ -50,7 +51,8 @@ class WorkspaceRepository:
         workspace.architecture_root = location.architecture_root
         workspace.revision += 1
         try:
-            workspace.save(update_fields=("root", "architecture_root", "revision"))
+            with transaction.atomic():
+                workspace.save(update_fields=("root", "architecture_root", "revision"))
         except IntegrityError as error:
             raise ProjectsError(f"Workspace root is already bound: {location.root}") from error
         return workspace

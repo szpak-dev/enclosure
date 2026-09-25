@@ -13,11 +13,12 @@ from sirenity import (
     siren_pagination,
 )
 
+from ...security.adapters.http import SecurityPermission
 from ..services.facade import DiagramsService
 from . import schemas
 
 
-@api_controller("/diagrams/kinds", tags=["Diagram kinds"])
+@api_controller("/diagrams/kinds", tags=["Diagram kinds"], permissions=[SecurityPermission])
 class DiagramKindsController(ControllerBase):
     @route.get(
         "",
@@ -115,7 +116,7 @@ class DiagramKindsController(ControllerBase):
         }
 
 
-@api_controller("/diagram-sets", tags=["Diagram sets"])
+@api_controller("/diagram-sets", tags=["Diagram sets"], permissions=[SecurityPermission])
 class DiagramSetsController(ControllerBase):
     @route.post(
         "",
@@ -313,7 +314,7 @@ class DiagramSetsController(ControllerBase):
         )
 
 
-@api_controller("/diagrams", tags=["Diagrams"])
+@api_controller("/diagrams", tags=["Diagrams"], permissions=[SecurityPermission])
 class DiagramsController(ControllerBase):
     @siren_pagination(
         http_get,

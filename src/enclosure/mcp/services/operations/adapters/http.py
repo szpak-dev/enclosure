@@ -7,16 +7,26 @@ from httpx import Client, WSGITransport
 from sirenity import SirenMcpExecution, SirenMcpOperation
 from wireup import injectable
 
+from enclosure.security.adapters.http import DjangoActorAuthenticator
+from enclosure.security.services.actors import ActorExecutionContext, BearerIdentityProvider
+
 
 @injectable
 @dataclass(frozen=True)
 class HttpSirenExecutor:
+    actors: ActorExecutionContext
+    bearer: BearerIdentityProvider
     _application: WSGIHandler = field(default_factory=get_wsgi_application, init=False, repr=False)
 
     def execute(self, operation: SirenMcpOperation) -> SirenMcpExecution:
         headers = {
             "accept": "application/json",
-            **{name: str(value) for name, value in operation.header_values.items()},
+            **{
+                name: str(value)
+                for name, value in operation.header_values.items()
+                if name.lower() not in {"authorization", "x-actor-id", "x-actor-type", "x-enclosure-actor-envelope"}
+            },
+            DjangoActorAuthenticator.INTERNAL_ACTOR_HEADER: self.bearer.issue(self.actors.current()),
         }
         if operation.cookie_values:
             cookie = SimpleCookie({name: str(value) for name, value in operation.cookie_values.items()})

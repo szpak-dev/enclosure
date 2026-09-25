@@ -16,6 +16,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from enclosure.core.asgi import ApplicationFactory
 from enclosure.mcp.application import McpApplication
 
+pytestmark = pytest.mark.django_db
+
 EXAMPLE_BOUNDARIES_YAML = """boundaries:
   tags:
     - name: example-module
@@ -35,6 +37,24 @@ EXAMPLE_HEALTHY_SHAPE_YAML = """shape:
       shape:
         max_classes_per_file: 1
 """
+
+
+async def call_with_approval(
+    session: ClientSession,
+    name: str,
+    arguments: Mapping[str, Any],
+) -> CallToolResult:
+    result = await session.call_tool(name, arguments)
+    data = result.structured_content["data"]
+    if not result.is_error or data.get("reason_code") != "destructive_approval_required":
+        return result
+    approval = await session.call_tool(
+        "approve_operation",
+        {"approval_request_id": data["approval_request_id"]},
+    )
+    if approval.is_error:
+        return approval
+    return await session.call_tool(name, arguments)
 EXAMPLE_UNHEALTHY_SHAPE_YAML = """shape:
   realms:
     - name: example-project
@@ -180,7 +200,7 @@ class PublicMcpClient:
             results = {}
 
             async def call(name: str, arguments: Mapping[str, Any]) -> CallToolResult:
-                result = await session.call_tool(name, arguments)
+                result = await call_with_approval(session, name, arguments)
                 results[name] = result
                 return result
 
@@ -286,7 +306,7 @@ class PublicMcpClient:
             results = {}
 
             async def call(name: str, arguments: Mapping[str, Any]) -> CallToolResult:
-                result = await session.call_tool(name, arguments)
+                result = await call_with_approval(session, name, arguments)
                 results[name] = result
                 return result
 
@@ -447,7 +467,7 @@ class PublicMcpClient:
             results = {}
 
             async def call(name: str, arguments: Mapping[str, Any]) -> CallToolResult:
-                result = await session.call_tool(name, arguments)
+                result = await call_with_approval(session, name, arguments)
                 results[name] = result
                 return result
 

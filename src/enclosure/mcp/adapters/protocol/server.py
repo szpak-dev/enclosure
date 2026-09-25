@@ -25,6 +25,9 @@ from enclosure.autowiring import application
 from enclosure.mcp.services import McpService
 from enclosure.mcp.services.diagnostics import McpDiagnosticRequest, McpDiagnostics
 from enclosure.mcp.services.operations import ToolCatalogue, ToolInvocation
+from enclosure.security.services.actors import ActorExecutionContext
+
+from .authentication import McpActorAuthenticator, McpTokenVerifierAdapter
 
 logger = structlog.get_logger(__name__)
 
@@ -96,6 +99,7 @@ class McpResponseDiagnosticsApplication:
 class McpProtocolRuntime:
     service: McpService
     catalogue: ToolCatalogue
+    actors: ActorExecutionContext
 
 
 @dataclass(frozen=True)
@@ -103,6 +107,8 @@ class McpProtocolServer:
     SESSION_MODE: ClassVar[str] = "stateless-http"
 
     release: str
+    actor_authenticator: McpActorAuthenticator
+    token_verifier: McpTokenVerifierAdapter
 
     def build(self) -> ASGIApp:
         server = Server(
@@ -114,13 +120,21 @@ class McpProtocolServer:
             on_list_tools=self._list_tools,
             on_call_tool=self._call_tool,
         )
-        return McpResponseDiagnosticsApplication(
-            server.streamable_http_app(
+        if settings.SECURITY_MCP_AUTH_REQUIRED:
+            protocol_application = server.streamable_http_app(
+                streamable_http_path="/mcp",
+                json_response=True,
+                stateless_http=True,
+                auth=self.actor_authenticator.settings(),
+                token_verifier=self.token_verifier,
+            )
+        else:
+            protocol_application = server.streamable_http_app(
                 streamable_http_path="/mcp",
                 json_response=True,
                 stateless_http=True,
             )
-        )
+        return McpResponseDiagnosticsApplication(protocol_application)
 
     @asynccontextmanager
     async def _lifespan(
@@ -146,6 +160,7 @@ class McpProtocolServer:
             yield McpProtocolRuntime(
                 service=service,
                 catalogue=service.catalogue(),
+                actors=container.get(ActorExecutionContext),
             )
         finally:
             container.close()
@@ -183,6 +198,7 @@ class McpProtocolServer:
             session_reused=False,
         )
         context_tokens = bind_contextvars(correlation_id=correlation_id)
+        actor_token = context.lifespan_context.actors.bind(self.actor_authenticator.authenticate())
         try:
             result = await asyncio.to_thread(
                 context.lifespan_context.service.invoke,
@@ -203,4 +219,5 @@ class McpProtocolServer:
             McpResponseDiagnosticsApplication.observation(context.request.scope).complete_tool(correlation_id)
             return response
         finally:
+            context.lifespan_context.actors.reset(actor_token)
             reset_contextvars(**context_tokens)

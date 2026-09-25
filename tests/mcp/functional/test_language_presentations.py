@@ -1,9 +1,12 @@
 import asyncio
 import json
 
+import pytest
 from mcp.types import CallToolResult
 
 from .test_runtime import ConfiguredApplication, PublicMcpClient
+
+pytestmark = pytest.mark.django_db
 
 
 async def language_presentations() -> dict[str, CallToolResult]:

@@ -3,6 +3,8 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from django.test import Client
 
+pytestmark = pytest.mark.django_db
+
 SIREN_MEDIA_TYPE = "application/vnd.siren+json"
 
 

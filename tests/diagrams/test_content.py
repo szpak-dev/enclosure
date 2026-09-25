@@ -3,6 +3,8 @@ import json
 import pytest
 from django.test import Client
 
+pytestmark = pytest.mark.django_db
+
 
 def create_renderable_diagram(client: Client) -> dict[str, object]:
     diagram_set = client.post(
