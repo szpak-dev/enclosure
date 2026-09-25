@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from wireup import injectable
 
 from ..models import Diagram, DiagramSet
-from .catalog import DiagramCatalogService
+from .catalog import DiagramCatalogService, DiagramKindContentPage
 from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
 from .diagram_sets.model import DiagramSetPage
 from .diagram_sets.service import DiagramSetService
@@ -26,6 +26,15 @@ class DiagramsService:
 
     def describe_kind(self, kind: str) -> dict[str, object]:
         return self.catalog.describe_kind(kind)
+
+    def read_kind_content(
+        self,
+        kind: str,
+        expected_revision: str,
+        offset: int,
+        limit: int,
+    ) -> DiagramKindContentPage:
+        return self.catalog.read_content(kind, expected_revision, offset, limit)
 
     def get_command_schema(self, kind: str, operation: str) -> dict[str, object]:
         return self.catalog.get_command_schema(kind, operation)

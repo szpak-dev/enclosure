@@ -48,6 +48,13 @@ class SirenGatewayAdapter(SirenGateway):
             operation_id=invocation.operation_id,
             arguments=invocation.arguments,
             document=document,
+            follow_ups=tuple(
+                ToolInvocation(
+                    operation_id=follow_up.operation_id,
+                    arguments=follow_up.arguments,
+                )
+                for follow_up in result.follow_ups
+            ),
             continuations=tuple(
                 ToolInvocation(
                     operation_id=continuation.operation_id,

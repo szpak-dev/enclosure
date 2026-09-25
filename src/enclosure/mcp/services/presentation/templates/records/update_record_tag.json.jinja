@@ -3,5 +3,5 @@
   "status": "ok",
   "summary": "Record tag updated.",
   "data": {"id": {{ data.id | tojson }}, "name": {{ data.name | tojson }}},
-  "follow_ups": [{"operation_id": "get_record_tag", "arguments": {"tag_id": {{ data.id | tojson }}}}]
+  "follow_ups": {{ follow_ups | tojson }}
 }

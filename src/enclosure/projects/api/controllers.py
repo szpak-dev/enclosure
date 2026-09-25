@@ -3,7 +3,15 @@ from typing import Annotated
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
-from sirenity import SirenContinuation, siren_pagination
+from sirenity import (
+    SirenContinuation,
+    SirenFollowUp,
+    SirenItemFollowUp,
+    SirenScope,
+    SirenSourceInput,
+    siren_follow_ups,
+    siren_pagination,
+)
 
 from ..services.facade import ProjectsService
 from . import schemas
@@ -92,6 +100,17 @@ class ProjectsController(ControllerBase):
         response=schemas.GuidanceScopePage,
         operation_id="find_guidance_scopes",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+        item_follow_ups={
+            "record": SirenItemFollowUp(
+                operation_id="get_record",
+                parameters={"path.record_id": "record_id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List guidance scopes",
         description="Return one bounded page of ordered optional guidance records eligible for this project.",
     )
@@ -133,6 +152,24 @@ class ProjectsController(ControllerBase):
         response=schemas.GuidanceRelationshipPage,
         operation_id="find_guidance_relationships",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+        item_follow_ups={
+            "source_record": SirenItemFollowUp(
+                operation_id="get_record",
+                parameters={"path.record_id": "source_record_id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            ),
+            "target_record": SirenItemFollowUp(
+                operation_id="get_record",
+                parameters={"path.record_id": "target_record_id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            ),
+        },
+        status=200,
         summary="List guidance relationships",
         description="Return one bounded page of the project's typed guidance-graph relationships.",
     )
@@ -184,6 +221,17 @@ class ProjectsController(ControllerBase):
         response=schemas.ProjectPage,
         operation_id="find_projects",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={},
+        item_follow_ups={
+            "project": SirenItemFollowUp(
+                operation_id="get_project",
+                parameters={"path.project_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List projects",
         description="Return one bounded page of registered project references.",
     )
@@ -334,6 +382,18 @@ class ProjectsController(ControllerBase):
         response=schemas.ArchitectureConfigurationPage,
         operation_id="find_project_architecture_configurations",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+        item_follow_ups={
+            "configuration": SirenItemFollowUp(
+                operation_id="get_project_architecture_configuration",
+                parameters={"path.configuration_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List project architecture configurations",
         description="Return one bounded page of compact architecture-configuration references.",
     )
@@ -349,10 +409,36 @@ class ProjectsController(ControllerBase):
             query.limit,
         )
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{project_id}/architecture-configurations/{configuration_id}",
         response=schemas.ProjectArchitectureConfiguration,
         operation_id="get_project_architecture_configuration",
+        follow_ups={
+            "boundaries": SirenFollowUp(
+                operation_id="read_project_architecture_configuration_content",
+                parameters={
+                    "path.configuration_id": "id",
+                    "query.document": "boundaries_document",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+            ),
+            "shape": SirenFollowUp(
+                operation_id="read_project_architecture_configuration_content",
+                parameters={
+                    "path.configuration_id": "id",
+                    "query.document": "shape_document",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+            ),
+        },
+        status=200,
         summary="Get project architecture configuration",
         description="Return one project's Modwire boundary and architecture-shape configuration.",
     )
@@ -373,6 +459,12 @@ class ProjectsController(ControllerBase):
         response=schemas.ArchitectureConfigurationContent,
         operation_id="read_project_architecture_configuration_content",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "project_id": SirenSourceInput(location="path", name="project_id"),
+            "configuration_id": SirenSourceInput(location="path", name="configuration_id"),
+            "document": SirenSourceInput(location="query", name="document"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
         summary="Read architecture configuration content",
         description="Read one bounded page from a revision-pinned architecture configuration document.",
     )
@@ -408,6 +500,18 @@ class ProjectsController(ControllerBase):
         response=schemas.WorkspacePage,
         operation_id="find_workspaces",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+        item_follow_ups={
+            "workspace": SirenItemFollowUp(
+                operation_id="get_workspace",
+                parameters={"path.workspace_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={"project_id": SirenSourceInput(location="path", name="project_id")},
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List project workspaces",
         description="Return one bounded page of explicit local workspace bindings for the logical project.",
     )
@@ -538,10 +642,40 @@ class ProjectsController(ControllerBase):
             body.scaffolding_id,
         )
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{project_id}/workspaces/{workspace_id}/health-violations",
         response=schemas.HealthReport,
         operation_id="check_project_health",
+        follow_ups={
+            "failures": SirenFollowUp(
+                operation_id="read_project_health_findings",
+                parameters={
+                    "query.kind": "failure_kind",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "project_id": SirenSourceInput(location="path", name="project_id"),
+                    "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+                },
+            ),
+            "advisories": SirenFollowUp(
+                operation_id="read_project_health_findings",
+                parameters={
+                    "query.kind": "advisory_kind",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "project_id": SirenSourceInput(location="path", name="project_id"),
+                    "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+                },
+            ),
+        },
+        status=200,
         summary="Check project health",
         description="Evaluate gating architecture rules and project-guidance integrity.",
     )
@@ -553,10 +687,55 @@ class ProjectsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, ProjectsService).check_health(project_id, workspace_id)
 
-    @route.get(
+    @SirenContinuation(
+        http_get,
+        "/{project_id}/workspaces/{workspace_id}/health-findings",
+        response=schemas.HealthFindingPage,
+        operation_id="read_project_health_findings",
+        continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "project_id": SirenSourceInput(location="path", name="project_id"),
+            "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+            "kind": SirenSourceInput(location="query", name="kind"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
+        summary="Read project health findings",
+        description="Read one bounded page from a revision-pinned health-finding collection.",
+    )
+    def read_health_findings(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+        query: Query[schemas.ReadHealthFindings],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).read_health_findings(
+            project_id,
+            workspace_id,
+            query.kind,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )
+
+    @siren_follow_ups(
+        http_get,
         "/{project_id}/workspaces/{workspace_id}/insights",
         response=schemas.InsightsReport,
         operation_id="read_project_insights",
+        follow_ups={
+            "content": SirenFollowUp(
+                operation_id="read_project_insight_content",
+                parameters={"query.expected_revision": "revision"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "project_id": SirenSourceInput(location="path", name="project_id"),
+                    "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+                },
+            )
+        },
+        status=200,
         summary="Read project insights",
         description="Evaluate non-gating architecture rules for a registered project.",
     )
@@ -574,6 +753,12 @@ class ProjectsController(ControllerBase):
         response=schemas.InsightPage,
         operation_id="read_project_insight_page",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "project_id": SirenSourceInput(location="path", name="project_id"),
+            "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+            "path": SirenSourceInput(location="query", name="path"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
         summary="Read a project insight page",
         description="Read one bounded projected collection from a revision-pinned project insights report.",
     )
@@ -590,5 +775,39 @@ class ProjectsController(ControllerBase):
             query.path,
             query.expected_revision,
             query.offset,
+            query.limit,
+        )
+
+    @SirenContinuation(
+        http_get,
+        "/{project_id}/workspaces/{workspace_id}/insights/content",
+        response=schemas.InsightContentPage,
+        operation_id="read_project_insight_content",
+        continuation={
+            "section_offset": "next_section_offset",
+            "item_offset": "next_item_offset",
+            "limit": "limit",
+        },
+        source_inputs={
+            "project_id": SirenSourceInput(location="path", name="project_id"),
+            "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
+        summary="Read project insight content",
+        description="Read the next bounded section from a revision-pinned project insights report.",
+    )
+    def read_insight_content(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+        query: Query[schemas.ReadInsightContent],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).read_insight_content(
+            project_id,
+            workspace_id,
+            query.expected_revision,
+            query.section_offset,
+            query.item_offset,
             query.limit,
         )

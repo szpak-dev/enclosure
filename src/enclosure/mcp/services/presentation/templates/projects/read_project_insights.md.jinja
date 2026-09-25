@@ -3,13 +3,7 @@
 - Project: `{{ data.project_id }}`
 - Workspace: `{{ data.workspace_id }}`
 - Revision: `{{ data.revision }}`
-
-{% for report in data.reports %}
-
-```json
-{{ report | tojson(indent=2) }}
-```
-{% endfor %}
+- Reports: {{ data.report_count }}
 {% if data.top_findings %}
 
 ## Highest-priority findings
@@ -24,4 +18,5 @@
 - `{{ section.path }}` — {{ section.total }} items
 {% endfor %}
 {% endif %}
+Use the typed follow-up to read the complete report sequentially.
 {% include "projects/partials/navigation.md.jinja" %}

@@ -1,3 +1,5 @@
+import json
+
 from django.db import models
 
 from ..core.models import ShortUUIDModel
@@ -19,3 +21,19 @@ class Diagram(ShortUUIDModel):
     revision = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def source_document(self) -> str:
+        return "source"
+
+    @property
+    def snapshot_document(self) -> str:
+        return "snapshot"
+
+    @property
+    def source_total_characters(self) -> int:
+        return len(self.source)
+
+    @property
+    def snapshot_total_characters(self) -> int:
+        return len(json.dumps(self.snapshot, ensure_ascii=False, separators=(",", ":"), sort_keys=True))

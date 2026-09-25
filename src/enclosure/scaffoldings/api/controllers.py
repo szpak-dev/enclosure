@@ -3,7 +3,15 @@ from typing import Annotated
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
-from sirenity import SirenContinuation, siren_pagination
+from sirenity import (
+    SirenContinuation,
+    SirenFollowUp,
+    SirenItemFollowUp,
+    SirenScope,
+    SirenSourceInput,
+    siren_follow_ups,
+    siren_pagination,
+)
 
 from ..services.facade import ScaffoldingService
 from . import schemas
@@ -24,9 +32,21 @@ class ScaffoldingController(ControllerBase):
 
     @siren_pagination(
         http_get,
+        "",
         response=schemas.ScaffoldingPage,
         operation_id="find_scaffoldings",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={},
+        item_follow_ups={
+            "scaffolding": SirenItemFollowUp(
+                operation_id="get_scaffolding",
+                parameters={"path.scaffolding_id": "id"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="List scaffoldings",
         description="Return one bounded page of compact scaffolding references.",
     )
@@ -43,15 +63,70 @@ class ScaffoldingController(ControllerBase):
     def search(self, request, body: schemas.SearchScaffoldings):
         return DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id, body.limit)
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{scaffolding_id}",
         response=schemas.Scaffolding,
         operation_id="get_scaffolding",
+        follow_ups={
+            "template_manifests": SirenFollowUp(
+                operation_id="read_scaffolding_template_manifests",
+                parameters={
+                    "path.scaffolding_id": "id",
+                    "query.expected_revision": "templates_revision",
+                },
+                rel="collection",
+                scope=SirenScope.COLLECTION,
+            )
+        },
+        status=200,
         summary="Get a scaffolding",
         description="Return variables and revisioned template manifests without template bodies.",
     )
     def get(self, request, scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")]):
         return DjangoRequest.resolve(request, ScaffoldingService).get_detail(scaffolding_id)
+
+    @siren_pagination(
+        http_get,
+        "/{scaffolding_id}/template-manifests",
+        response=schemas.TemplateManifestPage,
+        operation_id="read_scaffolding_template_manifests",
+        continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "scaffolding_id": SirenSourceInput(location="path", name="scaffolding_id"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
+        item_follow_ups={
+            "template": SirenItemFollowUp(
+                operation_id="read_scaffolding_template",
+                parameters={
+                    "query.path": "path",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "scaffolding_id": SirenSourceInput(location="path", name="scaffolding_id"),
+                },
+                item_collection="items",
+            )
+        },
+        status=200,
+        summary="Read scaffolding template manifests",
+        description="Read one bounded page from a revision-pinned template-manifest document.",
+    )
+    def read_template_manifests(
+        self,
+        request,
+        scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
+        query: Query[schemas.ReadTemplateManifests],
+    ):
+        return DjangoRequest.resolve(request, ScaffoldingService).read_template_manifests(
+            scaffolding_id,
+            query.expected_revision,
+            query.offset,
+            query.limit,
+        )
 
     @SirenContinuation(
         http_get,
@@ -59,6 +134,11 @@ class ScaffoldingController(ControllerBase):
         response=schemas.ScaffoldingTemplateContent,
         operation_id="read_scaffolding_template",
         continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "scaffolding_id": SirenSourceInput(location="path", name="scaffolding_id"),
+            "path": SirenSourceInput(location="query", name="path"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
         summary="Read scaffolding template content",
         description="Read one bounded page from an exact revision-pinned template path.",
     )

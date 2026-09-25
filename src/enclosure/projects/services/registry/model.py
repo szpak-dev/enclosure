@@ -23,6 +23,11 @@ class ProjectPage(BaseModel):
     limit: int
 
 
+class ArchitectureConfigurationDocument(StrEnum):
+    BOUNDARIES = "boundaries_yaml"
+    SHAPE = "shape_yaml"
+
+
 class ArchitectureConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -31,6 +36,10 @@ class ArchitectureConfiguration(BaseModel):
     revision: str
     boundaries_yaml: str
     shape_yaml: str
+    boundaries_document: ArchitectureConfigurationDocument = ArchitectureConfigurationDocument.BOUNDARIES
+    shape_document: ArchitectureConfigurationDocument = ArchitectureConfigurationDocument.SHAPE
+    boundaries_total_characters: int
+    shape_total_characters: int
 
 
 class ArchitectureConfigurationPage(BaseModel):
@@ -40,11 +49,6 @@ class ArchitectureConfigurationPage(BaseModel):
     has_more: bool
     next_offset: int
     limit: int
-
-
-class ArchitectureConfigurationDocument(StrEnum):
-    BOUNDARIES = "boundaries_yaml"
-    SHAPE = "shape_yaml"
 
 
 class ArchitectureConfigurationContent(BaseModel):

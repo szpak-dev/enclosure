@@ -79,6 +79,24 @@ def test_siren_diagram_set_advertises_its_diagram_collection() -> None:
     assert updated_collection_link["href"] == collection_link["href"]
 
 
+def test_siren_diagram_kind_links_to_revision_pinned_canonical_content() -> None:
+    client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
+    detail = client.get("/siren/diagrams/kinds/flowchart")
+
+    assert detail.status_code == 200
+    content_action = next(
+        action for action in detail.json()["actions"] if action["name"] == "read_diagram_kind_content"
+    )
+
+    content = client.get(
+        urlsplit(content_action["href"]).path,
+        data={"expected_revision": detail.json()["properties"]["content_revision"]},
+    )
+    assert content.status_code == 200
+    assert content.json()["properties"]["kind"] == "flowchart"
+    assert content.json()["properties"]["content"]
+
+
 @pytest.mark.django_db
 def test_siren_projects_stale_diagram_revision_as_domain_error() -> None:
     client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)

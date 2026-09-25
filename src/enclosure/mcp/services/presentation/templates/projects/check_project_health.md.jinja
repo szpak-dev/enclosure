@@ -1,15 +1,5 @@
 # Project health
 
-{% macro render_finding(finding) -%}
-{% if finding.kind == "shape" -%}
-**{{ finding.rule }}** — `{{ finding.source_file }}` / {{ finding.symbol_kind }}{% if finding.symbol_name %} `{{ finding.symbol_name }}`{% endif %} (realm `{{ finding.realm }}`): actual `{{ finding.actual }}`, configured `{{ finding.limit }}`.
-{%- elif finding.kind == "flow" -%}
-**{{ finding.rule }}** — {{ finding.path | join(" → ") }}: {{ finding.message }} Violation index: {{ finding.violation_index }}{% if finding.violation_index > 0 %}; edge: `{{ finding.path[finding.violation_index - 1] }}` → `{{ finding.path[finding.violation_index] }}`{% endif %}{% if finding.source_module or finding.target_module %}; modules: `{{ finding.source_module }}` → `{{ finding.target_module }}`{% endif %}.
-{%- else -%}
-**{{ finding.rule }}** — {{ finding.target }}: {{ finding.message }} Remediation: `{{ finding.remediation }}`{% if finding.related_ids %}; guidance: `{{ finding.related_ids | join("`, `") }}`{% endif %}.
-{%- endif %}
-{%- endmacro %}
-
 Status: **{{ data.outcome }}**
 
 {% if data.outcome == "healthy" %}All {{ data.reports | length }} gating reports passed.{% elif data.outcome == "advisory" %}Gating checks passed with {{ data.advisory_count }} advisory findings.{% else %}{{ data.failure_count }} gating failures require attention.{% endif %}
@@ -18,20 +8,6 @@ Status: **{{ data.outcome }}**
 {% for report in data.reports %}
 - {{ report.title }}: {{ report.failure_count }} failures, {{ report.advisory_count }} advisories
 {% endfor %}
-{% if data.failures %}
-
-## Gating failures
-{% for finding in data.failures %}
-- {{ render_finding(finding) }}
-{% endfor %}
-{% endif %}
-{% if data.advisories %}
-
-## Advisories
-{% for finding in data.advisories %}
-- {{ render_finding(finding) }}
-{% endfor %}
-{% endif %}
 {% if data.next_actions %}
 
 ## Next actions
@@ -39,4 +15,6 @@ Status: **{{ data.outcome }}**
 - {{ action }}
 {% endfor %}
 {% endif %}
+
+Use the typed follow-ups to read complete gating failures or advisories.
 {% include "projects/partials/navigation.md.jinja" %}

@@ -1,3 +1,12 @@
-{% set summary = "Diagram-kind contract derived from Siren." %}
-{% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", summary, data, []) }}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Diagram-kind contract manifest.",
+  "data": {
+    "id": {{ data.id | tojson }},
+    "name": {{ data.name | tojson }},
+    "content_revision": {{ data.content_revision | tojson }},
+    "content_total_characters": {{ data.content_total_characters | tojson }}
+  },
+  "follow_ups": {{ follow_ups | tojson }}
+}

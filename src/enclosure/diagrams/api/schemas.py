@@ -28,11 +28,32 @@ class DiagramKindDescription(DiagramKind):
     commands: dict[str, dict[str, JsonValue]] = Field(
         description="Available commands keyed by operation name, with their argument JSON Schemas."
     )
+    content_revision: str = Field(description="SHA-256 revision of the canonical diagram-kind contract.")
+    content_total_characters: int = Field(description="Canonical contract size in characters.", ge=0)
+
+
+class ReadDiagramKindContent(Schema):
+    expected_revision: str = Field(description="Diagram-kind revision on which the read is based.")
+    offset: int = Field(default=0, description="Character offset at which the read starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
+
+
+class DiagramKindContent(Schema):
+    kind: DiagramKindId
+    revision: str = Field(description="SHA-256 revision of the canonical diagram-kind contract.")
+    offset: int = Field(description="Character offset at which this page starts.", ge=0)
+    limit: int = Field(description="Maximum characters selected for this page.", ge=1)
+    total_characters: int = Field(description="Total characters in the canonical contract.", ge=0)
+    content: str = Field(description="Bounded canonical diagram-kind content.")
+    has_more: bool = Field(description="Whether another bounded page remains.")
+    next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
 class DiagramCommandSchema(Schema):
     kind: DiagramKindId
     operation: str = Field(description="Command operation name.")
+    content_revision: str = Field(description="SHA-256 revision of the canonical diagram-kind contract.")
+    content_total_characters: int = Field(description="Canonical diagram-kind contract size in characters.", ge=0)
     arguments_schema: dict[str, JsonValue] = Field(description="JSON Schema for the command arguments.")
 
 
@@ -123,13 +144,17 @@ class DiagramSummary(DiagramReference):
 class Diagram(DiagramSummary):
     snapshot: dict[str, JsonValue] = Field(description="Canonical versioned Mermaiden snapshot.")
     source: str = Field(description="Mermaid source generated from the canonical snapshot.")
+    source_document: Literal["source"] = Field(description="Document selector for the Mermaid source.")
+    snapshot_document: Literal["snapshot"] = Field(description="Document selector for the canonical snapshot.")
+    source_total_characters: int = Field(description="Total characters in the Mermaid source.", ge=0)
+    snapshot_total_characters: int = Field(description="Total characters in the canonical snapshot JSON.", ge=0)
 
 
 class ReadDiagramContent(Schema):
     document: Literal["source", "snapshot"] = Field(description="Diagram document to read.")
     expected_revision: int = Field(description="Diagram revision on which this read is based.", ge=1)
-    offset: int = Field(description="Character offset at which the bounded read starts.", ge=0)
-    limit: int = Field(description="Maximum characters returned by the bounded read.", ge=1)
+    offset: int = Field(default=0, description="Character offset at which the bounded read starts.", ge=0)
+    limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
 class DiagramContent(Schema):

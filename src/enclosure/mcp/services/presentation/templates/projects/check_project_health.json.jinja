@@ -1,4 +1,20 @@
-{% from "shared/partials/envelope.json.jinja" import envelope with context %}
 {% set status = "error" if not data.healthy else "ok" %}
 {% set summary = "Project health has gating failures." if not data.healthy else "Project health checks passed." %}
-{{ envelope(operation_id, status, summary, data, []) }}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": {{ status | tojson }},
+  "summary": {{ summary | tojson }},
+  "data": {
+    "revision": {{ data.revision | tojson }},
+    "outcome": {{ data.outcome | tojson }},
+    "healthy": {{ data.healthy | tojson }},
+    "reports": {{ data.reports | tojson }},
+    "failure_count": {{ data.failure_count | tojson }},
+    "advisory_count": {{ data.advisory_count | tojson }},
+    "failure_kind": {{ data.failure_kind | tojson }},
+    "advisory_kind": {{ data.advisory_kind | tojson }},
+    "targets": {{ data.targets | tojson }},
+    "next_actions": {{ data.next_actions | tojson }}
+  },
+  "follow_ups": {{ follow_ups | tojson }}
+}

@@ -1,0 +1,7 @@
+# Project insight content
+
+Section {{ data.section_offset }} `{{ data.path }}`, items {{ data.item_offset }}–{{ data.next_item_offset }} of {{ data.section_total }}.
+
+```json
+{{ data.items | tojson(indent=2) }}
+```

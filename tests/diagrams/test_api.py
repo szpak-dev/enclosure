@@ -39,12 +39,17 @@ def create_diagram(
 
 
 def test_diagram_kind_exposes_crud_commands_and_placements() -> None:
-    response = Client().get("/api/diagrams/kinds/flowchart")
+    client = Client()
+    response = client.get("/api/diagrams/kinds/flowchart")
 
     assert response.status_code == 200
     description = response.json()
     assert CRUD_COMMANDS <= description["commands"].keys()
     assert description["placements"]["flow_group"]["allowed_parents"] == ["$root", "flow_group"]
+    command = client.get("/api/diagrams/kinds/flowchart/commands/update_element")
+    assert command.status_code == 200
+    assert command.json()["content_revision"] == description["content_revision"]
+    assert command.json()["content_total_characters"] == description["content_total_characters"]
 
 
 @pytest.mark.django_db
@@ -388,15 +393,17 @@ def test_sirenity_owns_diagram_collection_continuation_links() -> None:
 
     for path in paths:
         operation = schema["paths"][path]["get"]
-        assert operation["responses"]["200"]["links"] == {
-            "next": {
-                "operationId": operation["operationId"],
-                "parameters": {
-                    "offset": "$response.body#/next_offset",
-                    "limit": "$response.body#/limit",
-                },
-            }
+        links = operation["responses"]["200"]["links"]
+        assert links["next"]["operationId"] == operation["operationId"]
+        assert links["next"]["parameters"] == {
+            "offset": "$response.body#/next_offset",
+            "limit": "$response.body#/limit",
         }
+        if "{diagram_set_id}" in path:
+            assert links["next"]["x-sirenity"]["sourceInputs"] == {"diagram_set_id": "$request.path.diagram_set_id"}
+        item_links = [link for name, link in links.items() if name != "next"]
+        assert len(item_links) == 1
+        assert item_links[0]["x-sirenity"]["itemCollection"] == "$response.body#/items"
 
 
 @pytest.mark.django_db

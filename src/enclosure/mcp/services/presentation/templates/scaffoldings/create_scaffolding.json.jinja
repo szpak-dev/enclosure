@@ -1,7 +1,7 @@
 {
   "operation_id": {{ operation_id | tojson }},
   "status": "ok",
-  "summary": "Scaffolding created with bounded template manifests.",
-  "data": {{ data | tojson }},
-  "follow_ups": [{% for template in data.spec.templates %}{"operation_id": "read_scaffolding_template", "arguments": {"scaffolding_id": {{ data.id | tojson }}, "path": {{ template.path | tojson }}, "expected_revision": {{ template.revision | tojson }}, "offset": 0, "limit": {{ content_limit }}}}{% if not loop.last %},{% endif %}{% endfor %}]
+  "summary": "Scaffolding created.",
+  "data": {"id": {{ data.id | tojson }}, "templates_revision": {{ data.templates_revision | tojson }}, "template_count": {{ data.template_count | tojson }}},
+  "follow_ups": {{ follow_ups | tojson }}
 }

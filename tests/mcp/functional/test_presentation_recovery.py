@@ -63,8 +63,10 @@ async def create_oversized_record() -> tuple[CallToolResult, CallToolResult]:
                 ],
             },
         )
-        verification = created.structured_content["follow_ups"][0]
-        verified = await session.call_tool(verification["operation_id"], verification["arguments"])
+        verified = await session.call_tool(
+            "get_record",
+            {"record_id": created.structured_content["data"]["id"]},
+        )
         return created, verified
 
 
@@ -111,28 +113,32 @@ def test_oversized_collection_returns_a_prefix_and_same_offset_retry() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
-def test_oversized_mutation_returns_identity_and_verification() -> None:
+def test_oversized_mutation_stays_compact_and_recoverable() -> None:
     created, verified = asyncio.run(create_oversized_record())
 
     assert created.is_error is False
-    assert created.structured_content["status"] == "incomplete"
+    assert created.structured_content["status"] == "ok"
     data = created.structured_content["data"]
-    assert data["reason"] == "presentation_budget_exceeded"
     assert data["id"]
-    assert data["resources"]
-    assert all(resource["revision"] for resource in data["resources"])
+    assert data["content_revision"]
+    assert data["resources_revision"]
+    assert data["resource_count"] == 16
+    assert "content" not in data
+    assert "resources" not in data
     assert created.structured_content["follow_ups"] == [
-        {
-            "operation_id": "get_record",
-            "arguments": {"record_id": data["id"]},
-        }
+        {"operation_id": "get_record", "arguments": {"record_id": data["id"]}}
     ]
     assert_bounded(created)
 
     assert verified.is_error is False
-    assert verified.structured_content["status"] == "incomplete"
-    assert verified.structured_content["data"]["reason"] == "presentation_budget_exceeded"
+    assert verified.structured_content["status"] == "ok"
     assert verified.structured_content["data"]["id"] == data["id"]
+    assert "content" not in verified.structured_content["data"]
+    assert "resources" not in verified.structured_content["data"]
+    assert {follow_up["operation_id"] for follow_up in verified.structured_content["follow_ups"]} == {
+        "read_record_content",
+        "read_record_resource_manifests",
+    }
     assert_bounded(verified)
 
 
@@ -140,7 +146,7 @@ def test_oversized_mutation_returns_identity_and_verification() -> None:
 def test_document_follow_up_uses_the_presentation_budget_and_reconstructs_exact_content() -> None:
     source = "example_value = 'bounded document content'\n" * 240
 
-    async def exercise() -> tuple[CallToolResult, list[CallToolResult]]:
+    async def exercise() -> tuple[CallToolResult, CallToolResult, list[CallToolResult]]:
         client = PublicMcpClient(ConfiguredApplication())
         async with client.session() as (session, http_client):
             await session.initialize()
@@ -186,23 +192,48 @@ def test_document_follow_up_uses_the_presentation_budget_and_reconstructs_exact_
             )
             assert updated.status_code == 200
             record = await session.call_tool("get_record", {"record_id": record_id})
-            follow_up = record.structured_content["follow_ups"][0]
+            manifest_follow_up = next(
+                follow_up
+                for follow_up in record.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_record_resource_manifests"
+            )
+            manifests = await session.call_tool(
+                manifest_follow_up["operation_id"],
+                manifest_follow_up["arguments"],
+            )
+            follow_up = next(
+                follow_up
+                for follow_up in manifests.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_record_resource"
+            )
             pages = []
             while follow_up:
                 page = await session.call_tool(follow_up["operation_id"], follow_up["arguments"])
                 pages.append(page)
                 follow_up = page.structured_content["follow_ups"]
                 follow_up = follow_up[0] if follow_up else None
-            return record, pages
+            return record, manifests, pages
 
-    record, pages = asyncio.run(exercise())
+    record, manifests, pages = asyncio.run(exercise())
 
-    initial = record.structured_content["follow_ups"][0]
-    assert initial["operation_id"] == "read_record_resource"
-    assert initial["arguments"]["limit"] == 4096
+    initial = next(
+        follow_up
+        for follow_up in record.structured_content["follow_ups"]
+        if follow_up["operation_id"] == "read_record_resource_manifests"
+    )
+    assert initial["arguments"]["record_id"] == record.structured_content["data"]["id"]
+    assert initial["arguments"]["expected_revision"]
+    assert manifests.structured_content["data"]["items"][0]["path"] == "examples/document.py"
     assert all(page.is_error is False for page in pages)
-    assert all(page.structured_content["status"] == "ok" for page in pages)
-    assert "".join(page.structured_content["data"]["content"] for page in pages) == source
-    assert [page.structured_content["data"]["offset"] for page in pages] == [0, 4096, 8192]
+    assert pages[0].structured_content["status"] == "incomplete"
+    assert pages[0].structured_content["data"]["reason"] == "presentation_budget_exceeded"
+    content_pages = [page for page in pages if page.structured_content["status"] == "ok"]
+    assert "".join(page.structured_content["data"]["content"] for page in content_pages) == source
+    assert content_pages[0].structured_content["data"]["offset"] == 0
+    assert all(
+        current.structured_content["data"]["next_offset"] == following.structured_content["data"]["offset"]
+        for current, following in zip(content_pages, content_pages[1:], strict=False)
+    )
+    assert content_pages[-1].structured_content["data"]["has_more"] is False
     for page in pages:
         assert_bounded(page)

@@ -4,4 +4,6 @@
 
 {{ data.description }}
 
-Templates: {{ data.spec.templates | length }}. Use `read_scaffolding_template` with a manifest path and revision.
+Templates: {{ data.template_count }} at revision `{{ data.templates_revision }}`.
+
+Use the typed follow-up to read template manifests, then `read_scaffolding_template` for an exact path and revision.

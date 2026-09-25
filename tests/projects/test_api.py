@@ -1173,6 +1173,10 @@ def test_updates_registered_project(
         "revision": references[0]["revision"],
         "boundaries_yaml": BOUNDARIES_YAML,
         "shape_yaml": UNHEALTHY_SHAPE_YAML,
+        "boundaries_document": "boundaries_yaml",
+        "shape_document": "shape_yaml",
+        "boundaries_total_characters": len(BOUNDARIES_YAML),
+        "shape_total_characters": len(UNHEALTHY_SHAPE_YAML),
     }
 
 
@@ -1726,6 +1730,9 @@ def test_health_fails_when_architecture_has_a_shape_violation(
     assert response.status_code == 200
     assert response.json()["healthy"] is False
     assert response.json()["failure_count"] > 0
+    assert response.json()["revision"]
+    assert response.json()["failure_kind"] == "failure"
+    assert response.json()["advisory_kind"] == "advisory"
     finding = next(finding for finding in response.json()["failures"] if finding["rule"] == "max_classes_per_file")
     assert finding == {
         "kind": "shape",
@@ -1740,6 +1747,27 @@ def test_health_fails_when_architecture_has_a_shape_violation(
         "actual": 1,
         "limit": 0,
     }
+    page = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-findings",
+        data={
+            "kind": response.json()["failure_kind"],
+            "expected_revision": response.json()["revision"],
+            "offset": 0,
+            "limit": 1,
+        },
+    )
+    assert page.status_code == 200
+    assert page.json()["revision"] == response.json()["revision"]
+    assert page.json()["kind"] == "failure"
+    assert page.json()["total"] == response.json()["failure_count"]
+    assert len(page.json()["items"]) == 1
+
+    stale = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-findings",
+        data={"kind": "failure", "expected_revision": "stale", "offset": 0, "limit": 1},
+    )
+    assert stale.status_code == 422
+    assert stale.json() == {"detail": "Project health changed; check it again before requesting findings."}
 
 
 @pytest.mark.django_db
@@ -1973,6 +2001,7 @@ def test_insights_contains_only_non_gating_reports(
 
     assert response.status_code == 200
     assert response.json()["reports"]
+    assert response.json()["report_count"] == len(response.json()["reports"])
     assert response.json()["sections"]
     assert all("metadata" in report for report in response.json()["reports"])
 
@@ -2013,6 +2042,41 @@ def test_insights_contains_only_non_gating_reports(
     assert oversized.status_code == 422
     assert oversized.json()["detail"][0]["loc"] == ["query", "limit"]
     assert oversized.json()["detail"][0]["ctx"] == {"le": 25}
+
+    content_path = (
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/insights/content"
+    )
+    section_offset = 0
+    item_offset = 0
+    recovered: dict[str, list[object]] = {}
+    while True:
+        content = client.get(
+            content_path,
+            data={
+                "expected_revision": response.json()["revision"],
+                "section_offset": section_offset,
+                "item_offset": item_offset,
+                "limit": 1,
+            },
+        )
+        assert content.status_code == 200
+        recovered.setdefault(content.json()["path"], []).extend(content.json()["items"])
+        if not content.json()["has_more"]:
+            break
+        section_offset = content.json()["next_section_offset"]
+        item_offset = content.json()["next_item_offset"]
+
+    assert set(recovered) == {section["path"] for section in response.json()["sections"]}
+    assert {path: len(items) for path, items in recovered.items()} == {
+        section["path"]: section["total"] for section in response.json()["sections"]
+    }
+
+    stale_content = client.get(
+        content_path,
+        data={"expected_revision": "stale", "section_offset": 0, "item_offset": 0, "limit": 1},
+    )
+    assert stale_content.status_code == 422
+    assert stale_content.json() == {"detail": "Project insights changed; read them again before requesting content."}
 
 
 @pytest.mark.django_db
@@ -2174,15 +2238,17 @@ def test_sirenity_owns_project_collection_continuation_links() -> None:
 
     for path in paths:
         operation = schema["paths"][path]["get"]
-        assert operation["responses"]["200"]["links"] == {
-            "next": {
-                "operationId": operation["operationId"],
-                "parameters": {
-                    "offset": "$response.body#/next_offset",
-                    "limit": "$response.body#/limit",
-                },
-            }
+        links = operation["responses"]["200"]["links"]
+        assert links["next"]["operationId"] == operation["operationId"]
+        assert links["next"]["parameters"] == {
+            "offset": "$response.body#/next_offset",
+            "limit": "$response.body#/limit",
         }
+        if "{project_id}" in path:
+            assert links["next"]["x-sirenity"]["sourceInputs"] == {"project_id": "$request.path.project_id"}
+        item_links = [link for name, link in links.items() if name != "next"]
+        assert item_links
+        assert all(link["x-sirenity"]["itemCollection"] == "$response.body#/items" for link in item_links)
 
 
 def test_project_bounded_page_schemas_publish_current_limits() -> None:
@@ -2190,11 +2256,20 @@ def test_project_bounded_page_schemas_publish_current_limits() -> None:
     operations = {
         "/api/projects/{project_id}/architecture-configurations/{configuration_id}/content": {
             "offset": {"minimum": 0},
-            "limit": {"minimum": 1},
+            "limit": {"minimum": 0},
         },
         "/api/projects/{project_id}/workspaces/{workspace_id}/insights/pages": {
             "offset": {"minimum": 0},
             "limit": {"minimum": 1, "maximum": 25},
+        },
+        "/api/projects/{project_id}/workspaces/{workspace_id}/health-findings": {
+            "offset": {"minimum": 0},
+            "limit": {"minimum": 0},
+        },
+        "/api/projects/{project_id}/workspaces/{workspace_id}/insights/content": {
+            "section_offset": {"minimum": 0},
+            "item_offset": {"minimum": 0},
+            "limit": {"minimum": 0},
         },
     }
 

@@ -105,6 +105,10 @@ def test_siren_generates_project_source(
         "revision": configurations.json()["entities"][0]["properties"]["revision"],
         "boundaries_yaml": "boundaries: {}\n",
         "shape_yaml": "shape:\n  realms:\n    - name: project\n      match: '*'\n",
+        "boundaries_document": "boundaries_yaml",
+        "shape_document": "shape_yaml",
+        "boundaries_total_characters": 15,
+        "shape_total_characters": 54,
     }
     action = next(
         action for action in workspace_details.json()["actions"] if action["name"] == "generate_project_source"

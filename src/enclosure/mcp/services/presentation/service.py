@@ -59,7 +59,10 @@ class PresentationService:
             "content_limit": self.recovery.PREFERRED_CONTENT_CHARACTERS,
             "data": self.projection.project(document),
             "document": document.document,
-            "follow_ups": [continuation.model_dump(mode="json") for continuation in document.continuations],
+            "follow_ups": [
+                navigation.model_dump(mode="json")
+                for navigation in (*document.follow_ups, *document.continuations, *document.verifications)
+            ],
             "invocation": document.arguments,
             "operation_id": document.operation_id,
             "properties": document.document.get("properties", {}),
@@ -95,7 +98,8 @@ class PresentationService:
         context = {
             "data": safe_data,
             "follow_ups": [
-                navigation.model_dump(mode="json") for navigation in (*document.continuations, *document.verifications)
+                navigation.model_dump(mode="json")
+                for navigation in (*document.follow_ups, *document.continuations, *document.verifications)
             ],
             "operation_id": document.operation_id,
             "status": status.value,
