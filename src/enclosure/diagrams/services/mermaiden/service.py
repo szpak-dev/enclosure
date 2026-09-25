@@ -27,7 +27,7 @@ class MermaidenService:
 
     def get_command_schema(self, kind: str, operation: str) -> dict[str, object]:
         try:
-            return self._application.command_payload(kind, operation).model_json_schema()
+            return self._application.command_payload(kind, operation).schema()
         except KeyError as error:
             raise DiagramsError(str(error)) from error
 

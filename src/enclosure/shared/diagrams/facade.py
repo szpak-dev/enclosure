@@ -23,7 +23,7 @@ class DiagramsService:
 
     def get_schema(self, diagram_id: str) -> dict[str, Any]:
         try:
-            return self._application.command_payload(diagram_id, "configure").model_json_schema()
+            return self._application.command_payload(diagram_id, "configure").schema()
         except KeyError as error:
             raise DiagramsError(f"Unsupported diagram ID: {diagram_id!r}") from error
 
