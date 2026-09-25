@@ -1,7 +1,7 @@
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-import json
 from typing import ClassVar, cast
 
 from pydantic import JsonValue
@@ -17,15 +17,15 @@ from .model import (
     FlowHealthFinding,
     GuidanceFindingInput,
     GuidanceHealthFinding,
-    HealthOutcome,
     HealthFindingKind,
     HealthFindingPage,
+    HealthOutcome,
     HealthReport,
     HealthReportSet,
     HealthReportSummary,
     HotspotInput,
-    InsightFinding,
     InsightContentPage,
+    InsightFinding,
     InsightFindingKind,
     InsightPage,
     InsightReportInput,

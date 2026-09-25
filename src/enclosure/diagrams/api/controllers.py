@@ -78,10 +78,23 @@ class DiagramKindsController(ControllerBase):
             query.limit,
         )
 
-    @route.get(
+    @siren_follow_ups(
+        http_get,
         "/{kind}/commands/{operation}",
         response=schemas.DiagramCommandSchema,
         operation_id="get_diagram_command_schema",
+        follow_ups={
+            "content": SirenFollowUp(
+                operation_id="read_diagram_kind_content",
+                parameters={
+                    "path.kind": "kind",
+                    "query.expected_revision": "content_revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+            )
+        },
+        status=200,
         summary="Get a diagram command schema",
         description="Return the JSON Schema for one diagram command's arguments.",
     )
@@ -91,8 +104,15 @@ class DiagramKindsController(ControllerBase):
         kind: Annotated[str, Path(description="Mermaiden diagram-kind identifier.")],
         operation: Annotated[str, Path(description="Diagram command operation name.")],
     ):
-        arguments_schema = DjangoRequest.resolve(request, DiagramsService).get_command_schema(kind, operation)
-        return {"kind": kind, "operation": operation, "arguments_schema": arguments_schema}
+        service = DjangoRequest.resolve(request, DiagramsService)
+        description = service.describe_kind(kind)
+        return {
+            "kind": kind,
+            "operation": operation,
+            "content_revision": description["content_revision"],
+            "content_total_characters": description["content_total_characters"],
+            "arguments_schema": service.get_command_schema(kind, operation),
+        }
 
 
 @api_controller("/diagram-sets", tags=["Diagram sets"])

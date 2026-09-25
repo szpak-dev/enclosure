@@ -1,8 +1,8 @@
 {% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{% set workspace = properties if data.guidance is mapping else data %}
+{% set workspace = data %}
 {% set status = "ok" if workspace.readiness == "ready" else "error" %}
 {% set summary = "Workspace context is ready." if workspace.readiness == "ready" else "Workspace context is incomplete." %}
-{% set compact = data.guidance is mapping or data.receipt["items"] | length > 1 %}
+{% set compact = data.receipt["items"] | length > 0 %}
 {% if not compact %}
 {{ envelope(operation_id, status, summary, data, []) }}
 {% else %}

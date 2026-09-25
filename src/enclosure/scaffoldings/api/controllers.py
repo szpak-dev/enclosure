@@ -86,7 +86,7 @@ class ScaffoldingController(ControllerBase):
     def get(self, request, scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")]):
         return DjangoRequest.resolve(request, ScaffoldingService).get_detail(scaffolding_id)
 
-    @SirenContinuation(
+    @siren_pagination(
         http_get,
         "/{scaffolding_id}/template-manifests",
         response=schemas.TemplateManifestPage,
@@ -96,6 +96,22 @@ class ScaffoldingController(ControllerBase):
             "scaffolding_id": SirenSourceInput(location="path", name="scaffolding_id"),
             "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
         },
+        item_follow_ups={
+            "template": SirenItemFollowUp(
+                operation_id="read_scaffolding_template",
+                parameters={
+                    "query.path": "path",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "scaffolding_id": SirenSourceInput(location="path", name="scaffolding_id"),
+                },
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="Read scaffolding template manifests",
         description="Read one bounded page from a revision-pinned template-manifest document.",
     )

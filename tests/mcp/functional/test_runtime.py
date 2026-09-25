@@ -151,12 +151,16 @@ class PublicMcpClient:
                     {**identity, "offset": 0, "limit": 1},
                 )
                 follow_ups = first.structured_content["follow_ups"]
+                continuation = next(
+                    (follow_up for follow_up in follow_ups if follow_up["operation_id"] == operation),
+                    None,
+                )
                 final = (
                     await session.call_tool(
                         operation,
-                        follow_ups[0]["arguments"],
+                        continuation["arguments"],
                     )
-                    if follow_ups
+                    if continuation
                     else first
                 )
                 empty = await session.call_tool(
@@ -181,7 +185,16 @@ class PublicMcpClient:
                 return result
 
             await call("find_diagram_kinds", {})
-            await call("get_diagram_kind", {"kind": "flowchart"})
+            diagram_kind = await call("get_diagram_kind", {"kind": "flowchart"})
+            await call(
+                "read_diagram_kind_content",
+                {
+                    "kind": "flowchart",
+                    "expected_revision": diagram_kind.structured_content["data"]["content_revision"],
+                    "offset": 0,
+                    "limit": 64,
+                },
+            )
             await call("get_diagram_command_schema", {"kind": "flowchart", "operation": "update_element"})
             created_set = await call(
                 "create_diagram_set",
@@ -369,7 +382,7 @@ class PublicMcpClient:
             await call("find_records", {"offset": 0, "limit": 1})
             await call("search_records", {"query": "primary record", "limit": 2})
             await call("get_record", {"record_id": record_id})
-            updated_record = await call(
+            await call(
                 "update_record",
                 {
                     "record_id": record_id,
@@ -386,7 +399,27 @@ class PublicMcpClient:
                     ],
                 },
             )
-            manifest = updated_record.structured_content["data"]["resources"][0]
+            updated_record = await call("get_record", {"record_id": record_id})
+            updated_data = updated_record.structured_content["data"]
+            await call(
+                "read_record_content",
+                {
+                    "record_id": record_id,
+                    "expected_revision": updated_data["content_revision"],
+                    "offset": 0,
+                    "limit": 64,
+                },
+            )
+            manifests = await call(
+                "read_record_resource_manifests",
+                {
+                    "record_id": record_id,
+                    "expected_revision": updated_data["resources_revision"],
+                    "offset": 0,
+                    "limit": 1,
+                },
+            )
+            manifest = manifests.structured_content["data"]["items"][0]
             await call(
                 "read_record_resource",
                 {
@@ -452,7 +485,7 @@ class PublicMcpClient:
             await call("find_scaffoldings", {"offset": 0, "limit": 1})
             await call("search_scaffoldings", {"name": "MCP", "language_id": "python", "limit": 2})
             await call("get_scaffolding", {"scaffolding_id": scaffolding_id})
-            updated = await call(
+            await call(
                 "update_scaffolding",
                 {
                     "scaffolding_id": scaffolding_id,
@@ -460,7 +493,18 @@ class PublicMcpClient:
                     "description": "Updated scaffolding presentation verification.",
                 },
             )
-            template = updated.structured_content["data"]["spec"]["templates"][0]
+            updated = await call("get_scaffolding", {"scaffolding_id": scaffolding_id})
+            updated_data = updated.structured_content["data"]
+            manifests = await call(
+                "read_scaffolding_template_manifests",
+                {
+                    "scaffolding_id": scaffolding_id,
+                    "expected_revision": updated_data["templates_revision"],
+                    "offset": 0,
+                    "limit": 1,
+                },
+            )
+            template = manifests.structured_content["data"]["items"][0]
             await call(
                 "read_scaffolding_template",
                 {
@@ -559,7 +603,7 @@ class PublicMcpClient:
         self,
         root: Path,
         shape_yaml: str,
-    ) -> tuple[httpx2.Response, CallToolResult]:
+    ) -> tuple[httpx2.Response, CallToolResult, dict[str, CallToolResult]]:
         async with self.session() as (session, http_client):
             await session.initialize()
             project_id, workspace_id = await self._register_example_project(
@@ -575,9 +619,16 @@ class PublicMcpClient:
                 "check_project_health",
                 {"project_id": project_id, "workspace_id": workspace_id},
             )
-            return rest_response, result
+            findings = {}
+            for follow_up in result.structured_content["follow_ups"]:
+                page = await session.call_tool(follow_up["operation_id"], follow_up["arguments"])
+                findings[page.structured_content["data"]["kind"]] = page
+            return rest_response, result, findings
 
-    async def oversized_guidance_health(self, root: Path) -> tuple[httpx2.Response, CallToolResult]:
+    async def oversized_guidance_health(
+        self,
+        root: Path,
+    ) -> tuple[httpx2.Response, CallToolResult, dict[str, CallToolResult]]:
         async with self.session() as (session, http_client):
             await session.initialize()
             project_id, workspace_id = await self._register_example_project(
@@ -593,9 +644,16 @@ class PublicMcpClient:
                 "check_project_health",
                 {"project_id": project_id, "workspace_id": workspace_id},
             )
-            return rest_response, result
+            findings = {}
+            for follow_up in result.structured_content["follow_ups"]:
+                page = await session.call_tool(follow_up["operation_id"], follow_up["arguments"])
+                findings[page.structured_content["data"]["kind"]] = page
+            return rest_response, result, findings
 
-    async def project_insights(self, root: Path) -> tuple[CallToolResult, CallToolResult]:
+    async def project_insights(
+        self,
+        root: Path,
+    ) -> tuple[CallToolResult, CallToolResult, CallToolResult]:
         async with self.session() as (session, http_client):
             await session.initialize()
             project_id, workspace_id = await self._register_example_project(
@@ -620,7 +678,16 @@ class PublicMcpClient:
                     "limit": 1,
                 },
             )
-            return overview, page
+            content_follow_up = next(
+                follow_up
+                for follow_up in overview.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_project_insight_content"
+            )
+            content = await session.call_tool(
+                content_follow_up["operation_id"],
+                content_follow_up["arguments"],
+            )
+            return overview, page, content
 
     async def project_configuration_content(
         self,
@@ -839,10 +906,22 @@ def test_bounds_oversized_workspace_guidance_before_rendering(tmp_path: Path) ->
     assert result.is_error is True
     assert result.structured_content["status"] == "error"
     assert result.structured_content["data"]["readiness"] == "incomplete"
-    projected_guidance = result.structured_content["data"]["guidance"][0]["guidance"][0]
-    assert projected_guidance.startswith("Example mandatory directive.")
-    assert projected_guidance.endswith("...")
-    assert len(projected_guidance) == 512
+    guidance = result.structured_content["data"]["guidance"][0]
+    assert set(guidance) == {
+        "record_id",
+        "title",
+        "requirement",
+        "reason",
+        "explanation",
+        "authority",
+        "revision",
+    }
+    assert result.structured_content["follow_ups"] == [
+        {
+            "operation_id": "get_record",
+            "arguments": {"record_id": guidance["record_id"]},
+        }
+    ]
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
@@ -876,6 +955,8 @@ def test_lists_the_siren_catalogue() -> None:
     assert "create_operating_contract" in tools
     assert "get_project_operating_contract_binding" in tools
     assert "read_project_architecture_configuration_content" in tools
+    assert "read_project_health_findings" in tools
+    assert "read_project_insight_content" in tools
     assert "read_project_insight_page" in tools
     assert tools["get_language"].title == "Get a language"
     assert tools["get_language"].input_schema["required"] == ["language_id"]
@@ -981,7 +1062,7 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
         "class ExampleApplication:\n    pass\n",
         encoding="utf-8",
     )
-    rest_response, result = asyncio.run(
+    rest_response, result, findings = asyncio.run(
         PublicMcpClient(ConfiguredApplication()).project_health(
             tmp_path,
             EXAMPLE_UNHEALTHY_SHAPE_YAML,
@@ -995,10 +1076,12 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
     assert result.structured_content["data"]["failure_count"] > 0
     assert "example_app.py" in " ".join(result.structured_content["data"]["targets"])
     assert result.structured_content["data"]["next_actions"]
-    assert result.structured_content["data"]["failures"] == rest_response.json()["failures"]
+    assert "failures" not in result.structured_content["data"]
+    failure_page = findings["failure"]
+    assert failure_page.structured_content["data"]["items"] == rest_response.json()["failures"]
     finding = next(
         finding
-        for finding in result.structured_content["data"]["failures"]
+        for finding in failure_page.structured_content["data"]["items"]
         if finding["rule"] == "max_classes_per_file"
     )
     assert finding["kind"] == "shape"
@@ -1008,8 +1091,8 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
     assert finding["symbol_name"] == ""
     assert finding["actual"] == 1
     assert finding["limit"] == 0
-    assert "## Gating failures" in result.content[0].text
-    assert "actual `1`, configured `0`" in result.content[0].text
+    assert "## Next actions" in result.content[0].text
+    assert "Use the typed follow-ups" in result.content[0].text
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
@@ -1022,7 +1105,9 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    rest_response, result = asyncio.run(PublicMcpClient(ConfiguredApplication()).oversized_guidance_health(tmp_path))
+    rest_response, result, findings = asyncio.run(
+        PublicMcpClient(ConfiguredApplication()).oversized_guidance_health(tmp_path)
+    )
 
     assert rest_response.json()["failures"][0]["rule"] == "guidance-oversized"
     assert result.is_error is True
@@ -1030,7 +1115,7 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
     assert result.structured_content["data"]["outcome"] == "gating-failure"
     assert result.structured_content["data"]["failure_count"] == 1
     assert result.structured_content["data"]["next_actions"][0].endswith("against guidance-oversized.")
-    assert "**guidance-oversized**" in result.content[0].text
+    assert findings["failure"].structured_content["data"]["items"][0]["rule"] == "guidance-oversized"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1069,10 +1154,18 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
     assert data["root"] == rest_response.json()["root"]
     assert data["readiness"] == "ready"
     assert receipt["authority"] == rest_response.json()["receipt"]["authority"]
-    assert receipt["items"][0] == rest_response.json()["receipt"]["items"][0]
-    assert data["guidance"][0]["guidance"] == directives
+    guidance = data["guidance"][0]
+    item = rest_response.json()["receipt"]["items"][0]
+    assert guidance["record_id"] == item["record_id"]
+    assert guidance["revision"] == item["revision"]
+    assert "guidance" not in guidance
     assert directives[-1] in markdown
-    assert envelope["follow_ups"] == []
+    assert envelope["follow_ups"] == [
+        {
+            "operation_id": "get_record",
+            "arguments": {"record_id": guidance["record_id"]},
+        }
+    ]
     assert receipt["required_checks"] == ["Run the example check."]
     assert receipt["coverage"] == {
         "status": "complete",
@@ -1081,8 +1174,7 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
         "diagnostic_count": 0,
     }
     assert receipt["stop_condition"] == "selected-guidance-and-checks"
-    assert "summary" not in receipt["items"][0]
-    assert "guidance" not in receipt["items"][0]
+    assert "items" not in receipt
     assert len(markdown.encode("utf-8")) <= 16_384
     assert len(json.dumps(data).encode("utf-8")) <= 8_192
 
@@ -1115,7 +1207,7 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
         "class ExampleApplication:\n    pass\n",
         encoding="utf-8",
     )
-    rest_response, result = asyncio.run(
+    rest_response, result, findings = asyncio.run(
         PublicMcpClient(ConfiguredApplication()).project_health(
             tmp_path,
             EXAMPLE_HEALTHY_SHAPE_YAML,
@@ -1128,6 +1220,8 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert result.structured_content["data"]["outcome"] == "healthy"
     assert result.structured_content["data"]["failure_count"] == 0
     assert result.structured_content["data"]["advisory_count"] == 0
+    assert findings["failure"].structured_content["data"]["items"] == []
+    assert findings["advisory"].structured_content["data"]["items"] == []
     assert "Status: **healthy**" in result.content[0].text
 
 
@@ -1139,19 +1233,22 @@ def test_presents_complete_project_insights_with_bounded_pages_available(tmp_pat
         encoding="utf-8",
     )
 
-    overview, page = asyncio.run(PublicMcpClient(ConfiguredApplication()).project_insights(tmp_path))
+    overview, page, content = asyncio.run(PublicMcpClient(ConfiguredApplication()).project_insights(tmp_path))
     data = overview.structured_content["data"]
 
     assert overview.is_error is False
     assert overview.structured_content["status"] == "ok"
-    assert data["reports"]
+    assert data["report_count"] > 0
     assert data["sections"]
-    assert all("metadata" in report for report in data["reports"])
+    assert "reports" not in data
     assert all(set(section) == {"path", "total"} for section in data["sections"])
     assert page.is_error is False
     assert page.structured_content["data"]["revision"] == data["revision"]
     assert page.structured_content["data"]["path"] == data["sections"][0]["path"]
     assert len(page.structured_content["data"]["items"]) == 1
+    assert content.is_error is False
+    assert content.structured_content["data"]["revision"] == data["revision"]
+    assert content.structured_content["data"]["items"]
     assert len(overview.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(overview.structured_content).encode("utf-8")) <= 8_192
 
@@ -1214,6 +1311,7 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
         "get_diagram_set",
         "get_diagram_set_diagram",
         "read_diagram_content",
+        "read_diagram_kind_content",
         "update_diagram",
         "update_diagram_set",
     }
@@ -1230,12 +1328,23 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
 
     diagram_kind = results["get_diagram_kind"].structured_content["data"]
     assert diagram_kind["id"] == "flowchart"
-    assert "add_start" in diagram_kind["commands"]["keys"]
+    assert set(diagram_kind) == {"id", "name", "content_revision", "content_total_characters"}
+
+    kind_content = results["read_diagram_kind_content"].structured_content["data"]
+    assert kind_content["kind"] == "flowchart"
+    assert kind_content["revision"] == diagram_kind["content_revision"]
+    assert kind_content["content"]
+    assert kind_content["has_more"] is True
 
     command = results["get_diagram_command_schema"].structured_content["data"]
     assert command["kind"] == "flowchart"
     assert command["operation"] == "update_element"
-    assert command["arguments_schema"]["oneOf"]
+    assert command["schema_summary"]["variant_count"] > 1
+    assert command["schema_summary"]["definition_count"] > 1
+    assert (
+        results["get_diagram_command_schema"].structured_content["follow_ups"][0]["operation_id"]
+        == "read_diagram_kind_content"
+    )
 
     references = results["find_diagrams"].structured_content["data"]["items"]
     assert len(references) == 1
@@ -1411,10 +1520,14 @@ def test_presents_project_and_diagram_collection_continuations(tmp_path: Path) -
         assert first_data["limit"] == 1, operation
         if operation == "find_project_architecture_configurations":
             assert first_data["has_more"] is False
-            assert first.structured_content["follow_ups"] == []
+            assert all(follow_up["operation_id"] != operation for follow_up in first.structured_content["follow_ups"])
         else:
             assert first_data["has_more"] is True, operation
-            assert first.structured_content["follow_ups"] == [
+            assert [
+                follow_up
+                for follow_up in first.structured_content["follow_ups"]
+                if follow_up["operation_id"] == operation
+            ] == [
                 {
                     "operation_id": operation,
                     "arguments": {**identities[operation], "offset": 1, "limit": 1},
@@ -1424,7 +1537,9 @@ def test_presents_project_and_diagram_collection_continuations(tmp_path: Path) -
         final_data = final.structured_content["data"]
         assert len(final_data["items"]) == 1, operation
         assert final_data["has_more"] is False, operation
-        assert final.structured_content["follow_ups"] == [], operation
+        assert all(follow_up["operation_id"] != operation for follow_up in final.structured_content["follow_ups"]), (
+            operation
+        )
         empty_data = empty.structured_content["data"]
         assert empty_data["items"] == [], operation
         assert empty_data["has_more"] is False, operation

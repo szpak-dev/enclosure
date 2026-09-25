@@ -58,3 +58,39 @@ def test_scaffolding_catalogue_and_rendering_manifests_are_bounded() -> None:
         content_type="application/json",
     ).json()
     assert len(search) == 1
+
+
+def test_sirenity_owns_scaffolding_manifest_navigation_links() -> None:
+    schema = Client().get("/api/openapi.json").json()
+    detail = schema["paths"]["/api/scaffoldings/{scaffolding_id}"]["get"]
+    manifests = schema["paths"]["/api/scaffoldings/{scaffolding_id}/template-manifests"]["get"]
+
+    assert set(detail["responses"]["200"]["links"]) == {"template_manifests"}
+    assert manifests["responses"]["200"]["links"] == {
+        "next": {
+            "operationId": "read_scaffolding_template_manifests",
+            "parameters": {
+                "offset": "$response.body#/next_offset",
+                "limit": "$response.body#/limit",
+            },
+            "x-sirenity": {
+                "sourceInputs": {
+                    "scaffolding_id": "$request.path.scaffolding_id",
+                    "expected_revision": "$request.query.expected_revision",
+                }
+            },
+        },
+        "template": {
+            "operationId": "read_scaffolding_template",
+            "parameters": {
+                "query.path": "$response.body#/path",
+                "query.expected_revision": "$response.body#/revision",
+            },
+            "x-sirenity": {
+                "rel": "item",
+                "scope": "entity",
+                "itemCollection": "$response.body#/items",
+                "sourceInputs": {"scaffolding_id": "$request.path.scaffolding_id"},
+            },
+        },
+    }

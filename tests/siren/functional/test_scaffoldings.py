@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 from django.test import Client
 
@@ -75,24 +77,33 @@ def test_siren_discovers_and_creates_scaffoldings(
         "delete_scaffolding",
         "get_scaffolding",
         "read_scaffolding_rendered_file",
+        "read_scaffolding_template_manifests",
         "read_scaffolding_template",
         "render_scaffolding",
         "update_scaffolding",
     }
 
-    manifest = details.json()["properties"]["spec"]["templates"][0]
-    assert "content" not in manifest
-    template_action = next(
-        action for action in details.json()["actions"] if action["name"] == "read_scaffolding_template"
+    manifest_link = next(
+        link for link in details.json()["links"] if urlsplit(link["href"]).path.endswith("/template-manifests")
     )
-    template_content = client.get(
-        template_action["href"].removeprefix("http://testserver"),
+    manifests = client.get(
+        urlsplit(manifest_link["href"]).path,
         data={
-            "path": manifest["path"],
-            "expected_revision": manifest["revision"],
+            "expected_revision": details.json()["properties"]["templates_revision"],
             "offset": 0,
-            "limit": 512,
+            "limit": 1,
         },
+    )
+    assert manifests.status_code == 200
+    assert "collection" in manifests.json()["class"]
+    manifest = manifests.json()["entities"][0]
+    template_link = next(link for link in manifest["links"] if "item" in link["rel"])
+    template_query = parse_qs(urlsplit(template_link["href"]).query)
+    assert template_query["path"] == [manifest["properties"]["path"]]
+    assert template_query["expected_revision"] == [manifest["properties"]["revision"]]
+    template_content = client.get(
+        urlsplit(template_link["href"]).path,
+        data={**template_query, "offset": 0, "limit": 512},
     )
     assert template_content.status_code == 200
     assert template_content.json()["properties"]["content"] == ""

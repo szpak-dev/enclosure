@@ -1,11 +1,11 @@
+import json
 from dataclasses import dataclass
 from hashlib import sha256
-import json
 
 from wireup import injectable
 
-from ..mermaiden import MermaidenService
 from ...errors import DiagramsError
+from ..mermaiden import MermaidenService
 from .model import DiagramKindContentPage
 
 

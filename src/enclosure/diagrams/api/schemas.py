@@ -52,6 +52,8 @@ class DiagramKindContent(Schema):
 class DiagramCommandSchema(Schema):
     kind: DiagramKindId
     operation: str = Field(description="Command operation name.")
+    content_revision: str = Field(description="SHA-256 revision of the canonical diagram-kind contract.")
+    content_total_characters: int = Field(description="Canonical diagram-kind contract size in characters.", ge=0)
     arguments_schema: dict[str, JsonValue] = Field(description="JSON Schema for the command arguments.")
 
 

@@ -1,3 +1,19 @@
-{% set summary = "Authoritative diagram-command argument schema." %}
-{% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{{ envelope(operation_id, "ok", summary, data, []) }}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Diagram-command argument schema summary with revision-pinned canonical recovery.",
+  "data": {
+    "kind": {{ data.kind | tojson }},
+    "operation": {{ data.operation | tojson }},
+    "content_revision": {{ data.content_revision | tojson }},
+    "content_total_characters": {{ data.content_total_characters | tojson }},
+    "schema_summary": {
+      "type": {{ data.arguments_schema.type | default("") | tojson }},
+      "required": {{ data.arguments_schema.required | default([]) | tojson }},
+      "property_names": {{ data.arguments_schema.properties.keys() | list | default([]) | tojson if data.arguments_schema.properties is defined else "[]" }},
+      "variant_count": {{ data.arguments_schema.oneOf | default([]) | length }},
+      "definition_count": {{ data.arguments_schema["$defs"] | default({}) | length }}
+    }
+  },
+  "follow_ups": {{ follow_ups | tojson }}
+}

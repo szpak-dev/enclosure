@@ -335,7 +335,7 @@ class RecordsController(ControllerBase):
             query.limit,
         )
 
-    @SirenContinuation(
+    @siren_pagination(
         http_get,
         "/{record_id}/resource-manifests",
         response=schemas.ResourceManifestPage,
@@ -345,6 +345,22 @@ class RecordsController(ControllerBase):
             "record_id": SirenSourceInput(location="path", name="record_id"),
             "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
         },
+        item_follow_ups={
+            "resource": SirenItemFollowUp(
+                operation_id="read_record_resource",
+                parameters={
+                    "query.path": "path",
+                    "query.expected_revision": "revision",
+                },
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "record_id": SirenSourceInput(location="path", name="record_id"),
+                },
+                item_collection="items",
+            )
+        },
+        status=200,
         summary="Read record resource manifests",
         description="Read one bounded page from a revision-pinned resource-manifest document.",
     )

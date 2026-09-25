@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 from django.test import Client
 
@@ -26,6 +28,69 @@ def test_siren_searches_records() -> None:
     assert response["Content-Type"] == SIREN_MEDIA_TYPE
     assert response.json()["class"] == ["collection", "search-result"]
     assert response.json().get("entities", []) == []
+
+
+@pytest.mark.django_db
+def test_siren_links_record_detail_to_canonical_content_and_resource_items() -> None:
+    client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
+    category = client.post(
+        "/siren/records/categories",
+        data={"title": "Recovery", "content_schema": {"type": "object"}},
+        content_type="application/json",
+    ).json()["properties"]
+    tag = client.post(
+        "/siren/records/tags",
+        data={"name": "recovery"},
+        content_type="application/json",
+    ).json()["properties"]
+    created = client.post(
+        "/siren/records",
+        data={
+            "title": "Recovery record",
+            "content": {"purpose": "typed navigation"},
+            "category_id": category["id"],
+            "tag_ids": [tag["id"]],
+            "resources": [
+                {"path": "first.py", "language": "python", "content": "first = True\n"},
+                {"path": "second.py", "language": "python", "content": "second = True\n"},
+            ],
+        },
+        content_type="application/json",
+    )
+    record_id = created.json()["properties"]["id"]
+
+    detail = client.get(f"/siren/records/{record_id}")
+    links = detail.json()["links"]
+    manifests_link = next(link for link in links if urlsplit(link["href"]).path.endswith("/resource-manifests"))
+    content_action = next(action for action in detail.json()["actions"] if action["name"] == "read_record_content")
+
+    canonical = client.get(
+        urlsplit(content_action["href"]).path,
+        data={"expected_revision": detail.json()["properties"]["content_revision"]},
+    )
+    assert canonical.status_code == 200
+    assert '"purpose":"typed navigation"' in canonical.json()["properties"]["content"]
+    manifests = client.get(
+        urlsplit(manifests_link["href"]).path,
+        data={
+            "expected_revision": detail.json()["properties"]["resources_revision"],
+            "offset": 0,
+            "limit": 1,
+        },
+    )
+    assert manifests.status_code == 200
+    assert "collection" in manifests.json()["class"]
+    assert len(manifests.json()["entities"]) == 1
+    resource = manifests.json()["entities"][0]
+    resource_link = next(link for link in resource["links"] if "item" in link["rel"])
+    resource_query = parse_qs(urlsplit(resource_link["href"]).query)
+    assert resource_query["path"] == [resource["properties"]["path"]]
+    assert resource_query["expected_revision"] == [resource["properties"]["revision"]]
+    assert any(link["rel"] == ["next"] for link in manifests.json()["links"])
+
+    content = client.get(urlsplit(resource_link["href"]).path, data=resource_query)
+    assert content.status_code == 200
+    assert content.json()["properties"]["content"] == "first = True\n"
 
 
 @pytest.mark.django_db

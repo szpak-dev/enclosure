@@ -71,15 +71,54 @@ def test_sirenity_owns_record_collection_continuation_links() -> None:
         for path in ("/api/records/tags", "/api/records/categories", "/api/records")
     }
     for operation_id, operation in operations.items():
-        assert operation["responses"]["200"]["links"] == {
-            "next": {
-                "operationId": operation_id,
-                "parameters": {
-                    "offset": "$response.body#/next_offset",
-                    "limit": "$response.body#/limit",
-                },
-            }
+        links = operation["responses"]["200"]["links"]
+        assert links["next"] == {
+            "operationId": operation_id,
+            "parameters": {
+                "offset": "$response.body#/next_offset",
+                "limit": "$response.body#/limit",
+            },
         }
+        item_links = [link for name, link in links.items() if name != "next"]
+        assert len(item_links) == 1
+        assert item_links[0]["x-sirenity"]["itemCollection"] == "$response.body#/items"
+        assert item_links[0]["x-sirenity"]["rel"] == "item"
+
+
+def test_sirenity_owns_record_manifest_navigation_links() -> None:
+    schema = Client().get("/api/openapi.json").json()
+    detail = schema["paths"]["/api/records/{record_id}"]["get"]
+    manifests = schema["paths"]["/api/records/{record_id}/resource-manifests"]["get"]
+
+    assert set(detail["responses"]["200"]["links"]) == {"content", "resource_manifests"}
+    assert manifests["responses"]["200"]["links"] == {
+        "next": {
+            "operationId": "read_record_resource_manifests",
+            "parameters": {
+                "offset": "$response.body#/next_offset",
+                "limit": "$response.body#/limit",
+            },
+            "x-sirenity": {
+                "sourceInputs": {
+                    "record_id": "$request.path.record_id",
+                    "expected_revision": "$request.query.expected_revision",
+                }
+            },
+        },
+        "resource": {
+            "operationId": "read_record_resource",
+            "parameters": {
+                "query.path": "$response.body#/path",
+                "query.expected_revision": "$response.body#/revision",
+            },
+            "x-sirenity": {
+                "rel": "item",
+                "scope": "entity",
+                "itemCollection": "$response.body#/items",
+                "sourceInputs": {"record_id": "$request.path.record_id"},
+            },
+        },
+    }
 
 
 def test_record_collection_pagination_is_bounded() -> None:
