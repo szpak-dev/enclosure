@@ -232,7 +232,7 @@ def test_document_follow_up_uses_the_presentation_budget_and_reconstructs_exact_
     assert content_pages[0].structured_content["data"]["offset"] == 0
     assert all(
         current.structured_content["data"]["next_offset"] == following.structured_content["data"]["offset"]
-        for current, following in zip(content_pages, content_pages[1:])
+        for current, following in zip(content_pages, content_pages[1:], strict=False)
     )
     assert content_pages[-1].structured_content["data"]["has_more"] is False
     for page in pages:
