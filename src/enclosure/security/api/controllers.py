@@ -6,8 +6,6 @@ from ninja import Path, Query
 from ninja_extra import ControllerBase, api_controller, route
 
 from ..adapters.http import ApprovalPermission, AuditPermission, DjangoActorAuthenticator
-from ..services.approvals import ApprovalView
-from ..services.audit.model import AuditEventPage
 from ..services.facade import SecurityService
 from . import schemas
 
@@ -29,7 +27,7 @@ class ApprovalController(ControllerBase):
         self,
         request: HttpRequest,
         approval_request_id: Annotated[str, Path(description="Approval request identifier.")],
-    ) -> ApprovalView:
+    ):
         return DjangoRequest.resolve(request, SecurityService).get_approval(approval_request_id)
 
     @route.post(
@@ -43,11 +41,10 @@ class ApprovalController(ControllerBase):
         self,
         request: HttpRequest,
         approval_request_id: Annotated[str, Path(description="Approval request identifier.")],
-    ) -> ApprovalView:
-        authenticator = DjangoRequest.resolve(request, DjangoActorAuthenticator)
+    ):
         return DjangoRequest.resolve(request, SecurityService).approve(
             approval_request_id,
-            authenticator.bound_actor(request),
+            DjangoRequest.resolve(request, DjangoActorAuthenticator).bound_actor(request),
         )
 
     @route.post(
@@ -61,11 +58,10 @@ class ApprovalController(ControllerBase):
         self,
         request: HttpRequest,
         approval_request_id: Annotated[str, Path(description="Approval request identifier.")],
-    ) -> ApprovalView:
-        authenticator = DjangoRequest.resolve(request, DjangoActorAuthenticator)
+    ):
         return DjangoRequest.resolve(request, SecurityService).reject(
             approval_request_id,
-            authenticator.bound_actor(request),
+            DjangoRequest.resolve(request, DjangoActorAuthenticator).bound_actor(request),
         )
 
 
@@ -82,5 +78,5 @@ class AuditController(ControllerBase):
         summary="List security audit events",
         description="Return a bounded page of immutable authorization and execution audit events.",
     )
-    def find(self, request: HttpRequest, query: Query[schemas.FindAuditEvents]) -> AuditEventPage:
+    def find(self, request: HttpRequest, query: Query[schemas.FindAuditEvents]):
         return DjangoRequest.resolve(request, SecurityService).find_audit_events(query.offset, query.limit)
