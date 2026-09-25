@@ -2,8 +2,8 @@ from pathlib import PurePosixPath
 
 from wireup import injectable
 
-from ..model import Language, PackageManager, Tool, VersionProvider
 from ..errors import LanguagesError
+from ..model import Language, PackageManager, Tool, VersionProvider
 
 
 @injectable(as_type=Language, qualifier="php")

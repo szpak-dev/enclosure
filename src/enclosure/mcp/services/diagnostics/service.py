@@ -7,7 +7,15 @@ from wireup import injectable
 
 from enclosure.diagnostics.services import CacheDiagnosticsContext
 
-from .model import DiagnosticOwner, DiagnosticStage, DiagnosticStageName, DiagnosticTrace, McpDiagnosticRequest, McpDiagnostics
+from .model import (
+    DiagnosticOwner,
+    DiagnosticStage,
+    DiagnosticStageName,
+    DiagnosticTrace,
+    McpDiagnosticRequest,
+    McpDiagnostics,
+)
+
 
 @injectable
 @dataclass(frozen=True)

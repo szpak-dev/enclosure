@@ -55,6 +55,8 @@ async def call_with_approval(
     if approval.is_error:
         return approval
     return await session.call_tool(name, arguments)
+
+
 EXAMPLE_UNHEALTHY_SHAPE_YAML = """shape:
   realms:
     - name: example-project

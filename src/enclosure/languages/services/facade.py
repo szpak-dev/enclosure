@@ -7,8 +7,8 @@ from enclosure.shared import DiagramsService
 from enclosure.shared.source_code.extraction import SourceExtractionService
 
 from ..errors import LanguageDoesNotExist
-from .model import Language, PackageManager
 from .errors import LanguagesError
+from .model import Language, PackageManager
 
 
 @injectable

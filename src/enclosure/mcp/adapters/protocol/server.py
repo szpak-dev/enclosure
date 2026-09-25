@@ -29,8 +29,6 @@ from enclosure.security.services.actors import ActorExecutionContext
 
 from .authentication import McpActorAuthenticator, McpTokenVerifierAdapter
 
-logger = structlog.get_logger(__name__)
-
 
 @dataclass
 class McpResponseObservation:
@@ -52,7 +50,7 @@ class McpResponseSend:
         now_ns = perf_counter_ns()
         if message["type"] == "http.response.start" and self.observation.tool_completed_ns:
             self.observation.response_started_ns = now_ns
-            logger.info(
+            structlog.get_logger(__name__).info(
                 "mcp_response_serialized",
                 correlation_id=self.observation.correlation_id,
                 started_ns=self.observation.tool_completed_ns,
@@ -67,7 +65,7 @@ class McpResponseSend:
         await self.send(message)
         if final_body:
             finished_ns = perf_counter_ns()
-            logger.info(
+            structlog.get_logger(__name__).info(
                 "mcp_response_sent",
                 correlation_id=self.observation.correlation_id,
                 started_ns=self.observation.response_started_ns,
@@ -147,7 +145,7 @@ class McpProtocolServer:
             service = container.get(McpService)
             server.instructions = service.instructions()
             finished_ns = perf_counter_ns()
-            logger.info(
+            structlog.get_logger(__name__).info(
                 "mcp_runtime_started",
                 release=self.release,
                 process_id=os.getpid(),
