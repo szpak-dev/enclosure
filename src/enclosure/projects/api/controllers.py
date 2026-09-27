@@ -21,6 +21,43 @@ from . import schemas
 @api_controller("/projects", tags=["Projects"], permissions=[SecurityPermission])
 class ProjectsController(ControllerBase):
     @route.post(
+        "/{project_id}/architecture-contract-publications",
+        response={201: schemas.ArchitectureContractPublication},
+        operation_id="publish_project_architecture_contract",
+        summary="Publish a project architecture contract",
+        description="Validate exact diagram revisions and publish one immutable project architecture contract.",
+    )
+    def publish_architecture_contract(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        body: schemas.PublishArchitectureContract,
+    ):
+        publication = DjangoRequest.resolve(request, ProjectsService).publish_project_architecture_contract(
+            project_id,
+            tuple(unit.model_dump(mode="python") for unit in body.units),
+        )
+        return Status(201, publication)
+
+    @route.get(
+        "/{project_id}/architecture-contract-publications/{publication_id}",
+        response=schemas.ArchitectureContractPublication,
+        operation_id="get_project_architecture_contract",
+        summary="Get a project architecture contract",
+        description="Return one immutable project architecture contract publication and its accepted evidence.",
+    )
+    def get_architecture_contract(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        publication_id: Annotated[str, Path(description="Architecture-contract publication identifier.")],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).get_project_architecture_contract(
+            project_id,
+            publication_id,
+        )
+
+    @route.post(
         "/operating-contracts",
         response={201: schemas.OperatingContract},
         operation_id="create_operating_contract",

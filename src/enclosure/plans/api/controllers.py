@@ -5,16 +5,6 @@ from modwire_hex.django import DjangoRequest
 from ninja import Path
 from ninja_extra import ControllerBase, api_controller, route
 
-from ...domain.artifact.artifact_definition import ArtifactDefinition
-from ...domain.definition.stage_definition import StageDefinition
-from ...domain.definition.transition_definition import TransitionDefinition
-from ...domain.gate.gate_definition import GateDefinition
-from ...domain.operation.operation_definition import OperationDefinition
-from ..use_cases.execute_stage_operation import ExecuteStageOperation
-from ..use_cases.publish_plan_definition import PublishPlanDefinition
-from ..use_cases.satisfy_stage_gate import SatisfyStageGate
-from ..use_cases.start_plan_run import StartPlanRun
-from ..use_cases.submit_stage_result import SubmitStageResult
 from .schemas import (
     GateSatisfactionInput,
     PlanDefinitionInput,

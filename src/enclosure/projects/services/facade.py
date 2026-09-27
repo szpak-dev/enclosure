@@ -8,6 +8,11 @@ from wireup import injectable
 
 from ..errors import ProjectsError
 from .adapters import ScaffoldingsAdapter
+from .architecture_contracts import (
+    ArchitectureContractPublication,
+    ArchitectureContractsService,
+    ArchitectureContractUnitInput,
+)
 from .context.model import WorkspaceContext
 from .context.service import WorkspaceContextService
 from .contracts.model import (
@@ -61,6 +66,7 @@ from .workspaces.service import WorkspaceService
 @dataclass(frozen=True)
 class ProjectsService:
     architecture: ArchitectureAdapter
+    architecture_contracts: ArchitectureContractsService
     contracts: OperatingContractsService
     context: WorkspaceContextService
     generation: GenerationService
@@ -130,6 +136,25 @@ class ProjectsService:
             offset,
             limit,
         )
+
+    def publish_project_architecture_contract(
+        self,
+        project_id: str,
+        units: tuple[Mapping[str, object], ...],
+    ) -> ArchitectureContractPublication:
+        self.registry.get(project_id)
+        return self.architecture_contracts.publish(
+            project_id,
+            tuple(ArchitectureContractUnitInput.model_validate(unit) for unit in units),
+        )
+
+    def get_project_architecture_contract(
+        self,
+        project_id: str,
+        publication_id: str,
+    ) -> ArchitectureContractPublication:
+        self.registry.get(project_id)
+        return self.architecture_contracts.get(project_id, publication_id)
 
     def find_workspaces(self, project_id: str) -> tuple[WorkspaceBinding, ...]:
         return self.workspaces.find(project_id)

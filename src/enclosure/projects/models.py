@@ -195,3 +195,116 @@ class GuidanceRelationship(ShortUUIDModel):
                 name="projects_guidance_relationship_kind_valid",
             ),
         ]
+
+
+class ArchitectureContractPublication(ShortUUIDModel):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="architecture_contract_publications",
+    )
+    version = models.PositiveIntegerField()
+    authority = models.CharField(max_length=512)
+    revision = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("project", "version"),
+                name="projects_arch_contract_publication_version_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("project", "revision"),
+                name="projects_arch_contract_publication_revision_unique",
+            ),
+        ]
+
+
+class ArchitectureContractUnit(ShortUUIDModel):
+    publication = models.ForeignKey(
+        ArchitectureContractPublication,
+        on_delete=models.CASCADE,
+        related_name="units",
+    )
+    key = models.CharField(max_length=255)
+    diagram_set_id = models.CharField(max_length=22)
+    source_root = models.CharField(max_length=1024)
+    coverage = models.CharField(max_length=32)
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("publication", "key"),
+                name="projects_arch_contract_unit_key_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("publication", "position"),
+                name="projects_arch_contract_unit_position_unique",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(coverage__in=("closed", "declared")),
+                name="projects_arch_contract_unit_coverage_valid",
+            ),
+        ]
+
+
+class ArchitectureContractDiagram(ShortUUIDModel):
+    unit = models.ForeignKey(
+        ArchitectureContractUnit,
+        on_delete=models.CASCADE,
+        related_name="diagrams",
+    )
+    diagram_id = models.CharField(max_length=22)
+    diagram_revision = models.PositiveIntegerField()
+    role = models.CharField(max_length=32)
+    scope = models.CharField(max_length=32)
+    kind = models.CharField(max_length=64)
+    snapshot_version = models.PositiveIntegerField()
+    registry_fingerprint = models.CharField(max_length=64)
+    snapshot_digest = models.CharField(max_length=64)
+    snapshot = models.JSONField()
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("unit", "diagram_id"),
+                name="projects_arch_contract_diagram_id_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("unit", "position"),
+                name="projects_arch_contract_diagram_position_unique",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(role__in=("tree", "uml", "entity")),
+                name="projects_arch_contract_diagram_role_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(scope__in=("complete", "focused", "reference")),
+                name="projects_arch_contract_diagram_scope_valid",
+            ),
+        ]
+
+
+class ArchitectureContractExclusion(ShortUUIDModel):
+    unit = models.ForeignKey(
+        ArchitectureContractUnit,
+        on_delete=models.CASCADE,
+        related_name="exclusions",
+    )
+    path = models.CharField(max_length=1024)
+    reason = models.TextField()
+    position = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("unit", "path"),
+                name="projects_arch_contract_exclusion_path_unique",
+            ),
+            models.UniqueConstraint(
+                fields=("unit", "position"),
+                name="projects_arch_contract_exclusion_position_unique",
+            ),
+        ]

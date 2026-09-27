@@ -7,6 +7,7 @@ from wireup import injectable
 from ..models import Diagram, DiagramSet
 from .catalog import DiagramCatalogService, DiagramKindContentPage
 from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
+from .contracts import DiagramContractService, DiagramContractSnapshot
 from .diagram_sets.model import DiagramSetPage
 from .diagram_sets.service import DiagramSetService
 from .editing.model import DiagramPage
@@ -18,6 +19,7 @@ from .editing.service import DiagramEditingService
 class DiagramsService:
     catalog: DiagramCatalogService
     content: DiagramContentService
+    contracts: DiagramContractService
     diagram_sets: DiagramSetService
     editing: DiagramEditingService
 
@@ -70,6 +72,14 @@ class DiagramsService:
 
     def get_diagram(self, id: str) -> Diagram:
         return self.editing.get(id)
+
+    def resolve_contract_snapshot(
+        self,
+        diagram_set_id: str,
+        diagram_id: str,
+        expected_revision: int,
+    ) -> DiagramContractSnapshot:
+        return self.contracts.resolve(diagram_set_id, diagram_id, expected_revision)
 
     def read_diagram_content(
         self,
