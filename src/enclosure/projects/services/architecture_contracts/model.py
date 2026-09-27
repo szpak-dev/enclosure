@@ -1,0 +1,96 @@
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, JsonValue
+
+
+class ArchitectureDiagramRole(StrEnum):
+    TREE = "tree"
+    UML = "uml"
+    ENTITY = "entity"
+
+
+class ArchitectureDiagramScope(StrEnum):
+    COMPLETE = "complete"
+    FOCUSED = "focused"
+    REFERENCE = "reference"
+
+
+class ArchitectureContractCoverage(StrEnum):
+    CLOSED = "closed"
+    DECLARED = "declared"
+
+
+class ArchitectureContractDiagramInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    diagram_id: str
+    expected_revision: int
+    role: ArchitectureDiagramRole
+    scope: ArchitectureDiagramScope
+
+
+class ArchitectureContractExclusionInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str
+    reason: str
+
+
+class ArchitectureContractUnitInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str
+    diagram_set_id: str
+    source_root: str
+    coverage: ArchitectureContractCoverage
+    diagrams: tuple[ArchitectureContractDiagramInput, ...]
+    exclusions: tuple[ArchitectureContractExclusionInput, ...]
+
+
+class ArchitectureContractDiagram(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
+    id: str
+    diagram_id: str
+    diagram_revision: int
+    role: ArchitectureDiagramRole
+    scope: ArchitectureDiagramScope
+    kind: str
+    snapshot_version: int
+    registry_fingerprint: str
+    snapshot_digest: str
+    snapshot: dict[str, JsonValue]
+    position: int
+
+
+class ArchitectureContractExclusion(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
+    id: str
+    path: str
+    reason: str
+    position: int
+
+
+class ArchitectureContractUnit(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    key: str
+    diagram_set_id: str
+    source_root: str
+    coverage: ArchitectureContractCoverage
+    position: int
+    diagrams: tuple[ArchitectureContractDiagram, ...]
+    exclusions: tuple[ArchitectureContractExclusion, ...]
+
+
+class ArchitectureContractPublication(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    project_id: str
+    version: int
+    authority: str
+    revision: str
+    units: tuple[ArchitectureContractUnit, ...]

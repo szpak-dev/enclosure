@@ -170,6 +170,85 @@ class UpdateProject(Schema):
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
 
 
+class ArchitectureContractDiagramInput(Schema):
+    diagram_id: str = Field(description="Diagram identifier selected for the contract unit.", min_length=1)
+    expected_revision: int = Field(description="Exact diagram revision accepted for publication.", ge=1)
+    role: Literal["tree", "uml", "entity"] = Field(description="Explicit semantic role of the diagram.")
+    scope: Literal["complete", "focused", "reference"] = Field(
+        description="Ownership scope claimed by the diagram within the contract unit."
+    )
+
+
+class ArchitectureContractExclusionInput(Schema):
+    path: str = Field(description="Normalized relative path excluded from contract coverage.", min_length=1)
+    reason: str = Field(description="Mandatory rationale for the explicit exclusion.", min_length=1)
+
+
+class ArchitectureContractUnitInput(Schema):
+    key: str = Field(description="Stable contract-unit key within the publication.", min_length=1)
+    diagram_set_id: str = Field(description="Diagram set containing every member diagram.", min_length=1)
+    source_root: str = Field(description="Normalized project-relative source root governed by the unit.", min_length=1)
+    coverage: Literal["closed", "declared"] = Field(description="Coverage policy applied by later comparison.")
+    diagrams: list[ArchitectureContractDiagramInput] = Field(
+        description="Ordered exact diagram revisions with explicit roles and scopes.",
+        min_length=1,
+    )
+    exclusions: list[ArchitectureContractExclusionInput] = Field(
+        default_factory=list,
+        description="Ordered normalized coverage exclusions with mandatory rationale.",
+    )
+
+
+class PublishArchitectureContract(Schema):
+    units: list[ArchitectureContractUnitInput] = Field(
+        description="Ordered contract units forming the immutable project architecture publication.",
+        min_length=1,
+    )
+
+
+class ArchitectureContractDiagram(Schema):
+    id: str = Field(description="Published diagram-membership identifier.")
+    diagram_id: str = Field(description="Source diagram identifier retained as provenance.")
+    diagram_revision: int = Field(description="Exact accepted source diagram revision.", ge=1)
+    role: Literal["tree", "uml", "entity"] = Field(description="Explicit semantic role of the diagram.")
+    scope: Literal["complete", "focused", "reference"] = Field(
+        description="Ownership scope claimed by the diagram within the unit."
+    )
+    kind: str = Field(description="Mermaiden diagram kind validated for the semantic role.")
+    snapshot_version: int = Field(description="Public Mermaiden snapshot contract version.", ge=1)
+    registry_fingerprint: str = Field(description="Public Mermaiden registry fingerprint.")
+    snapshot_digest: str = Field(description="SHA-256 digest of the canonical accepted snapshot.")
+    snapshot: dict[str, JsonValue] = Field(description="Immutable derived canonical snapshot evidence.")
+    position: int = Field(description="Deterministic diagram position within the unit.", ge=0)
+
+
+class ArchitectureContractExclusion(Schema):
+    id: str = Field(description="Published exclusion identifier.")
+    path: str = Field(description="Normalized relative excluded path.")
+    reason: str = Field(description="Accepted rationale for the exclusion.")
+    position: int = Field(description="Deterministic exclusion position within the unit.", ge=0)
+
+
+class ArchitectureContractUnit(Schema):
+    id: str = Field(description="Published contract-unit identifier.")
+    key: str = Field(description="Stable contract-unit key within the publication.")
+    diagram_set_id: str = Field(description="Source diagram-set identity retained as provenance.")
+    source_root: str = Field(description="Normalized project-relative governed source root.")
+    coverage: Literal["closed", "declared"] = Field(description="Accepted coverage policy.")
+    position: int = Field(description="Deterministic unit position within the publication.", ge=0)
+    diagrams: list[ArchitectureContractDiagram] = Field(description="Immutable accepted diagram evidence.")
+    exclusions: list[ArchitectureContractExclusion] = Field(description="Explicit accepted coverage exclusions.")
+
+
+class ArchitectureContractPublication(Schema):
+    id: str = Field(description="Immutable architecture-contract publication identifier.")
+    project_id: ProjectId
+    version: int = Field(description="Project-local monotonically increasing publication version.", ge=1)
+    authority: str = Field(description="Stable project architecture-contract authority.")
+    revision: str = Field(description="SHA-256 revision of the complete canonical publication.")
+    units: list[ArchitectureContractUnit] = Field(description="Ordered immutable project contract units.")
+
+
 class CreateOperatingContract(Schema):
     title: str = Field(description="Human-readable operating-contract title.", min_length=1)
     authority: str = Field(description="Stable canonical authority owned by this contract.", min_length=1)

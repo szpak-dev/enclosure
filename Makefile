@@ -1,4 +1,4 @@
-.PHONY: browser-build ci dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -18,15 +18,34 @@ format:
 	@npm --prefix browser run format
 
 ci:
+	@$(MAKE) --jobs=2 ci-python-checks ci-browser-checks
+	@$(MAKE) ci-static-prepare
+	@$(MAKE) --jobs=2 ci-python-tests ci-browser-tests
+	@$(MAKE) ci-browser-build ci-static-check
+
+ci-python-checks:
 	@uv run ruff format --check .
 	@uv run ruff check .
 	@uv run python manage.py check
-	@uv run python manage.py collectstatic --noinput
-	@uv run pytest
-	@npm --prefix browser test
+
+ci-browser-checks:
 	@npm --prefix browser run typecheck
 	@npm --prefix browser run format:check
+
+ci-python-tests:
+	@uv run pytest -n 4 --dist loadfile -k "not health"
+	@uv run pytest -k health
+
+ci-browser-tests:
+	@npm --prefix browser test
+
+ci-browser-build:
 	@npm --prefix browser run build
+
+ci-static-prepare:
+	@uv run python manage.py collectstatic --noinput
+
+ci-static-check:
 	@git diff --exit-code -- src/enclosure/browser/adapters/http/static/browser
 
 superuser:
