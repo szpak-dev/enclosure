@@ -8,6 +8,8 @@ from ..models import Diagram, DiagramSet
 from .catalog import DiagramCatalogService, DiagramKindContentPage
 from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
 from .contracts import DiagramContractService, DiagramContractSnapshot
+from .contracts.semantics.model import DiagramContractSemantics
+from .contracts.semantics.service import DiagramContractSemanticsService
 from .diagram_sets.model import DiagramSetPage
 from .diagram_sets.service import DiagramSetService
 from .editing.model import DiagramPage
@@ -20,6 +22,7 @@ class DiagramsService:
     catalog: DiagramCatalogService
     content: DiagramContentService
     contracts: DiagramContractService
+    semantics: DiagramContractSemanticsService
     diagram_sets: DiagramSetService
     editing: DiagramEditingService
 
@@ -80,6 +83,15 @@ class DiagramsService:
         expected_revision: int,
     ) -> DiagramContractSnapshot:
         return self.contracts.resolve(diagram_set_id, diagram_id, expected_revision)
+
+    def interpret_contract_snapshot(
+        self,
+        kind: str,
+        snapshot: Mapping[str, object],
+        snapshot_version: int,
+        registry_fingerprint: str,
+    ) -> DiagramContractSemantics:
+        return self.semantics.interpret(kind, snapshot, snapshot_version, registry_fingerprint)
 
     def read_diagram_content(
         self,
