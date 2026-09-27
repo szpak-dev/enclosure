@@ -17,6 +17,12 @@ class ArchitectureFactCapability(StrEnum):
     SPANS = "spans"
 
 
+class ArchitectureRelationKind(StrEnum):
+    EXTENDS = "extends"
+    IMPLEMENTS = "implements"
+    IMPORTS = "imports"
+
+
 class ArchitectureDiagramEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -61,6 +67,9 @@ class AttributeContractFact(ArchitectureContractFact):
     owner_id: str
     name: str
     optional: bool
+    annotation: str
+    visibility: str
+    member_kind: str
 
 
 class AnnotationContractFact(ArchitectureContractFact):
@@ -69,21 +78,15 @@ class AnnotationContractFact(ArchitectureContractFact):
     expression: str
 
 
-class ModifierContractFact(ArchitectureContractFact):
-    target_id: str
-    role: str
-    value: str
-
-
 class InheritanceContractFact(ArchitectureContractFact):
     owner_id: str
-    kind: str
+    kind: ArchitectureRelationKind
     target: str
 
 
 class DependencyContractFact(ArchitectureContractFact):
     source_path: str
-    kind: str
+    kind: ArchitectureRelationKind
     target: str
     specifier: str
     resolution: str

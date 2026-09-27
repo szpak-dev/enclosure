@@ -15,11 +15,11 @@ from ..facts.model import (
     ArchitectureContractFact,
     ArchitectureDiagramEvidence,
     ArchitectureFactCapability,
+    ArchitectureRelationKind,
     AttributeContractFact,
     CallableContractFact,
     DependencyContractFact,
     InheritanceContractFact,
-    ModifierContractFact,
     ParameterContractFact,
     SymbolContractFact,
 )
@@ -78,12 +78,12 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
             )
             facts.extend(
                 AnnotationContractFact(
-                    id=f"annotation:{symbol_fact_id}:decorator:{annotation}",
+                    id=f"annotation:{symbol_fact_id}:declaration:{annotation}",
                     capability=ArchitectureFactCapability.ANNOTATIONS,
                     required=True,
                     evidence=evidence,
                     target_id=symbol_fact_id,
-                    role="decorator",
+                    role="declaration",
                     expression=annotation,
                 )
                 for annotation in symbol.annotations
@@ -100,39 +100,9 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                             owner_id=symbol_fact_id,
                             name=member.name,
                             optional=member.type.startswith("Optional[") or member.type.endswith("?"),
-                        )
-                    )
-                    facts.append(
-                        AnnotationContractFact(
-                            id=f"annotation:{attribute_fact_id}:attribute_type:{member.type}",
-                            capability=ArchitectureFactCapability.ANNOTATIONS,
-                            required=True,
-                            evidence=evidence,
-                            target_id=attribute_fact_id,
-                            role="attribute_type",
-                            expression=member.type,
-                        )
-                    )
-                    facts.extend(
-                        (
-                            ModifierContractFact(
-                                id=f"modifier:{attribute_fact_id}:visibility:{member.visibility}",
-                                capability=ArchitectureFactCapability.MODIFIERS,
-                                required=True,
-                                evidence=evidence,
-                                target_id=attribute_fact_id,
-                                role="visibility",
-                                value=member.visibility,
-                            ),
-                            ModifierContractFact(
-                                id=f"modifier:{attribute_fact_id}:member_kind:{member.modifier}",
-                                capability=ArchitectureFactCapability.MODIFIERS,
-                                required=True,
-                                evidence=evidence,
-                                target_id=attribute_fact_id,
-                                role="member_kind",
-                                value=member.modifier,
-                            ),
+                            annotation=member.type,
+                            visibility=member.visibility,
+                            member_kind=member.modifier,
                         )
                     )
                 if member.kind == "method":
@@ -216,14 +186,24 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                 ),
             )
             if relation.kind == "inheritance":
+                if relation.label not in (
+                    ArchitectureRelationKind.EXTENDS.value,
+                    ArchitectureRelationKind.IMPLEMENTS.value,
+                ):
+                    raise ProjectsError(
+                        f"UML inheritance {relation.id!r} must label canonical kind 'extends' or 'implements'."
+                    )
+                inheritance_kind = ArchitectureRelationKind(relation.label)
                 facts.append(
                     InheritanceContractFact(
-                        id=f"inheritance:{source_fact_id}:{relation.kind}:{symbols[relation.target_id].label}",
+                        id=(
+                            f"inheritance:{source_fact_id}:{inheritance_kind.value}:{symbols[relation.target_id].label}"
+                        ),
                         capability=ArchitectureFactCapability.INHERITANCE,
                         required=True,
                         evidence=evidence,
                         owner_id=source_fact_id,
-                        kind=relation.kind,
+                        kind=inheritance_kind,
                         target=symbols[relation.target_id].label,
                     )
                 )
@@ -234,12 +214,15 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                     )
                 facts.append(
                     DependencyContractFact(
-                        id=(f"dependency:{source_path}:{target_path}:{relation.kind}:{relation.label}"),
+                        id=(
+                            f"dependency:{source_path}:{target_path}:"
+                            f"{ArchitectureRelationKind.IMPORTS.value}:{relation.label}"
+                        ),
                         capability=ArchitectureFactCapability.DEPENDENCIES,
                         required=True,
                         evidence=evidence,
                         source_path=source_path,
-                        kind=relation.kind,
+                        kind=ArchitectureRelationKind.IMPORTS,
                         target=target_path,
                         specifier=relation.label,
                         resolution="resolved",

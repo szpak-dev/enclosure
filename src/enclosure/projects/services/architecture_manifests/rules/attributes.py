@@ -22,6 +22,9 @@ class AttributeComparisonRule(ArchitectureComparisonRule):
             contract.owner_id == observed.owner_id
             and contract.name == observed.name
             and contract.optional == observed.optional
+            and contract.annotation == observed.annotation
+            and contract.visibility == observed.visibility
+            and contract.member_kind == observed.member_kind
         )
 
     def path(self, actual: ObservedImplementationFact) -> str:

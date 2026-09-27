@@ -5,7 +5,7 @@ from modwire.application import ImplementationManifestDocument, ModwireApplicati
 from wireup import injectable
 
 from ...errors import ProjectsError
-from ..architecture_manifests.facts.model import ArchitectureFactCapability
+from ..architecture_manifests.facts.model import ArchitectureFactCapability, ArchitectureRelationKind
 from ..architecture_manifests.model import ArchitectureSupportState
 from ..architecture_manifests.observed.model import (
     ObservedAnnotationFact,
@@ -44,7 +44,11 @@ class ModwireManifestAdapter:
             )
             for parameter in manifest.parameters
         }
-        annotation_targets = symbol_targets | parameter_targets
+        attribute_targets = {
+            attribute.id: f"attribute:{symbol_targets[attribute.owner_symbol_id.canonical()]}:{attribute.name}"
+            for attribute in manifest.attributes
+        }
+        annotation_targets = symbol_targets | parameter_targets | attribute_targets
         parameter_annotations = {
             parameter.id: tuple(
                 annotation.expression
@@ -103,11 +107,14 @@ class ModwireManifestAdapter:
         )
         facts.extend(
             ObservedAttributeFact(
-                id=f"attribute:{symbol_targets[attribute.owner_symbol_id.canonical()]}:{attribute.name}",
+                id=attribute_targets[attribute.id],
                 capability=ArchitectureFactCapability.ATTRIBUTES,
                 owner_id=symbol_targets[attribute.owner_symbol_id.canonical()],
                 name=attribute.name,
                 optional=attribute.is_optional,
+                annotation=attribute.annotation,
+                visibility=attribute.visibility.value,
+                member_kind=attribute.member_kind.value,
             )
             for attribute in manifest.attributes
         )
@@ -120,16 +127,17 @@ class ModwireManifestAdapter:
                 expression=annotation.expression,
             )
             for annotation in manifest.annotations
+            if annotation.role not in ("attribute_type", "parameter_type")
         )
         facts.extend(
             ObservedInheritanceFact(
                 id=(
                     f"inheritance:{symbol_targets[relation.source_symbol_id.canonical()]}:"
-                    f"{relation.kind}:{relation.target_reference}"
+                    f"{relation.kind.value}:{relation.target_reference}"
                 ),
                 capability=ArchitectureFactCapability.INHERITANCE,
                 owner_id=symbol_targets[relation.source_symbol_id.canonical()],
-                kind=relation.kind,
+                kind=ArchitectureRelationKind(relation.kind.value),
                 target=relation.target_reference,
             )
             for relation in manifest.inheritance
@@ -139,11 +147,11 @@ class ModwireManifestAdapter:
                 id=(
                     f"dependency:{source_paths[dependency.source_id]}:"
                     f"{source_paths[dependency.target] if dependency.target_kind == 'source' else dependency.target}:"
-                    f"{dependency.kind}:{dependency.specifier}"
+                    f"{dependency.kind.value}:{dependency.specifier}"
                 ),
                 capability=ArchitectureFactCapability.DEPENDENCIES,
                 source_path=source_paths[dependency.source_id],
-                kind=dependency.kind,
+                kind=ArchitectureRelationKind(dependency.kind.value),
                 target=(source_paths[dependency.target] if dependency.target_kind == "source" else dependency.target),
                 specifier=dependency.specifier,
                 resolution=dependency.resolution,

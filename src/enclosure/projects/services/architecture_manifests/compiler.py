@@ -23,7 +23,6 @@ from .facts.model import (
     CallableContractFact,
     DependencyContractFact,
     InheritanceContractFact,
-    ModifierContractFact,
     ParameterContractFact,
     SourceContractFact,
     SymbolContractFact,
@@ -130,10 +129,6 @@ class ArchitectureContractCompiler:
                     target_id = cast(AnnotationContractFact, fact).target_id
                     if target_id not in symbols and target_id not in attributes:
                         raise ProjectsError(f"Architecture annotation {fact.id!r} has no owning UML fact.")
-                if fact.capability == ArchitectureFactCapability.MODIFIERS:
-                    target_id = cast(ModifierContractFact, fact).target_id
-                    if target_id not in symbols and target_id not in attributes:
-                        raise ProjectsError(f"Architecture modifier {fact.id!r} has no owning UML fact.")
                 if fact.capability == ArchitectureFactCapability.INHERITANCE:
                     owner_id = cast(InheritanceContractFact, fact).owner_id
                     if owner_id not in symbols:

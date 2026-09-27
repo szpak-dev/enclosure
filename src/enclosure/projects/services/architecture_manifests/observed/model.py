@@ -2,7 +2,7 @@ from abc import ABC
 
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
-from ..facts.model import ArchitectureFactCapability
+from ..facts.model import ArchitectureFactCapability, ArchitectureRelationKind
 from ..model import ArchitectureSupportState
 
 
@@ -52,6 +52,9 @@ class ObservedAttributeFact(ObservedImplementationFact):
     owner_id: str
     name: str
     optional: bool
+    annotation: str
+    visibility: str
+    member_kind: str
 
 
 class ObservedAnnotationFact(ObservedImplementationFact):
@@ -60,21 +63,15 @@ class ObservedAnnotationFact(ObservedImplementationFact):
     expression: str
 
 
-class ObservedModifierFact(ObservedImplementationFact):
-    target_id: str
-    role: str
-    value: str
-
-
 class ObservedInheritanceFact(ObservedImplementationFact):
     owner_id: str
-    kind: str
+    kind: ArchitectureRelationKind
     target: str
 
 
 class ObservedDependencyFact(ObservedImplementationFact):
     source_path: str
-    kind: str
+    kind: ArchitectureRelationKind
     target: str
     specifier: str
     resolution: str
