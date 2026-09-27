@@ -1,4 +1,4 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-static-check dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -19,6 +19,7 @@ format:
 
 ci:
 	@$(MAKE) --jobs=2 ci-python-checks ci-browser-checks
+	@$(MAKE) ci-static-prepare
 	@$(MAKE) --jobs=2 ci-python-tests ci-browser-tests
 	@$(MAKE) ci-browser-build ci-static-check
 
@@ -41,8 +42,10 @@ ci-browser-tests:
 ci-browser-build:
 	@npm --prefix browser run build
 
-ci-static-check:
+ci-static-prepare:
 	@uv run python manage.py collectstatic --noinput
+
+ci-static-check:
 	@git diff --exit-code -- src/enclosure/browser/adapters/http/static/browser
 
 superuser:
