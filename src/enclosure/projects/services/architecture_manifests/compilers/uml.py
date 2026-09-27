@@ -9,6 +9,7 @@ from ...architecture_contracts.model import (
     ArchitectureContractDiagram,
     ArchitectureContractUnit,
     ArchitectureDiagramRole,
+    ArchitectureDiagramScope,
 )
 from ..facts.model import (
     AnnotationContractFact,
@@ -39,6 +40,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
         semantics: DiagramContractSemantics,
     ) -> tuple[ArchitectureContractFact, ...]:
         facts: list[ArchitectureContractFact] = []
+        required = diagram.scope != ArchitectureDiagramScope.REFERENCE
         symbols = {symbol.element_id: symbol for symbol in semantics.symbols}
         identities: dict[str, tuple[str, str, str]] = {}
         for symbol in semantics.symbols:
@@ -68,19 +70,18 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                 SymbolContractFact(
                     id=symbol_fact_id,
                     capability=ArchitectureFactCapability.SYMBOLS,
-                    required=True,
+                    required=required,
                     evidence=evidence,
                     path=path,
                     family=family,
                     qualified_name=qualified_name,
-                    kind=family,
                 )
             )
             facts.extend(
                 AnnotationContractFact(
                     id=f"annotation:{symbol_fact_id}:declaration:{annotation}",
                     capability=ArchitectureFactCapability.ANNOTATIONS,
-                    required=True,
+                    required=required,
                     evidence=evidence,
                     target_id=symbol_fact_id,
                     role="declaration",
@@ -95,7 +96,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                         AttributeContractFact(
                             id=attribute_fact_id,
                             capability=ArchitectureFactCapability.ATTRIBUTES,
-                            required=True,
+                            required=required,
                             evidence=evidence,
                             owner_id=symbol_fact_id,
                             name=member.name,
@@ -118,19 +119,18 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                         SymbolContractFact(
                             id=method_symbol_id,
                             capability=ArchitectureFactCapability.SYMBOLS,
-                            required=True,
+                            required=required,
                             evidence=evidence,
                             path=path,
                             family="method",
                             qualified_name=f"{qualified_name}.{member.name}",
-                            kind="callable",
                         )
                     )
                     facts.append(
                         CallableContractFact(
                             id=f"callable:{method_symbol_id}",
                             capability=ArchitectureFactCapability.CALLABLES,
-                            required=True,
+                            required=required,
                             evidence=evidence,
                             owner_id=method_symbol_id,
                             callable_kind=callable_kind,
@@ -140,7 +140,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                         AnnotationContractFact(
                             id=f"annotation:{method_symbol_id}:return_type:{member.type}",
                             capability=ArchitectureFactCapability.ANNOTATIONS,
-                            required=True,
+                            required=required,
                             evidence=evidence,
                             target_id=method_symbol_id,
                             role="return_type",
@@ -152,7 +152,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                             AnnotationContractFact(
                                 id=f"annotation:{method_symbol_id}:decorator:abstractmethod",
                                 capability=ArchitectureFactCapability.ANNOTATIONS,
-                                required=True,
+                                required=required,
                                 evidence=evidence,
                                 target_id=method_symbol_id,
                                 role="decorator",
@@ -163,7 +163,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                         ParameterContractFact(
                             id=f"parameter:{method_symbol_id}:{parameter.position}:{parameter.name}",
                             capability=ArchitectureFactCapability.PARAMETERS,
-                            required=True,
+                            required=required,
                             evidence=evidence,
                             owner_id=method_symbol_id,
                             position=parameter.position,
@@ -200,7 +200,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                             f"inheritance:{source_fact_id}:{inheritance_kind.value}:{symbols[relation.target_id].label}"
                         ),
                         capability=ArchitectureFactCapability.INHERITANCE,
-                        required=True,
+                        required=required,
                         evidence=evidence,
                         owner_id=source_fact_id,
                         kind=inheritance_kind,
@@ -219,7 +219,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
                             f"{ArchitectureRelationKind.IMPORTS.value}:{relation.label}"
                         ),
                         capability=ArchitectureFactCapability.DEPENDENCIES,
-                        required=True,
+                        required=required,
                         evidence=evidence,
                         source_path=source_path,
                         kind=ArchitectureRelationKind.IMPORTS,

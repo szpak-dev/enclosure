@@ -22,7 +22,7 @@ class ParameterComparisonRule(ArchitectureComparisonRule):
             contract.owner_id == observed.owner_id
             and contract.position == observed.position
             and contract.name == observed.name
-            and contract.annotation in observed.annotations
+            and observed.annotations == (contract.annotation,)
         )
 
     def path(self, actual: ObservedImplementationFact) -> str:

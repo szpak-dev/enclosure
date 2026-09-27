@@ -30,7 +30,6 @@ class ObservedSymbolFact(ObservedImplementationFact):
     path: str
     family: str
     qualified_name: str
-    kind: str
     visibility: str
 
 
@@ -73,6 +72,7 @@ class ObservedDependencyFact(ObservedImplementationFact):
     source_path: str
     kind: ArchitectureRelationKind
     target: str
+    target_kind: str
     specifier: str
     resolution: str
 

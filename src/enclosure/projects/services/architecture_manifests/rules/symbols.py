@@ -22,7 +22,6 @@ class SymbolComparisonRule(ArchitectureComparisonRule):
             contract.path == observed.path
             and contract.family == observed.family
             and contract.qualified_name == observed.qualified_name
-            and contract.kind == observed.kind
         )
 
     def path(self, actual: ObservedImplementationFact) -> str:

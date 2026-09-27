@@ -48,7 +48,6 @@ class SymbolContractFact(ArchitectureContractFact):
     path: str
     family: str
     qualified_name: str
-    kind: str
 
 
 class CallableContractFact(ArchitectureContractFact):

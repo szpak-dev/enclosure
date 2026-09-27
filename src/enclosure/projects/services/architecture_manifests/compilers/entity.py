@@ -50,6 +50,9 @@ class EntityArchitectureCompiler(ArchitectureDiagramCompiler):
                     owner_id=owner_id,
                     name=member.name,
                     optional=member.type.startswith("Optional[") or member.type.endswith("?"),
+                    annotation=member.type,
+                    visibility=member.visibility,
+                    member_kind=member.modifier,
                 )
                 for member in symbol.members
                 if member.kind == "attribute"

@@ -75,7 +75,6 @@ class ModwireManifestAdapter:
                 path=source_paths[str(symbol.id.source_id)],
                 family=symbol.id.family.value,
                 qualified_name=symbol.qualified_name,
-                kind=symbol.kind,
                 visibility=symbol.visibility,
             )
             for symbol in manifest.symbols
@@ -113,7 +112,7 @@ class ModwireManifestAdapter:
                 name=attribute.name,
                 optional=attribute.is_optional,
                 annotation=attribute.annotation,
-                visibility=attribute.visibility.value,
+                visibility=attribute.visibility,
                 member_kind=attribute.member_kind.value,
             )
             for attribute in manifest.attributes
@@ -153,6 +152,7 @@ class ModwireManifestAdapter:
                 source_path=source_paths[dependency.source_id],
                 kind=ArchitectureRelationKind(dependency.kind.value),
                 target=(source_paths[dependency.target] if dependency.target_kind == "source" else dependency.target),
+                target_kind=dependency.target_kind,
                 specifier=dependency.specifier,
                 resolution=dependency.resolution,
             )

@@ -10,6 +10,7 @@ from ...architecture_contracts.model import (
     ArchitectureContractDiagram,
     ArchitectureContractUnit,
     ArchitectureDiagramRole,
+    ArchitectureDiagramScope,
 )
 from ..facts.model import (
     ArchitectureContractFact,
@@ -51,7 +52,7 @@ class TreeArchitectureCompiler(ArchitectureDiagramCompiler):
                     SourceContractFact(
                         id=f"source:{normalized}",
                         capability=ArchitectureFactCapability.SOURCES,
-                        required=True,
+                        required=diagram.scope != ArchitectureDiagramScope.REFERENCE,
                         evidence=(
                             ArchitectureDiagramEvidence(
                                 diagram_id=diagram.diagram_id,

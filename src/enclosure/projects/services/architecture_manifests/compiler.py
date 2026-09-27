@@ -42,7 +42,13 @@ class ArchitectureContractCompiler:
         for unit in publication.units:
             unit_facts: list[ArchitectureContractFact] = []
             interpreted = tuple((diagram, self.diagrams.interpret(diagram)) for diagram in unit.diagrams)
-            uml_symbol_ids = {
+            all_uml_symbol_ids = {
+                symbol.element_id
+                for diagram, semantics in interpreted
+                if diagram.role == ArchitectureDiagramRole.UML
+                for symbol in semantics.symbols
+            }
+            asserted_uml_symbol_ids = {
                 symbol.element_id
                 for diagram, semantics in interpreted
                 if diagram.role == ArchitectureDiagramRole.UML and diagram.scope != ArchitectureDiagramScope.REFERENCE
@@ -56,7 +62,11 @@ class ArchitectureContractCompiler:
                         for relation in semantics.relations
                         for symbol_id in (relation.source_id, relation.target_id)
                     }
-                    unresolved = sorted((entity_symbol_ids | relation_symbol_ids) - uml_symbol_ids)
+                    if diagram.scope == ArchitectureDiagramScope.REFERENCE:
+                        owning_uml_symbol_ids = all_uml_symbol_ids
+                    else:
+                        owning_uml_symbol_ids = asserted_uml_symbol_ids
+                    unresolved = sorted((entity_symbol_ids | relation_symbol_ids) - owning_uml_symbol_ids)
                     if unresolved:
                         raise ProjectsError(
                             f"Entity diagram {diagram.diagram_id!r} has identities absent from owning UML: "

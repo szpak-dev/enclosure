@@ -27,6 +27,9 @@ class ArchitectureComparisonRule(ABC):
     name: str
     order: int
 
+    def governs(self, actual: ObservedImplementationFact) -> bool:
+        return True
+
     def unverified(
         self,
         unit_key: str,
@@ -61,12 +64,12 @@ class ArchitectureComparisonRule(ABC):
         observed: ObservedImplementationManifest,
     ) -> tuple[ArchitectureAssertionResult, ...]:
         expected = tuple(fact for fact in unit.facts if fact.required and fact.capability == self.capability)
-        actual = tuple(fact for fact in observed.facts if fact.capability == self.capability)
+        actual = tuple(fact for fact in observed.facts if fact.capability == self.capability and self.governs(fact))
         coverage = {item.capability: item for item in observed.capabilities}[self.capability]
         support = coverage.support
         explanation = coverage.explanation
         results: list[ArchitectureAssertionResult] = []
-        expected_ids = {fact.id for fact in expected}
+        declared_ids = {fact.id for fact in unit.facts if fact.capability == self.capability}
         for fact in expected:
             if support == ArchitectureSupportState.UNSUPPORTED:
                 results.append(
@@ -156,7 +159,7 @@ class ArchitectureComparisonRule(ABC):
             unexpected = tuple(
                 item
                 for item in actual
-                if item.id not in expected_ids
+                if item.id not in declared_ids
                 and (
                     unit.source_root == "."
                     or self.path(item) == unit.source_root

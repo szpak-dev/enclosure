@@ -15,6 +15,10 @@ class DependencyComparisonRule(ArchitectureComparisonRule):
     name: str = field(default="dependencies", init=False)
     order: int = field(default=80, init=False)
 
+    def governs(self, actual: ObservedImplementationFact) -> bool:
+        dependency = cast(ObservedDependencyFact, actual)
+        return dependency.target_kind == "source" and dependency.resolution == "resolved"
+
     def matches(self, expected: ArchitectureContractFact, actual: ObservedImplementationFact) -> bool:
         contract = cast(DependencyContractFact, expected)
         observed = cast(ObservedDependencyFact, actual)
