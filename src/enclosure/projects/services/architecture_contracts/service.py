@@ -6,7 +6,8 @@ from pathlib import PurePosixPath
 from wireup import injectable
 
 from ...errors import ProjectsError
-from ..adapters import DiagramContractsAdapter, ResolvedArchitectureDiagram
+from ..adapters.diagrams import DiagramContractsAdapter
+from ..adapters.model import ResolvedArchitectureDiagram
 from .model import (
     ArchitectureContractPublication,
     ArchitectureContractUnitInput,

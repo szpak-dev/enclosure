@@ -11,6 +11,7 @@ from typing import cast
 import pytest
 from django.test import Client
 from django.test.utils import override_settings
+from modwire.application import ModwireApplication, ScanPolicy
 from starlette.types import ASGIApp, Message, Scope
 
 from enclosure.core.asgi import ApplicationFactory
@@ -273,11 +274,28 @@ class ArchitectureContractFixture:
         assert diagram.status_code == 200
         return diagram.json()
 
+    def create_diagram_batch(
+        self,
+        title: str,
+        kind: str,
+        commands: list[dict[str, object]],
+    ) -> dict[str, object]:
+        created = self.client.post(
+            f"/api/diagram-sets/{self.diagram_set_id}/diagram-batches",
+            data={"title": title, "kind": kind, "commands": commands},
+            content_type="application/json",
+        )
+        assert created.status_code == 201, created.json()
+        diagram = self.client.get(f"/api/diagrams/{created.json()['diagram_id']}")
+        assert diagram.status_code == 200
+        return diagram.json()
+
     def publication_body(
         self,
         tree: dict[str, object],
         uml: dict[str, object],
         entity: dict[str, object],
+        coverage: str = "closed",
     ) -> dict[str, object]:
         return {
             "units": [
@@ -285,7 +303,7 @@ class ArchitectureContractFixture:
                     "key": "application",
                     "diagram_set_id": self.diagram_set_id,
                     "source_root": "src/example",
-                    "coverage": "closed",
+                    "coverage": coverage,
                     "diagrams": [
                         {
                             "diagram_id": tree["id"],
@@ -310,6 +328,110 @@ class ArchitectureContractFixture:
                 }
             ]
         }
+
+    def publish_example_architecture(
+        self,
+        entity_attributes: tuple[dict[str, object], ...] = (),
+        coverage: str = "declared",
+    ) -> dict[str, object]:
+        identity = "src/example/service.py::class:src/example/service.ExampleService"
+        tree = self.create_diagram_batch(
+            "Example structure",
+            "treeView-beta",
+            [
+                {"operation": "add_directory", "arguments": {"id": "source", "label": "src"}},
+                {"operation": "add_directory", "arguments": {"id": "example", "label": "example"}},
+                {"operation": "add_file", "arguments": {"id": "service", "label": "service.py"}},
+                {
+                    "operation": "add_branch",
+                    "arguments": {"id": "source-example", "parent_id": "source", "child_id": "example"},
+                },
+                {
+                    "operation": "add_branch",
+                    "arguments": {"id": "example-service", "parent_id": "example", "child_id": "service"},
+                },
+            ],
+        )
+        uml = self.create_diagram(
+            "Example services",
+            "classDiagram",
+            "add_class",
+            {
+                "id": identity,
+                "label": "ExampleService",
+                "attributes": [
+                    {
+                        "name": "value",
+                        "type": {"name": "str"},
+                        "visibility": "public",
+                        "static": True,
+                    }
+                ],
+                "methods": [
+                    {
+                        "name": "execute",
+                        "parameters": [{"name": "request", "type": {"name": "str"}}],
+                        "return_type": {"name": "str"},
+                        "visibility": "public",
+                        "modifier": "instance",
+                    }
+                ],
+            },
+        )
+        entity_commands: list[dict[str, object]] = [
+            {"operation": "add_entity", "arguments": {"id": identity, "label": "ExampleService"}}
+        ]
+        entity_commands.extend(entity_attributes)
+        entity = self.create_diagram_batch(
+            "Example entities",
+            "erDiagram",
+            entity_commands,
+        )
+        response = self.client.post(
+            f"/api/projects/{self.project_id}/architecture-contract-publications",
+            data=self.publication_body(tree, uml, entity, coverage),
+            content_type="application/json",
+        )
+        assert response.status_code == 201, response.json()
+        return response.json()
+
+
+def create_architecture_contract_fixture(
+    client: Client,
+    dependencies: dict[str, str],
+    root: Path,
+) -> ArchitectureContractFixture:
+    python_project(root)
+    registered = client.post(
+        "/api/projects",
+        data=registration(discover(client, root), dependencies),
+        content_type="application/json",
+    )
+    assert registered.status_code == 201
+    diagram_set = client.post(
+        "/api/diagram-sets",
+        data={"title": "Example architecture", "description": "Accepted example contract diagrams."},
+        content_type="application/json",
+    )
+    assert diagram_set.status_code == 201
+    return ArchitectureContractFixture(client, registered.json()["project"]["id"], diagram_set.json()["id"])
+
+
+def implementation_document(root: Path) -> dict[str, object]:
+    source = root / "src" / "example" / "service.py"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "import typing\n\n"
+        "class ExampleService:\n"
+        "    value: str\n\n"
+        "    def execute(self, request: str) -> str:\n"
+        "        return request\n",
+        encoding="utf-8",
+    )
+    application = ModwireApplication.create()
+    code_map = application.generate_map("python", str(root), ScanPolicy(excluded_patterns=("app.py",)))
+    document = application.implementation_manifest(code_map, application.implementation_manifest_formats()[0])
+    return document.model_dump(mode="json")
 
 
 @pytest.mark.django_db
@@ -343,7 +465,7 @@ def test_discovery_rejects_missing_directory(client: Client, tmp_path: Path) -> 
         content_type="application/json",
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 422, response.json()
     assert response.json() == {"detail": f"Invalid project root: {missing}"}
 
 
@@ -355,7 +477,7 @@ def test_discovery_rejects_project_without_package_manager(client: Client, tmp_p
         content_type="application/json",
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 422, response.json()
     assert response.json() == {"detail": "Package manager could not be recognized."}
 
 
@@ -462,6 +584,18 @@ def test_publishes_immutable_project_architecture_contract_evidence(
             "operationId"
         ]
         == "get_project_architecture_contract"
+    )
+    assert (
+        openapi["paths"]["/api/projects/{project_id}/architecture-contract-publications/{publication_id}/manifest"][
+            "get"
+        ]["operationId"]
+        == "compile_project_architecture_manifest"
+    )
+    assert (
+        openapi["paths"]["/api/projects/{project_id}/architecture-contract-publications/{publication_id}/comparisons"][
+            "post"
+        ]["operationId"]
+        == "compare_project_architecture_manifest"
     )
     assert publication["project_id"] == fixture.project_id
     assert publication["version"] == 1
@@ -584,6 +718,192 @@ def test_rejects_invalid_project_architecture_contract_members(
     assert rejected_exclusion.json() == {
         "detail": "Architecture exclusion '../generated' is not a normalized relative path."
     }
+
+
+@pytest.mark.django_db
+def test_manifest_compilation_rejects_conflicting_diagram_declarations(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture(
+        (
+            {
+                "operation": "add_attribute",
+                "arguments": {
+                    "id": "entity-value",
+                    "label": "value",
+                    "data_type": "int",
+                    "entity_id": "src/example/service.py::class:src/example/service.ExampleService",
+                },
+            },
+        )
+    )
+
+    response = client.get(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/manifest"
+    )
+
+    assert response.status_code == 422, response.json()
+    assert "has conflicting declarations" in response.json()["detail"]
+
+
+@pytest.mark.django_db
+def test_comparison_rejects_a_tampered_modwire_document(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture()
+    document = implementation_document(tmp_path)
+    document["digest"] = "0" * 64
+
+    response = client.post(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/comparisons",
+        data={"implementation_document": document},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 422, response.json()
+    assert "digest does not match its payload" in response.json()["detail"]
+
+
+@pytest.mark.django_db
+def test_comparison_rejects_multiple_parameter_type_annotations_as_a_mismatch(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture()
+    document = implementation_document(tmp_path)
+    payload = json.loads(str(document["payload"]))
+    parameter_annotation = next(
+        annotation for annotation in payload["annotations"] if annotation["role"] == "parameter_type"
+    )
+    payload["annotations"].append(parameter_annotation | {"expression": "int"})
+    payload["annotations"].sort(
+        key=lambda item: json.dumps(item, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    )
+    canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    document["payload"] = canonical
+    document["digest"] = sha256(canonical.encode("utf-8")).hexdigest()
+
+    response = client.post(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/comparisons",
+        data={"implementation_document": document},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200, response.json()
+    comparison = response.json()
+    parameter_failures = [
+        result for result in comparison["results"] if result["capability"] == "parameters" and result["state"] == "fail"
+    ]
+    assert comparison["conclusion"] == "does_not_conform"
+    assert [result["kind"] for result in parameter_failures] == ["mismatched"], comparison
+
+
+@pytest.mark.django_db
+def test_compiled_architecture_manifest_is_stable_at_the_public_gate(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture()
+    url = f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/manifest"
+
+    first = client.get(url)
+    second = client.get(url)
+
+    assert first.status_code == 200, first.json()
+    assert second.status_code == 200, second.json()
+    assert first.json() == second.json()
+    assert len(first.json()["digest"]) == 64
+
+
+@pytest.mark.django_db
+def test_compiled_architecture_manifest_preserves_the_complete_attribute_contract(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture()
+
+    response = client.get(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/manifest"
+    )
+
+    assert response.status_code == 200, response.json()
+    attribute = next(fact for fact in response.json()["units"][0]["facts"] if fact["capability"] == "attributes")
+    assert {
+        "name": attribute["name"],
+        "annotation": attribute["annotation"],
+        "visibility": attribute["visibility"],
+        "member_kind": attribute["member_kind"],
+    } == {
+        "name": "value",
+        "annotation": "str",
+        "visibility": "public",
+        "member_kind": "static",
+    }
+
+
+@pytest.mark.django_db
+def test_public_comparison_accepts_aligned_declared_code(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture()
+    document = implementation_document(tmp_path)
+
+    response = client.post(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/comparisons",
+        data={"implementation_document": document},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200, response.json()
+    comparison = response.json()
+    assert comparison["conclusion"] == "conforms", json.dumps(
+        [result for result in comparison["results"] if result["state"] != "pass"],
+        indent=2,
+    )
+    assert comparison["failed"] == 0
+    assert comparison["unverified"] == 0
+    assert all(result["state"] == "pass" for result in comparison["results"])
+
+
+@pytest.mark.django_db
+def test_closed_comparison_does_not_treat_an_external_import_as_unexpected(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture(coverage="closed")
+    document = implementation_document(tmp_path)
+
+    response = client.post(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/comparisons",
+        data={"implementation_document": document},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200, response.json()
+    comparison = response.json()
+    dependency_failures = [
+        result
+        for result in comparison["results"]
+        if result["capability"] == "dependencies" and result["state"] == "fail"
+    ]
+    assert dependency_failures == []
 
 
 @pytest.mark.django_db

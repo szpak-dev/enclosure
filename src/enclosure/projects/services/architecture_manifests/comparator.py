@@ -8,10 +8,10 @@ from wireup import injectable
 
 from ...errors import ProjectsError
 from .model import (
+    ArchitectureAssertionResult,
     ArchitectureComparison,
     ArchitectureComparisonConclusion,
     ArchitectureComparisonState,
-    ArchitectureAssertionResult,
     ArchitectureContractManifest,
 )
 from .observed.model import ObservedImplementationManifest

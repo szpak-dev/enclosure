@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from mermaiden.diagrams.domain import DiagramModel
+from mermaiden.diagrams import domain
 
 from ..model import DiagramContractSemantics
 
@@ -10,5 +10,5 @@ class DiagramSemanticExtractor(ABC):
     order: int
 
     @abstractmethod
-    def extract(self, diagram: DiagramModel) -> DiagramContractSemantics:
+    def extract(self, diagram: domain.DiagramModel) -> DiagramContractSemantics:
         raise NotImplementedError

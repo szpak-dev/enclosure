@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import cast
 
-from mermaiden.diagrams.domain import DiagramModel
-from mermaiden.diagrams.treeview.diagram import TreeView
+import mermaiden.diagrams.treeview.diagram
+from mermaiden.diagrams import domain
 from mermaiden.diagrams.treeview.elements import TreeItem
 from mermaiden.diagrams.treeview.relations import TreeBranch
 from wireup import injectable
@@ -18,8 +18,8 @@ class TreeSemanticExtractor(DiagramSemanticExtractor):
     kind: str = field(default="treeView-beta", init=False)
     order: int = field(default=10, init=False)
 
-    def extract(self, diagram: DiagramModel) -> DiagramContractSemantics:
-        tree = cast(TreeView, diagram)
+    def extract(self, diagram: domain.DiagramModel) -> DiagramContractSemantics:
+        tree = cast(mermaiden.diagrams.treeview.diagram.TreeView, diagram)
         items = tuple(cast(TreeItem, item) for item in tree.walk_elements(""))
         branches = tuple(cast(TreeBranch, relation) for relation in tree.find_relations(""))
         parents = {branch.child_id: branch.parent_id for branch in branches}

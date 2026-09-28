@@ -16,9 +16,9 @@ from ..architecture_contracts.model import (
 )
 from .compilers.base import ArchitectureDiagramCompiler
 from .facts.model import (
+    AnnotationContractFact,
     ArchitectureContractFact,
     ArchitectureFactCapability,
-    AnnotationContractFact,
     AttributeContractFact,
     CallableContractFact,
     DependencyContractFact,

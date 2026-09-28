@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import cast
 
-from mermaiden.diagrams.domain import DiagramModel
-from mermaiden.diagrams.er.diagram import EntityRelationshipDiagram
+import mermaiden.diagrams.er.diagram
+from mermaiden.diagrams import domain
 from mermaiden.diagrams.er.elements import Entity, EntityAttribute
 from mermaiden.diagrams.er.relations import EntityRelationship
 from wireup import injectable
@@ -17,8 +17,8 @@ class EntitySemanticExtractor(DiagramSemanticExtractor):
     kind: str = field(default="erDiagram", init=False)
     order: int = field(default=30, init=False)
 
-    def extract(self, diagram: DiagramModel) -> DiagramContractSemantics:
-        entity_diagram = cast(EntityRelationshipDiagram, diagram)
+    def extract(self, diagram: domain.DiagramModel) -> DiagramContractSemantics:
+        entity_diagram = cast(mermaiden.diagrams.er.diagram.EntityRelationshipDiagram, diagram)
         entities = tuple(cast(Entity, element) for element in entity_diagram.root_elements if element.kind == "entity")
         symbols = tuple(
             DiagramContractSymbol(

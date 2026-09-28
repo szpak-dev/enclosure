@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 from typing import cast
 
-from mermaiden.diagrams.classdiagram.diagram import ClassDiagram
+import mermaiden.diagrams.classdiagram.diagram
+from mermaiden.diagrams import domain
 from mermaiden.diagrams.classdiagram.elements import Class
 from mermaiden.diagrams.classdiagram.relations import ClassRelation
 from mermaiden.diagrams.classdiagram.values.members import ClassType
-from mermaiden.diagrams.domain import DiagramModel
 from wireup import injectable
 
 from ..model import (
@@ -29,9 +29,9 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
             return value.name
         return f"{value.name}[{self.type_name(value.arguments[0])}]"
 
-    def extract(self, diagram: DiagramModel) -> DiagramContractSemantics:
-        class_diagram = cast(ClassDiagram, diagram)
-        classes = tuple(cast(Class, element) for element in class_diagram.walk_elements("") if element.kind == "class")
+    def extract(self, diagram: domain.DiagramModel) -> DiagramContractSemantics:
+        class_model = cast(mermaiden.diagrams.classdiagram.diagram.ClassDiagram, diagram)
+        classes = tuple(cast(Class, element) for element in class_model.walk_elements("") if element.kind == "class")
         symbols: list[DiagramContractSymbol] = []
         for class_value in classes:
             members = [
@@ -80,7 +80,7 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
                 kind=relation.relation_kind.value,
                 label=relation.label,
             )
-            for relation in (cast(ClassRelation, item) for item in class_diagram.find_relations(""))
+            for relation in (cast(ClassRelation, item) for item in class_model.find_relations(""))
         )
         return DiagramContractSemantics(
             kind=self.kind,

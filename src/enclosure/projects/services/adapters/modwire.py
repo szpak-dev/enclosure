@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from modwire.application import ImplementationManifestDocument, ModwireApplication
+from pydantic import ValidationError
 from wireup import injectable
 
 from ...errors import ProjectsError
@@ -27,10 +28,16 @@ from ..architecture_manifests.observed.model import (
 class ModwireManifestAdapter:
     def read(self, document: Mapping[str, object]) -> ObservedImplementationManifest:
         application = ModwireApplication.create()
-        artifact = ImplementationManifestDocument.model_validate(document)
+        try:
+            artifact = ImplementationManifestDocument.model_validate(document)
+        except ValidationError as error:
+            raise ProjectsError(str(error)) from error
         if artifact.format not in application.implementation_manifest_formats():
             raise ProjectsError(f"Modwire manifest format {artifact.format.id!r} is not registered.")
-        manifest = application.read_implementation_manifest(artifact)
+        try:
+            manifest = application.read_implementation_manifest(artifact)
+        except ValidationError as error:
+            raise ProjectsError(str(error)) from error
         source_paths = {str(source.source_id): source.relative_path for source in manifest.source_manifest.sources}
         symbol_targets = {
             symbol.id.canonical(): (

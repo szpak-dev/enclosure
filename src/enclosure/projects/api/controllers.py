@@ -57,6 +57,46 @@ class ProjectsController(ControllerBase):
             publication_id,
         )
 
+    @route.get(
+        "/{project_id}/architecture-contract-publications/{publication_id}/manifest",
+        response=schemas.ArchitectureManifestResponse,
+        operation_id="compile_project_architecture_manifest",
+        summary="Compile a project architecture manifest",
+        description="Compile accepted diagram evidence into one canonical expected-code contract.",
+    )
+    def compile_architecture_manifest(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        publication_id: Annotated[str, Path(description="Architecture-contract publication identifier.")],
+    ):
+        manifest = DjangoRequest.resolve(request, ProjectsService).compile_project_architecture_manifest(
+            project_id,
+            publication_id,
+        )
+        return manifest.model_dump(mode="json")
+
+    @route.post(
+        "/{project_id}/architecture-contract-publications/{publication_id}/comparisons",
+        response=schemas.ArchitectureComparisonResponse,
+        operation_id="compare_project_architecture_manifest",
+        summary="Compare a project architecture manifest",
+        description="Compare the accepted expected-code contract with one public Modwire implementation manifest.",
+    )
+    def compare_architecture_manifest(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        publication_id: Annotated[str, Path(description="Architecture-contract publication identifier.")],
+        body: schemas.CompareArchitectureManifest,
+    ):
+        comparison = DjangoRequest.resolve(request, ProjectsService).compare_project_architecture_manifest(
+            project_id,
+            publication_id,
+            body.implementation_document,
+        )
+        return comparison.model_dump(mode="json")
+
     @route.post(
         "/operating-contracts",
         response={201: schemas.OperatingContract},

@@ -249,6 +249,38 @@ class ArchitectureContractPublication(Schema):
     units: list[ArchitectureContractUnit] = Field(description="Ordered immutable project contract units.")
 
 
+class CompareArchitectureManifest(Schema):
+    implementation_document: dict[str, JsonValue] = Field(
+        description="Canonical public Modwire implementation-manifest document."
+    )
+
+
+class ArchitectureManifestResponse(Schema):
+    schema_version: int = Field(description="Architecture-manifest schema version.", ge=1)
+    project_id: ProjectId
+    publication_id: str = Field(description="Accepted architecture-contract publication identifier.")
+    publication_version: int = Field(description="Accepted project-local publication version.", ge=1)
+    publication_revision: str = Field(description="Revision of the accepted architecture-contract publication.")
+    units: list[dict[str, JsonValue]] = Field(description="Canonical expected-code contract units and facts.")
+    digest_algorithm: Literal["sha256"] = Field(description="Algorithm covering the canonical manifest.")
+    digest: str = Field(description="Digest of the canonical expected-code contract.")
+
+
+class ArchitectureComparisonResponse(Schema):
+    schema_version: int = Field(description="Architecture-comparison schema version.", ge=1)
+    contract_digest: str = Field(description="Digest of the expected architecture manifest.")
+    implementation_digest: str = Field(description="Digest of the observed Modwire document.")
+    source_digest: str = Field(description="Digest of the observed source manifest.")
+    conclusion: Literal["conforms", "does_not_conform", "unverified"] = Field(
+        description="Deterministic project-conformance conclusion."
+    )
+    results: list[dict[str, JsonValue]] = Field(description="Typed assertion results and findings.")
+    passed: int = Field(description="Number of passing required assertions.", ge=0)
+    failed: int = Field(description="Number of failing required or coverage assertions.", ge=0)
+    unverified: int = Field(description="Number of assertions without sufficient evidence.", ge=0)
+    digest: str = Field(description="Digest of the canonical comparison result.")
+
+
 class CreateOperatingContract(Schema):
     title: str = Field(description="Human-readable operating-contract title.", min_length=1)
     authority: str = Field(description="Stable canonical authority owned by this contract.", min_length=1)

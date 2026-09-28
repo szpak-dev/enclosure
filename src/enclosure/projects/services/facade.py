@@ -7,12 +7,12 @@ from pydantic import JsonValue
 from wireup import injectable
 
 from ..errors import ProjectsError
-from .adapters import ScaffoldingsAdapter
-from .architecture_contracts import (
+from .adapters.scaffoldings import ScaffoldingsAdapter
+from .architecture_contracts.model import (
     ArchitectureContractPublication,
-    ArchitectureContractsService,
     ArchitectureContractUnitInput,
 )
+from .architecture_contracts.service import ArchitectureContractsService
 from .architecture_manifests.model import ArchitectureComparison, ArchitectureContractManifest
 from .architecture_manifests.service import ArchitectureManifestService
 from .context.model import WorkspaceContext
