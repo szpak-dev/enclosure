@@ -2,6 +2,8 @@
 
 Status: **{{ data.outcome }}**
 
+Architecture attestation: `{{ data.attestation.digest }}` ({{ data.attestation.digest_algorithm }})
+
 {% if data.outcome == "healthy" %}All {{ data.reports | length }} gating reports passed.{% elif data.outcome == "advisory" %}Gating checks passed with {{ data.advisory_count }} advisory findings.{% else %}{{ data.failure_count }} gating failures require attention.{% endif %}
 
 ## Reports

@@ -1,12 +1,14 @@
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from operator import attrgetter
 
 from wireup import injectable
 
 from ...errors import ProjectsError
+from .facts.model import ArchitectureFactCapability
+from .identity import ArchitectureComparisonIdentity
 from .model import (
     ArchitectureAssertionResult,
     ArchitectureComparison,
@@ -22,6 +24,7 @@ from .rules.base import ArchitectureComparisonRule
 @dataclass(frozen=True)
 class ArchitectureContractComparator:
     rules: Sequence[ArchitectureComparisonRule]
+    identity: ArchitectureComparisonIdentity = field(default_factory=ArchitectureComparisonIdentity, init=False)
 
     def compare(
         self,
@@ -32,10 +35,16 @@ class ArchitectureContractComparator:
         rule_capabilities = tuple(rule.capability for rule in rules)
         if len(rule_capabilities) != len(set(rule_capabilities)):
             raise ProjectsError("Architecture comparison capabilities must have exactly one rule.")
-        expected_capabilities = {fact.capability for unit in expected.units for fact in unit.facts if fact.required}
-        if not expected_capabilities <= set(rule_capabilities):
-            missing = sorted(capability.value for capability in expected_capabilities - set(rule_capabilities))
+        required_capabilities = set(ArchitectureFactCapability)
+        if set(rule_capabilities) != required_capabilities:
+            missing = sorted(capability.value for capability in required_capabilities - set(rule_capabilities))
             raise ProjectsError(f"Architecture comparison rules are missing capabilities: {', '.join(missing)}.")
+        observed_capabilities = tuple(item.capability for item in observed.capabilities)
+        if len(observed_capabilities) != len(set(observed_capabilities)):
+            raise ProjectsError("Observed architecture capabilities must have exactly one support declaration.")
+        if set(observed_capabilities) != required_capabilities:
+            missing = sorted(capability.value for capability in required_capabilities - set(observed_capabilities))
+            raise ProjectsError(f"Observed architecture support is missing capabilities: {', '.join(missing)}.")
         results: list[ArchitectureAssertionResult] = []
         for unit in expected.units:
             for rule in rules:
@@ -53,7 +62,7 @@ class ArchitectureContractComparator:
         else:
             conclusion = ArchitectureComparisonConclusion.CONFORMS
         payload = {
-            "schema_version": 1,
+            "schema_version": self.identity.schema_version,
             "contract_digest": expected.digest,
             "implementation_digest": observed.document_digest,
             "source_digest": observed.source_digest,
@@ -67,7 +76,7 @@ class ArchitectureContractComparator:
         canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         digest = sha256(canonical.encode("utf-8")).hexdigest()
         return ArchitectureComparison(
-            schema_version=1,
+            schema_version=self.identity.schema_version,
             contract_digest=expected.digest,
             implementation_digest=observed.document_digest,
             source_digest=observed.source_digest,

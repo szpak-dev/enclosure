@@ -6,7 +6,8 @@ from enclosure.diagnostics.services import CacheDiagnosticsContext
 from enclosure.shared.execution import RequestCancellationContext
 
 from ....errors import ProjectHealthCanceled, ProjectHealthExecutionFailed, ProjectHealthTimedOut
-from ...reports.model import ArchitectureSource, HealthReportSet
+from ...reports.model import ArchitectureSource
+from ..conformance.model import ArchitectureHealthContract, ArchitectureHealthResult
 from .gateway import HealthWorkerGateway
 from .model import HealthExecutionRequest, HealthRunOutcome
 
@@ -18,22 +19,27 @@ class HealthExecutionService:
     cancellation: RequestCancellationContext
     cache: CacheDiagnosticsContext
 
-    def execute(self, run_id: str, source: ArchitectureSource) -> HealthReportSet:
+    def execute(
+        self,
+        run_id: str,
+        source: ArchitectureSource,
+        contract: ArchitectureHealthContract,
+    ) -> ArchitectureHealthResult:
         result = self.worker.execute(
-            HealthExecutionRequest(run_id=run_id, source=source),
+            HealthExecutionRequest(run_id=run_id, source=source, contract=contract),
             self.cancellation.current(),
             self.worker.timeout_seconds,
         )
         self.cache.record(result.cache_outcomes)
-        match result.outcome:
-            case HealthRunOutcome.COMPLETED:
-                return HealthReportSet(
-                    healthy=all(not report["violations"] for report in result.reports),
-                    reports=result.reports,
-                )
-            case HealthRunOutcome.CANCELED:
-                raise ProjectHealthCanceled(result.detail)
-            case HealthRunOutcome.TIMED_OUT:
-                raise ProjectHealthTimedOut(result.detail)
-            case HealthRunOutcome.FAILED:
-                raise ProjectHealthExecutionFailed(result.detail)
+        if result.outcome == HealthRunOutcome.COMPLETED:
+            return ArchitectureHealthResult(
+                healthy=result.healthy,
+                reports=result.reports,
+                conformance=result.conformance,
+                attestation=result.attestation,
+            )
+        if result.outcome == HealthRunOutcome.CANCELED:
+            raise ProjectHealthCanceled(result.detail)
+        if result.outcome == HealthRunOutcome.TIMED_OUT:
+            raise ProjectHealthTimedOut(result.detail)
+        raise ProjectHealthExecutionFailed(result.detail)

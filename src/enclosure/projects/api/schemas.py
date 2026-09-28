@@ -516,17 +516,137 @@ class GuidanceHealthFinding(HealthFinding):
     remediation: str = Field(description="Remediation category supplied by the owning guidance rule.")
 
 
+class ArchitectureDiagramEvidence(Schema):
+    diagram_id: str = Field(description="Accepted diagram identifier supporting the assertion.")
+    diagram_revision: int = Field(description="Exact accepted diagram revision.", ge=1)
+    element_id: str = Field(description="Stable diagram element identity supporting the assertion.")
+
+
+class ArchitectureDiagramRevision(Schema):
+    diagram_id: str = Field(description="Accepted diagram identifier governing the contract unit.")
+    diagram_revision: int = Field(description="Exact accepted diagram revision.", ge=1)
+
+
+class ArchitectureAssertionEvidence(Schema):
+    kind: Literal["assertion"] = Field(description="Contract-assertion evidence discriminator.")
+    diagram_evidence: tuple[ArchitectureDiagramEvidence, ...] = Field(
+        description="Exact diagram elements and revisions supporting the assertion."
+    )
+    source_symbol: str = Field(description="Canonical source or symbol identity evaluated by the assertion.")
+
+
+class ArchitectureUnexpectedEvidence(Schema):
+    kind: Literal["unexpected"] = Field(description="Unexpected-implementation evidence discriminator.")
+    diagram_revisions: tuple[ArchitectureDiagramRevision, ...] = Field(
+        description="Accepted diagrams establishing closed coverage for the contract unit."
+    )
+    source_symbol: str = Field(description="Canonical unexpected source or symbol identity.")
+
+
+class ArchitectureCoverageEvidence(Schema):
+    kind: Literal["coverage"] = Field(description="Closed-coverage evidence discriminator.")
+    diagram_revisions: tuple[ArchitectureDiagramRevision, ...] = Field(
+        description="Accepted diagrams establishing closed coverage for the contract unit."
+    )
+    capability: Literal[
+        "sources",
+        "symbols",
+        "callables",
+        "parameters",
+        "annotations",
+        "modifiers",
+        "attributes",
+        "inheritance",
+        "dependencies",
+        "spans",
+    ] = Field(description="Semantic capability whose closed coverage could not be verified.")
+
+
+class ConformanceHealthFinding(HealthFinding):
+    kind: Literal["conformance"] = Field(description="Architecture-conformance evidence discriminator.")
+    fingerprint: str = Field(description="Stable fingerprint of the canonical assertion result.")
+    contract_unit: str = Field(description="Accepted architecture-contract unit containing the assertion.")
+    evidence: Annotated[
+        ArchitectureAssertionEvidence | ArchitectureUnexpectedEvidence | ArchitectureCoverageEvidence,
+        Field(discriminator="kind"),
+    ] = Field(description="Typed, non-synthetic location evidence for this finding.")
+    expected: dict[str, JsonValue] = Field(description="Canonical expected contract value.")
+    actual: tuple[dict[str, JsonValue], ...] = Field(description="Canonical observed candidate values.")
+    support: Literal["supported", "partial", "unsupported"] = Field(
+        description="Observed extractor support for this semantic kind."
+    )
+    state: Literal["fail", "unverified"] = Field(description="Non-passing assertion state.")
+    finding_kind: Literal["missing", "unexpected", "mismatched", "ambiguous", "unsupported"] = Field(
+        description="Typed conformance failure classification."
+    )
+
+
+class ArchitectureConformanceCoverage(Schema):
+    capability: Literal[
+        "sources",
+        "symbols",
+        "callables",
+        "parameters",
+        "annotations",
+        "modifiers",
+        "attributes",
+        "inheritance",
+        "dependencies",
+        "spans",
+    ] = Field(description="Semantic kind covered by the accepted contract.")
+    passed: int = Field(description="Passing mandatory assertions.", ge=0)
+    failed: int = Field(description="Failing mandatory or closed-coverage assertions.", ge=0)
+    unverified: int = Field(description="Mandatory assertions lacking complete evidence.", ge=0)
+
+
+class ArchitectureAttestationComponent(Schema):
+    kind: Literal[
+        "contract",
+        "source",
+        "policies",
+        "configuration",
+        "schemas",
+        "tools",
+        "comparator",
+        "findings",
+    ] = Field(description="Attested evidence component.")
+    digest: str = Field(description="SHA-256 digest of the canonical evidence component.")
+
+
+class ArchitectureConformanceAttestation(Schema):
+    schema_version: int = Field(description="Architecture-attestation schema version.", ge=1)
+    digest_algorithm: Literal["sha256"] = Field(description="Attestation digest algorithm.")
+    components: tuple[ArchitectureAttestationComponent, ...] = Field(
+        description="Complete ordered attestation evidence."
+    )
+    contract_digest: str = Field(description="Digest covering the accepted contract bundle.")
+    source_digest: str = Field(description="Digest covering the observed source manifest.")
+    policy_digest: str = Field(description="Digest covering the effective operating-contract policies.")
+    configuration_digest: str = Field(description="Digest covering the architecture configuration revision.")
+    schema_digest: str = Field(description="Digest covering all participating schema versions.")
+    tools_digest: str = Field(description="Digest covering the observed producer tools.")
+    comparator_digest: str = Field(description="Digest covering the comparator revision.")
+    findings_digest: str = Field(description="Digest covering the complete ordered comparison.")
+    digest: str = Field(description="SHA-256 digest of the complete canonical attestation.")
+
+
 class HealthReportSummary(Schema):
     id: str = Field(description="Stable health-report identifier.")
     title: str = Field(description="Human-readable health-report title.")
     failure_count: int = Field(description="Number of gating failures.", ge=0)
     advisory_count: int = Field(description="Number of advisory findings.", ge=0)
+    coverage: tuple[ArchitectureConformanceCoverage, ...] = Field(
+        description="Per-semantic-kind assertion totals; empty for non-conformance reports."
+    )
 
 
 class HealthReport(Schema):
     revision: str = Field(description="SHA-256 revision of the complete canonical health report.")
     outcome: Literal["healthy", "advisory", "gating-failure"] = Field(description="Overall health outcome.")
     healthy: bool = Field(description="Whether all gating architecture and guidance rules pass.")
+    attestation: ArchitectureConformanceAttestation = Field(
+        description="Immutable architecture-conformance evidence for this completed health run."
+    )
     reports: tuple[HealthReportSummary, ...] = Field(description="Compact architecture and guidance report summaries.")
     failure_count: int = Field(description="Total gating failures.", ge=0)
     advisory_count: int = Field(description="Total advisory findings.", ge=0)
@@ -535,11 +655,17 @@ class HealthReport(Schema):
     targets: tuple[str, ...] = Field(description="Distinct precise locations affected by findings.")
     next_actions: tuple[str, ...] = Field(description="Distinct deterministic remediation instructions.")
     failures: tuple[
-        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        Annotated[
+            ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding | ConformanceHealthFinding,
+            Field(discriminator="kind"),
+        ],
         ...,
     ] = Field(description="Typed gating findings.")
     advisories: tuple[
-        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        Annotated[
+            ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding | ConformanceHealthFinding,
+            Field(discriminator="kind"),
+        ],
         ...,
     ] = Field(description="Typed advisory findings.")
 
@@ -558,7 +684,10 @@ class HealthFindingPage(Schema):
     limit: int = Field(description="Maximum findings selected for this page.", ge=1)
     total: int = Field(description="Total findings in the selected collection.", ge=0)
     items: tuple[
-        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        Annotated[
+            ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding | ConformanceHealthFinding,
+            Field(discriminator="kind"),
+        ],
         ...,
     ] = Field(description="Typed health findings in this bounded page.")
     has_more: bool = Field(description="Whether another health-finding page remains.")

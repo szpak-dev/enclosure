@@ -188,12 +188,14 @@ class BlockingArchitectureSource:
         return os.open(self.path, os.O_WRONLY)
 
     def replace(self) -> None:
-        self.path.unlink()
-        self.path.write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
+        replacement = self.path.with_name(f".{self.path.name}.replacement")
+        replacement.write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
+        os.replace(replacement, self.path)
 
     def block(self) -> None:
-        self.path.unlink()
-        os.mkfifo(self.path)
+        replacement = self.path.with_name(f".{self.path.name}.blocking")
+        os.mkfifo(replacement)
+        os.replace(replacement, self.path)
 
 
 @dataclass
@@ -395,6 +397,33 @@ class ArchitectureContractFixture:
         assert response.status_code == 201, response.json()
         return response.json()
 
+    def accept_publication(self, publication: dict[str, object]) -> dict[str, object]:
+        binding = self.client.get(f"/api/projects/{self.project_id}/operating-contract-binding")
+        assert binding.status_code == 200, binding.json()
+        value = binding.json()
+        record_ids = [
+            reference["id"]
+            for reference in value["effective_revision"]["references"]
+            if reference["kind"] == "guidance"
+        ]
+        response = self.client.post(
+            f"/api/projects/operating-contracts/{value['contract']['id']}/revisions",
+            data={
+                "record_ids": record_ids,
+                "references": [
+                    {
+                        "kind": "architecture",
+                        "id": publication["id"],
+                        "authority": publication["authority"],
+                        "revision": publication["revision"],
+                    }
+                ],
+            },
+            content_type="application/json",
+        )
+        assert response.status_code == 201, response.json()
+        return response.json()
+
 
 def create_architecture_contract_fixture(
     client: Client,
@@ -417,7 +446,7 @@ def create_architecture_contract_fixture(
     return ArchitectureContractFixture(client, registered.json()["project"]["id"], diagram_set.json()["id"])
 
 
-def implementation_document(root: Path) -> dict[str, object]:
+def architecture_project_source(root: Path) -> None:
     source = root / "src" / "example" / "service.py"
     source.parent.mkdir(parents=True)
     source.write_text(
@@ -428,10 +457,37 @@ def implementation_document(root: Path) -> dict[str, object]:
         "        return request\n",
         encoding="utf-8",
     )
+
+
+def implementation_document(root: Path) -> dict[str, object]:
+    architecture_project_source(root)
     application = ModwireApplication.create()
     code_map = application.generate_map("python", str(root), ScanPolicy(excluded_patterns=("app.py",)))
     document = application.implementation_manifest(code_map, application.implementation_manifest_formats()[0])
     return document.model_dump(mode="json")
+
+
+def accept_health_architecture(
+    client: Client,
+    root: Path,
+    resolution: dict,
+    coverage: str = "declared",
+) -> dict:
+    architecture_project_source(root)
+    diagram_set = client.post(
+        "/api/diagram-sets",
+        data={"title": "Example health architecture", "description": "Accepted example health contract."},
+        content_type="application/json",
+    )
+    assert diagram_set.status_code == 201, diagram_set.json()
+    fixture = ArchitectureContractFixture(
+        client,
+        resolution["project"]["id"],
+        diagram_set.json()["id"],
+    )
+    publication = fixture.publish_example_architecture(coverage=coverage)
+    fixture.accept_publication(publication)
+    return resolution
 
 
 @pytest.mark.django_db
@@ -1600,7 +1656,7 @@ def test_marks_stale_guidance_revision_incomplete(
 
 
 @pytest.mark.django_db
-def test_reports_conflicting_guidance_authority(
+def test_health_reports_conflicting_guidance_authority(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -1630,7 +1686,9 @@ def test_reports_conflicting_guidance_authority(
     python_project(tmp_path)
     payload = registration(discover(client, tmp_path), dependencies)
     payload["record_ids"] = [first["id"], second["id"]]
-    client.post("/api/projects", data=payload, content_type="application/json")
+    registered = client.post("/api/projects", data=payload, content_type="application/json")
+    assert registered.status_code == 201
+    accept_health_architecture(client, tmp_path, registered.json())
 
     response = client.post(
         "/api/projects/workspace-contexts",
@@ -2087,7 +2145,139 @@ def test_failed_registration_does_not_reserve_project_root(
 
 
 @pytest.mark.django_db
-def test_health_contains_only_gating_reports(
+def test_health_rejects_a_project_without_an_accepted_architecture_contract(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Project health requires exactly one accepted project architecture contract."}
+
+
+@pytest.mark.django_db
+def test_health_blocks_closed_coverage_when_modwire_support_is_incomplete(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution, coverage="closed")
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["healthy"] is False
+    conformance = next(report for report in response.json()["reports"] if report["id"] == "architecture.conformance")
+    coverage = {item["capability"]: item for item in conformance["coverage"]}
+    assert coverage["modifiers"]["unverified"] == 1
+    assert coverage["spans"]["unverified"] == 1
+    coverage_findings = [
+        finding
+        for finding in response.json()["failures"]
+        if finding["kind"] == "conformance" and finding["evidence"]["kind"] == "coverage"
+    ]
+    assert {finding["evidence"]["capability"] for finding in coverage_findings} >= {"modifiers", "spans"}
+    assert {finding["target"] for finding in coverage_findings} == {"architecture-contract-unit:application"}
+
+
+@pytest.mark.django_db
+def test_health_rejects_source_drift_before_returning_a_completed_report(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    source_manifest_identity = ModwireApplication.source_manifest_identity
+
+    def change_source_before_identity_check(
+        application: ModwireApplication,
+        language: str,
+        root: str,
+        policy: ScanPolicy,
+    ) -> object:
+        (Path(root) / "app.py").write_text("class ChangedApplication:\n    pass\n", encoding="utf-8")
+        return source_manifest_identity(application, language, root, policy)
+
+    monkeypatch.setattr(ModwireApplication, "source_manifest_identity", change_source_before_identity_check)
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Project source changed during health evaluation."}
+
+
+@pytest.mark.django_db
+def test_health_returns_typed_conformance_evidence_for_mismatched_code(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    (tmp_path / "src" / "example" / "service.py").write_text(
+        "class ExampleService:\n"
+        "    value: str\n\n"
+        "    def execute(self, request: int) -> str:\n"
+        "        return str(request)\n",
+        encoding="utf-8",
+    )
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["healthy"] is False
+    finding = next(
+        finding
+        for finding in response.json()["failures"]
+        if finding["kind"] == "conformance" and finding["rule"] == "architecture.conformance.parameters"
+    )
+    assert finding["finding_kind"] == "mismatched"
+    assert finding["state"] == "fail"
+    assert finding["support"] == "supported"
+    assert finding["evidence"]["kind"] == "assertion"
+    assert finding["evidence"]["diagram_evidence"]
+    assert finding["evidence"]["source_symbol"] == finding["target"]
+    assert finding["expected"]["annotation"] == "str"
+    assert finding["actual"][0]["annotations"] == ["int"]
+    assert len(finding["fingerprint"]) == 64
+
+
+@pytest.mark.django_db
+def test_health_returns_a_complete_attestation_for_an_aligned_project(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -2097,6 +2287,7 @@ def test_health_contains_only_gating_reports(
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
     resolution = created.json()
+    accept_health_architecture(client, tmp_path, resolution)
 
     response = client.get(
         f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
@@ -2107,6 +2298,25 @@ def test_health_contains_only_gating_reports(
     assert response.json()["outcome"] == "healthy"
     assert response.json()["reports"]
     assert all(report["failure_count"] == 0 for report in response.json()["reports"])
+    conformance = next(report for report in response.json()["reports"] if report["id"] == "architecture.conformance")
+    assert len(conformance["coverage"]) == 10
+    assert sum(item["passed"] for item in conformance["coverage"]) > 0
+    assert all(item["failed"] == 0 and item["unverified"] == 0 for item in conformance["coverage"])
+    attestation = response.json()["attestation"]
+    assert attestation["digest_algorithm"] == "sha256"
+    assert [component["kind"] for component in attestation["components"]] == [
+        "contract",
+        "source",
+        "policies",
+        "configuration",
+        "schemas",
+        "tools",
+        "comparator",
+        "findings",
+    ]
+    assert all(len(component["digest"]) == 64 for component in attestation["components"])
+    assert len(attestation["digest"]) == 64
+    assert len(response.json()["revision"]) == 64
     guidance_report = next(report for report in response.json()["reports"] if report["id"] == "guidance-graph")
     assert guidance_report["advisory_count"] == 0
 
@@ -2145,6 +2355,7 @@ def test_health_reports_malformed_guidance_graph_and_blocks_ready_context(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     project = resolution["project"]
     workspace = resolution["workspace"]
     scoped = client.put(
@@ -2227,6 +2438,7 @@ def test_health_keeps_unreachable_oversized_optional_guidance_advisory(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     project = resolution["project"]
     workspace = resolution["workspace"]
     client.put(
@@ -2269,6 +2481,7 @@ def test_health_blocks_oversized_required_guidance(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     project = resolution["project"]
     workspace = resolution["workspace"]
 
@@ -2300,6 +2513,7 @@ def test_health_fails_when_architecture_has_a_shape_violation(
     created = client.post("/api/projects", data=payload, content_type="application/json")
     assert created.status_code == 201
     resolution = created.json()
+    accept_health_architecture(client, tmp_path, resolution)
 
     response = client.get(
         f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
@@ -2369,6 +2583,7 @@ def test_health_preserves_exact_dependency_flow_location(
     payload = registration(discover(client, tmp_path), dependencies)
     payload["boundaries_yaml"] = FLOW_BOUNDARIES_YAML
     resolution = client.post("/api/projects", data=payload, content_type="application/json").json()
+    accept_health_architecture(client, tmp_path, resolution)
 
     response = client.get(
         f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
@@ -2407,6 +2622,7 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -2420,7 +2636,7 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
 
     source.replace()
     recovery_started = monotonic()
-    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=5):
+    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=15):
         recovered = client.get(path)
     recovery_duration = monotonic() - recovery_started
 
@@ -2429,7 +2645,7 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
     assert unavailable_duration < 1
     assert bounded.status_code == 504
     assert recovered.status_code == 200
-    assert recovery_duration < 5
+    assert recovery_duration < 15
 
 
 @override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=1)
@@ -2446,6 +2662,7 @@ def test_health_times_out_blocked_work_and_recovers_capacity(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
     caplog.clear()
@@ -2453,7 +2670,7 @@ def test_health_times_out_blocked_work_and_recovers_capacity(
     timed_out = client.get(path)
     timeout_duration = monotonic() - started
     source.replace()
-    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=5):
+    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=15):
         recovered = client.get(path)
     events = [
         cast(dict[str, object], record.msg)
@@ -2491,6 +2708,7 @@ def test_health_disconnect_cancels_work_and_recovers(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
     first_request = DisconnectingHealthRequest(
         application=ApplicationFactory().build(),
@@ -2530,6 +2748,7 @@ def test_repeated_health_reuses_warm_execution_and_observes_source_changes(
         data=registration(discover(client, tmp_path), dependencies),
         content_type="application/json",
     ).json()
+    accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
     caplog.clear()

@@ -7,12 +7,15 @@ import structlog
 from wireup import injectable
 
 from ...errors import ProjectHealthCanceled, ProjectHealthTimedOut
-from ..contracts.model import ConfiguredOperatingContractBinding, UnconfiguredOperatingContractBinding
+from ..contracts.model import ConfiguredOperatingContractBinding
 from ..registry.model import ArchitectureConfiguration, Project
 from ..reports.model import ArchitectureSource, HealthReport, HealthReportSet
 from ..reports.service import ReportsService
 from ..workspaces.model import WorkspaceBinding
-from .execution import HealthExecutionService, HealthRunOutcome
+from .conformance.contract import ArchitectureHealthContractService
+from .execution.model import HealthRunOutcome
+from .execution.service import HealthExecutionService
+from .input_identity import ArchitectureHealthInputIdentityService
 from .validation import GuidanceHealthService
 
 
@@ -24,13 +27,15 @@ class ProjectHealthService:
     execution: HealthExecutionService
     reports: ReportsService
     guidance: GuidanceHealthService
+    contracts: ArchitectureHealthContractService
+    input_identity: ArchitectureHealthInputIdentityService
 
     def check(
         self,
         project: Project,
         workspace: WorkspaceBinding,
         configuration: ArchitectureConfiguration,
-        binding: ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding,
+        binding: ConfiguredOperatingContractBinding,
     ) -> HealthReport:
         run_id = uuid4().hex
         started_ns = perf_counter_ns()
@@ -43,16 +48,19 @@ class ProjectHealthService:
             workspace_id=workspace.id,
         )
         try:
+            contract = self.contracts.resolve(project.id, binding, configuration)
+            source = ArchitectureSource(
+                project_id=project.id,
+                workspace_id=workspace.id,
+                architecture_root=workspace.architecture_root,
+                language=project.language_id,
+                boundaries_yaml=configuration.boundaries_yaml,
+                shape_yaml=configuration.shape_yaml,
+            )
             architecture = self.execution.execute(
                 run_id,
-                ArchitectureSource(
-                    project_id=project.id,
-                    workspace_id=workspace.id,
-                    architecture_root=workspace.architecture_root,
-                    language=project.language_id,
-                    boundaries_yaml=configuration.boundaries_yaml,
-                    shape_yaml=configuration.shape_yaml,
-                ),
+                source,
+                contract,
             )
             guidance_started_ns = perf_counter_ns()
             self.logger.info(
@@ -88,6 +96,8 @@ class ProjectHealthService:
                     HealthReportSet(
                         healthy=architecture.healthy and guidance.healthy,
                         reports=(*architecture.reports, guidance.model_dump(mode="json")),
+                        conformance=architecture.conformance,
+                        attestation=architecture.attestation,
                     )
                 )
             finally:
@@ -101,6 +111,14 @@ class ProjectHealthService:
                     project_id=project.id,
                     workspace_id=workspace.id,
                 )
+            self.input_identity.verify(
+                project,
+                workspace,
+                configuration,
+                binding,
+                source,
+                architecture.attestation.source_digest,
+            )
             outcome = HealthRunOutcome.COMPLETED
             return report
         except ProjectHealthCanceled:

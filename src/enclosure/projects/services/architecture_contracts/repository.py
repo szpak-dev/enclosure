@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from wireup import injectable
 
@@ -82,7 +83,10 @@ class ArchitectureContractRepository:
             raise ProjectsError("This architecture contract has already been published.") from error
 
     def get(self, project_id: str, publication_id: str) -> ArchitectureContractPublication:
-        publication = self.model.objects.get(pk=publication_id, project_id=project_id)
+        try:
+            publication = self.model.objects.get(pk=publication_id, project_id=project_id)
+        except (self.model.DoesNotExist, ValidationError) as error:
+            raise ProjectsError("Architecture contract publication does not exist for this project.") from error
         units = []
         for unit in publication.units.order_by("position"):
             diagrams = tuple(

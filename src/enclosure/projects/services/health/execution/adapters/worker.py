@@ -1,71 +1,64 @@
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from time import perf_counter_ns
-from typing import ClassVar
+from typing import cast
 
 import structlog
+from django import setup
 from django.db import connections
+from wireup import SyncContainer
 
-from enclosure.diagnostics.services import CacheDiagnosticsContext
-
-from ....reports.adapters import ArchitectureAdapter
-from ....reports.paging import InsightPagingService
-from ....reports.service import ReportsService
-from ..model import HealthExecutionRequest, HealthExecutionResult, HealthRunOutcome
+from ..evaluation import HealthWorkerEvaluationService
+from ..model import HealthExecutionRequest, HealthRunOutcome
 
 
 @dataclass(frozen=True)
 class HealthWorkerProcess:
-    logger: ClassVar = structlog.get_logger(__name__)
-
     connection: Connection
 
     def run(self) -> None:
+        setup()
+        from enclosure.autowiring import application
+
         connections.close_all()
+        container = cast(SyncContainer, application.create_container())
         try:
+            evaluation = container.get(HealthWorkerEvaluationService)
             while True:
                 try:
-                    request = self.connection.recv()
+                    payload: object = self.connection.recv()
                 except (EOFError, OSError):
                     return
-                self._execute(request)
+                request = HealthExecutionRequest.model_validate(payload)
+                self.execute_request(request, evaluation)
                 del request
         finally:
+            container.close()
             self.connection.close()
             connections.close_all()
 
-    def _execute(self, request: HealthExecutionRequest) -> None:
+    def execute_request(
+        self,
+        request: HealthExecutionRequest,
+        evaluation: HealthWorkerEvaluationService,
+    ) -> None:
+        logger = cast(structlog.stdlib.BoundLogger, structlog.get_logger(__name__))
         started_ns = perf_counter_ns()
         outcome = HealthRunOutcome.FAILED
-        self.logger.info(
+        logger.info(
             "project_health_architecture_started",
             run_id=request.run_id,
             started_ns=started_ns,
             project_id=request.source.project_id,
             workspace_id=request.source.workspace_id,
         )
-        cache = CacheDiagnosticsContext()
-        reports = ReportsService(
-            architecture=ArchitectureAdapter(cache_diagnostics=cache),
-            paging=InsightPagingService(),
-        )
-        cache.begin()
         try:
-            report = reports.generate_health_report(request.source)
-            self.connection.send(
-                HealthExecutionResult(
-                    outcome=HealthRunOutcome.COMPLETED,
-                    reports=report.reports,
-                    cache_outcomes=cache.read(),
-                    detail="",
-                )
-            )
+            self.connection.send(evaluation.evaluate(request))
             outcome = HealthRunOutcome.COMPLETED
         finally:
-            cache.reset()
             connections.close_all()
             finished_ns = perf_counter_ns()
-            self.logger.info(
+            logger.info(
                 "project_health_architecture_terminal",
                 run_id=request.run_id,
                 outcome=outcome.value,
