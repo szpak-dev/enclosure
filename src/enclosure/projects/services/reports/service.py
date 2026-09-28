@@ -8,11 +8,12 @@ from pydantic import JsonValue
 from wireup import injectable
 
 from ...errors import ProjectsError
-from .adapters import ArchitectureAdapter
+from .adapters.architecture import ArchitectureAdapter
 from .model import (
     ArchitectureReportMetadata,
     ArchitectureSource,
     ClusterInput,
+    ConformanceHealthFinding,
     FlowFindingInput,
     FlowHealthFinding,
     GuidanceFindingInput,
@@ -45,17 +46,6 @@ class ReportsService:
 
     MAX_TOP_FINDINGS: ClassVar[int] = 5
 
-    def generate_health_report(
-        self,
-        source: ArchitectureSource,
-    ) -> HealthReportSet:
-        reports = self.architecture.generate_reports(source)
-        health_reports = tuple(report for report in reports if "violations" in report)
-        return HealthReportSet(
-            healthy=all(not report["violations"] for report in health_reports),
-            reports=health_reports,
-        )
-
     def summarize_health_report(self, report: HealthReportSet) -> HealthReport:
         summaries = []
         failures = []
@@ -74,10 +64,28 @@ class ReportsService:
                     title=title,
                     failure_count=len(report_failures),
                     advisory_count=len(report_advisories),
+                    coverage=(),
                 )
             )
             failures.extend(report_failures)
             advisories.extend(report_advisories)
+        conformance_failures = tuple(
+            ConformanceHealthFinding(
+                kind="conformance",
+                **finding.model_dump(mode="python"),
+            )
+            for finding in report.conformance.findings
+        )
+        summaries.append(
+            HealthReportSummary(
+                id=report.conformance.id,
+                title=report.conformance.title,
+                failure_count=len(conformance_failures),
+                advisory_count=0,
+                coverage=report.conformance.coverage,
+            )
+        )
+        failures.extend(conformance_failures)
         targets = tuple(dict.fromkeys(finding.target for finding in (*failures, *advisories)))
         next_actions = tuple(dict.fromkeys(finding.next_action for finding in (*failures, *advisories)))
         outcome = (
@@ -88,9 +96,10 @@ class ReportsService:
             else HealthOutcome.HEALTHY
         )
         return HealthReport(
-            revision=self._revision(report.reports),
+            revision=self.health_revision(report),
             outcome=outcome,
             healthy=report.healthy,
+            attestation=report.attestation,
             reports=tuple(summaries),
             failure_count=len(failures),
             advisory_count=len(advisories),
@@ -287,6 +296,15 @@ class ReportsService:
     def _mappings(self, value: JsonValue) -> tuple[Mapping[str, JsonValue], ...]:
         return tuple(cast(list[dict[str, JsonValue]], value))
 
-    def _revision(self, reports: tuple[dict[str, JsonValue], ...]) -> str:
-        canonical = json.dumps(reports, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    def health_revision(self, report: HealthReportSet) -> str:
+        canonical = json.dumps(
+            {
+                "reports": report.reports,
+                "conformance": report.conformance.model_dump(mode="json"),
+                "attestation": report.attestation.model_dump(mode="json"),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
         return sha256(canonical.encode("utf-8")).hexdigest()

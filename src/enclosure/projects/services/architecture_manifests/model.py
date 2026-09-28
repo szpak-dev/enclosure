@@ -13,6 +13,11 @@ class ArchitectureComparisonState(StrEnum):
     UNVERIFIED = "unverified"
 
 
+class ArchitectureAssertionScope(StrEnum):
+    ASSERTION = "assertion"
+    COVERAGE = "coverage"
+
+
 class ArchitectureComparisonConclusion(StrEnum):
     CONFORMS = "conforms"
     DOES_NOT_CONFORM = "does_not_conform"
@@ -33,12 +38,20 @@ class ArchitectureSupportState(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class ArchitectureDiagramRevision(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    diagram_id: str
+    diagram_revision: int
+
+
 class ArchitectureContractManifestUnit(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str
     source_root: str
     coverage: ArchitectureContractCoverage
+    diagram_revisions: tuple[ArchitectureDiagramRevision, ...]
     exclusions: tuple[ArchitectureContractExclusion, ...]
     facts: tuple[SerializeAsAny[ArchitectureContractFact], ...]
 
@@ -63,6 +76,7 @@ class ArchitectureAssertionResult(BaseModel, ABC):
     assertion_id: str
     unit_key: str
     capability: ArchitectureFactCapability
+    scope: ArchitectureAssertionScope
     state: ArchitectureComparisonState
     evidence: tuple[ArchitectureDiagramEvidence, ...]
 
@@ -81,7 +95,7 @@ class ArchitectureExpectedFailure(ArchitectureAssertionFailure):
 
 
 class ArchitectureUnexpectedFailure(ArchitectureAssertionFailure):
-    pass
+    source_symbol: str
 
 
 class ArchitectureAssertionUnverified(ArchitectureAssertionResult):

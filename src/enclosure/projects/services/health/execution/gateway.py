@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from enclosure.shared.execution import CancellationSignal
 
-from .model import HealthExecutionRequest, HealthExecutionResult
+from .model import CompletedHealthExecutionResult, HealthExecutionRequest, IncompleteHealthExecutionResult
 
 
 class HealthWorkerGateway(ABC):
@@ -14,5 +14,5 @@ class HealthWorkerGateway(ABC):
         request: HealthExecutionRequest,
         signal: CancellationSignal,
         timeout_seconds: int,
-    ) -> HealthExecutionResult:
+    ) -> CompletedHealthExecutionResult | IncompleteHealthExecutionResult:
         raise NotImplementedError

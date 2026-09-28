@@ -634,6 +634,7 @@ class PublicMcpClient:
                 {"summary": "Example project guidance."},
                 shape_yaml,
             )
+            await self._accept_example_architecture(http_client, root, project_id)
             rest_response = await http_client.get(
                 f"/api/projects/{project_id}/workspaces/{workspace_id}/health-violations"
             )
@@ -659,6 +660,7 @@ class PublicMcpClient:
                 {"guidance": ["x" * 9000]},
                 EXAMPLE_HEALTHY_SHAPE_YAML,
             )
+            await self._accept_example_architecture(http_client, root, project_id)
             rest_response = await http_client.get(
                 f"/api/projects/{project_id}/workspaces/{workspace_id}/health-violations"
             )
@@ -794,6 +796,136 @@ class PublicMcpClient:
                 json={"root": str(relocated)},
             )
             return bound, stale, replaced, resolved, rest_resolution
+
+    async def _accept_example_architecture(
+        self,
+        http_client: httpx2.AsyncClient,
+        root: Path,
+        project_id: str,
+    ) -> None:
+        source = root / "src" / "example" / "service.py"
+        source.parent.mkdir(parents=True)
+        source.write_text(
+            "class ExampleService:\n"
+            "    value: str\n\n"
+            "    def execute(self, request: str) -> str:\n"
+            "        return request\n",
+            encoding="utf-8",
+        )
+        diagram_set = await http_client.post(
+            "/api/diagram-sets",
+            json={"title": "Example architecture", "description": "Accepted example health contract."},
+        )
+        diagram_set.raise_for_status()
+        diagram_set_id = diagram_set.json()["id"]
+
+        async def create_diagram(title: str, kind: str, commands: list[dict[str, object]]) -> dict[str, object]:
+            created = await http_client.post(
+                f"/api/diagram-sets/{diagram_set_id}/diagram-batches",
+                json={"title": title, "kind": kind, "commands": commands},
+            )
+            created.raise_for_status()
+            diagram = await http_client.get(f"/api/diagrams/{created.json()['diagram_id']}")
+            diagram.raise_for_status()
+            return cast(dict[str, object], diagram.json())
+
+        identity = "src/example/service.py::class:src/example/service.ExampleService"
+        tree = await create_diagram(
+            "Example structure",
+            "treeView-beta",
+            [
+                {"operation": "add_directory", "arguments": {"id": "source", "label": "src"}},
+                {"operation": "add_directory", "arguments": {"id": "example", "label": "example"}},
+                {"operation": "add_file", "arguments": {"id": "service", "label": "service.py"}},
+                {
+                    "operation": "add_branch",
+                    "arguments": {"id": "source-example", "parent_id": "source", "child_id": "example"},
+                },
+                {
+                    "operation": "add_branch",
+                    "arguments": {"id": "example-service", "parent_id": "example", "child_id": "service"},
+                },
+            ],
+        )
+        uml = await create_diagram(
+            "Example service",
+            "classDiagram",
+            [
+                {
+                    "operation": "add_class",
+                    "arguments": {
+                        "id": identity,
+                        "label": "ExampleService",
+                        "attributes": [
+                            {"name": "value", "type": {"name": "str"}, "visibility": "public", "static": True}
+                        ],
+                        "methods": [
+                            {
+                                "name": "execute",
+                                "parameters": [{"name": "request", "type": {"name": "str"}}],
+                                "return_type": {"name": "str"},
+                                "visibility": "public",
+                                "modifier": "instance",
+                            }
+                        ],
+                    },
+                }
+            ],
+        )
+        entity = await create_diagram(
+            "Example entity",
+            "erDiagram",
+            [{"operation": "add_entity", "arguments": {"id": identity, "label": "ExampleService"}}],
+        )
+        diagrams = [
+            {"diagram_id": tree["id"], "expected_revision": tree["revision"], "role": "tree", "scope": "complete"},
+            {"diagram_id": uml["id"], "expected_revision": uml["revision"], "role": "uml", "scope": "focused"},
+            {
+                "diagram_id": entity["id"],
+                "expected_revision": entity["revision"],
+                "role": "entity",
+                "scope": "complete",
+            },
+        ]
+        publication = await http_client.post(
+            f"/api/projects/{project_id}/architecture-contract-publications",
+            json={
+                "units": [
+                    {
+                        "key": "application",
+                        "diagram_set_id": diagram_set_id,
+                        "source_root": "src/example",
+                        "coverage": "declared",
+                        "diagrams": diagrams,
+                        "exclusions": [],
+                    }
+                ]
+            },
+        )
+        publication.raise_for_status()
+        binding = await http_client.get(f"/api/projects/{project_id}/operating-contract-binding")
+        binding.raise_for_status()
+        binding_value = binding.json()
+        record_ids = [
+            reference["id"]
+            for reference in binding_value["effective_revision"]["references"]
+            if reference["kind"] == "guidance"
+        ]
+        accepted = await http_client.post(
+            f"/api/projects/operating-contracts/{binding_value['contract']['id']}/revisions",
+            json={
+                "record_ids": record_ids,
+                "references": [
+                    {
+                        "kind": "architecture",
+                        "id": publication.json()["id"],
+                        "authority": publication.json()["authority"],
+                        "revision": publication.json()["revision"],
+                    }
+                ],
+            },
+        )
+        accepted.raise_for_status()
 
     async def _register_example_project(
         self,

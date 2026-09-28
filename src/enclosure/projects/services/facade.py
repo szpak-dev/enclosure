@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from django.db import transaction
 from pydantic import JsonValue
@@ -39,7 +40,7 @@ from .registry.model import (
     ProjectPage,
 )
 from .registry.service import RegistryService
-from .reports.adapters import ArchitectureAdapter
+from .reports.adapters.architecture import ArchitectureAdapter
 from .reports.model import (
     ArchitectureSource,
     HealthFindingKind,
@@ -394,11 +395,14 @@ class ProjectsService:
     def check_health(self, project_id: str, workspace_id: str) -> HealthReport:
         configuration = self.registry.get_current_architecture_configuration(project_id)
         project = self.registry.get(project_id)
+        binding = self.contracts.get_binding(project_id)
+        if binding.state == "unconfigured":
+            raise ProjectsError("Project health requires a configured operating contract.")
         return self.health.check(
             project,
             self.workspaces.get(project_id, workspace_id),
             configuration,
-            self.contracts.get_binding(project_id),
+            cast(ConfiguredOperatingContractBinding, binding),
         )
 
     def read_health_findings(

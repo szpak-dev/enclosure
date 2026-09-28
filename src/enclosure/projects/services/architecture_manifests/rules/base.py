@@ -11,6 +11,7 @@ from ..facts.model import (
 from ..model import (
     ArchitectureAssertionPass,
     ArchitectureAssertionResult,
+    ArchitectureAssertionScope,
     ArchitectureAssertionUnverified,
     ArchitectureComparisonState,
     ArchitectureContractManifestUnit,
@@ -35,12 +36,14 @@ class ArchitectureComparisonRule(ABC):
         unit_key: str,
         assertion_id: str,
         evidence: tuple[ArchitectureDiagramEvidence, ...],
+        scope: ArchitectureAssertionScope,
         support: ArchitectureSupportState,
         explanation: str,
     ) -> ArchitectureAssertionUnverified:
         values = {
             "unit": unit_key,
             "assertion": assertion_id,
+            "scope": scope.value,
             "state": ArchitectureComparisonState.UNVERIFIED.value,
             "support": support.value,
             "explanation": explanation,
@@ -51,6 +54,7 @@ class ArchitectureComparisonRule(ABC):
             assertion_id=assertion_id,
             unit_key=unit_key,
             capability=self.capability,
+            scope=scope,
             state=ArchitectureComparisonState.UNVERIFIED,
             evidence=evidence,
             kind=ArchitectureFindingKind.UNSUPPORTED,
@@ -77,6 +81,7 @@ class ArchitectureComparisonRule(ABC):
                         unit.key,
                         fact.id,
                         fact.evidence,
+                        ArchitectureAssertionScope.ASSERTION,
                         support,
                         explanation,
                     )
@@ -90,6 +95,7 @@ class ArchitectureComparisonRule(ABC):
                     values = {
                         "unit": unit.key,
                         "assertion": fact.id,
+                        "scope": ArchitectureAssertionScope.ASSERTION.value,
                         "state": ArchitectureComparisonState.PASS.value,
                         "actual": candidates[0].id,
                     }
@@ -100,6 +106,7 @@ class ArchitectureComparisonRule(ABC):
                             assertion_id=fact.id,
                             unit_key=unit.key,
                             capability=self.capability,
+                            scope=ArchitectureAssertionScope.ASSERTION,
                             state=ArchitectureComparisonState.PASS,
                             evidence=fact.evidence,
                             actual_id=candidates[0].id,
@@ -116,6 +123,7 @@ class ArchitectureComparisonRule(ABC):
                         unit.key,
                         fact.id,
                         fact.evidence,
+                        ArchitectureAssertionScope.ASSERTION,
                         support,
                         explanation,
                     )
@@ -126,6 +134,7 @@ class ArchitectureComparisonRule(ABC):
             values = {
                 "unit": unit.key,
                 "assertion": fact.id,
+                "scope": ArchitectureAssertionScope.ASSERTION.value,
                 "state": ArchitectureComparisonState.FAIL.value,
                 "kind": kind.value,
                 "expected": expected_value,
@@ -138,6 +147,7 @@ class ArchitectureComparisonRule(ABC):
                     assertion_id=fact.id,
                     unit_key=unit.key,
                     capability=self.capability,
+                    scope=ArchitectureAssertionScope.ASSERTION,
                     state=ArchitectureComparisonState.FAIL,
                     evidence=fact.evidence,
                     kind=kind,
@@ -151,6 +161,7 @@ class ArchitectureComparisonRule(ABC):
                     unit.key,
                     f"coverage:{self.capability.value}",
                     (),
+                    ArchitectureAssertionScope.COVERAGE,
                     support,
                     explanation,
                 )
@@ -176,6 +187,7 @@ class ArchitectureComparisonRule(ABC):
                 values = {
                     "unit": unit.key,
                     "assertion": assertion_id,
+                    "scope": ArchitectureAssertionScope.ASSERTION.value,
                     "state": ArchitectureComparisonState.FAIL.value,
                     "kind": ArchitectureFindingKind.UNEXPECTED.value,
                     "actual": actual_value,
@@ -187,10 +199,12 @@ class ArchitectureComparisonRule(ABC):
                         assertion_id=assertion_id,
                         unit_key=unit.key,
                         capability=self.capability,
+                        scope=ArchitectureAssertionScope.ASSERTION,
                         state=ArchitectureComparisonState.FAIL,
                         evidence=(),
                         kind=ArchitectureFindingKind.UNEXPECTED,
                         actual=(actual_value,),
+                        source_symbol=item.id,
                     )
                 )
         return tuple(sorted(results, key=lambda result: (result.assertion_id, result.fingerprint)))

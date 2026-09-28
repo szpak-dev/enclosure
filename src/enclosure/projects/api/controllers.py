@@ -759,7 +759,10 @@ class ProjectsController(ControllerBase):
         },
         status=200,
         summary="Check project health",
-        description="Evaluate gating architecture rules and project-guidance integrity.",
+        description=(
+            "Evaluate gating architecture rules, accepted-contract conformance, and project-guidance integrity, "
+            "then attest the exact conformance inputs and findings."
+        ),
     )
     def check_health(
         self,

@@ -27,7 +27,7 @@ from .facts.model import (
     SourceContractFact,
     SymbolContractFact,
 )
-from .model import ArchitectureContractManifest, ArchitectureContractManifestUnit
+from .model import ArchitectureContractManifest, ArchitectureContractManifestUnit, ArchitectureDiagramRevision
 
 
 @injectable
@@ -154,13 +154,20 @@ class ArchitectureContractCompiler:
                     key=unit.key,
                     source_root=unit.source_root,
                     coverage=unit.coverage,
+                    diagram_revisions=tuple(
+                        ArchitectureDiagramRevision(
+                            diagram_id=diagram.diagram_id,
+                            diagram_revision=diagram.diagram_revision,
+                        )
+                        for diagram in unit.diagrams
+                    ),
                     exclusions=unit.exclusions,
                     facts=facts,
                 )
             )
         ordered_units = tuple(sorted(units, key=attrgetter("key")))
         payload = {
-            "schema_version": 1,
+            "schema_version": 2,
             "project_id": publication.project_id,
             "publication_id": publication.id,
             "publication_version": publication.version,
@@ -171,7 +178,7 @@ class ArchitectureContractCompiler:
         canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         digest = sha256(canonical.encode("utf-8")).hexdigest()
         return ArchitectureContractManifest(
-            schema_version=1,
+            schema_version=2,
             project_id=publication.project_id,
             publication_id=publication.id,
             publication_version=publication.version,

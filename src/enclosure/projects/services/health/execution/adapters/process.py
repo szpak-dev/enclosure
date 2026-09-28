@@ -12,7 +12,12 @@ from enclosure.shared.execution import CancellationSignal
 
 from .....errors import ProjectHealthCapacityUnavailable
 from ..gateway import HealthWorkerGateway
-from ..model import HealthExecutionRequest, HealthExecutionResult, HealthRunOutcome
+from ..model import (
+    CompletedHealthExecutionResult,
+    HealthExecutionRequest,
+    HealthRunOutcome,
+    IncompleteHealthExecutionResult,
+)
 from .lease import HealthSlotLease
 from .registry import HealthWorkerRegistry
 
@@ -37,10 +42,10 @@ class ProcessHealthWorker(HealthWorkerGateway):
         request: HealthExecutionRequest,
         signal: CancellationSignal,
         timeout_seconds: int,
-    ) -> HealthExecutionResult:
+    ) -> CompletedHealthExecutionResult | IncompleteHealthExecutionResult:
         acquisition_started_ns = perf_counter_ns()
         try:
-            lease = self._acquire()
+            lease = self.acquire()
         except ProjectHealthCapacityUnavailable:
             acquisition_finished_ns = perf_counter_ns()
             self.logger.info(
@@ -77,8 +82,8 @@ class ProcessHealthWorker(HealthWorkerGateway):
         finally:
             lease.release()
 
-    def _acquire(self) -> HealthSlotLease:
-        directory = self._capacity_path()
+    def acquire(self) -> HealthSlotLease:
+        directory = self.capacity_path()
         for index in range(self.max_concurrency):
             handle = (directory / f"slot-{index}.lock").open("a+b")
             try:
@@ -89,7 +94,7 @@ class ProcessHealthWorker(HealthWorkerGateway):
                 return HealthSlotLease(slot_index=index, handle=handle)
         raise ProjectHealthCapacityUnavailable("Project health execution capacity is exhausted.")
 
-    def _capacity_path(self) -> Path:
+    def capacity_path(self) -> Path:
         directory = Path(settings.MODWIRE_CACHE_DIRECTORY) / "health-capacity"
         directory.mkdir(parents=True, exist_ok=True)
         return directory

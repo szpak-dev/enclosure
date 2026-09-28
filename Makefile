@@ -1,4 +1,4 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -20,7 +20,7 @@ format:
 ci:
 	@$(MAKE) --jobs=2 ci-python-checks ci-browser-checks
 	@$(MAKE) ci-static-prepare
-	@$(MAKE) --jobs=2 ci-python-tests ci-browser-tests
+	@$(MAKE) --jobs=3 ci-python-tests-general ci-python-tests-health ci-browser-tests
 	@$(MAKE) ci-browser-build ci-static-check
 
 ci-python-checks:
@@ -33,7 +33,12 @@ ci-browser-checks:
 	@npm --prefix browser run format:check
 
 ci-python-tests:
+	@$(MAKE) --jobs=2 ci-python-tests-general ci-python-tests-health
+
+ci-python-tests-general:
 	@uv run pytest -n 4 --dist loadfile -k "not health"
+
+ci-python-tests-health:
 	@uv run pytest -k health
 
 ci-browser-tests:

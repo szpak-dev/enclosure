@@ -3,6 +3,20 @@ from typing import Annotated, Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from ..architecture_manifests.model import (
+    ArchitectureComparisonState,
+    ArchitectureFindingKind,
+    ArchitectureSupportState,
+)
+from ..health.attestations.model import ArchitectureConformanceAttestation
+from ..health.conformance.model import (
+    ArchitectureAssertionEvidence,
+    ArchitectureConformanceCoverage,
+    ArchitectureConformanceReport,
+    ArchitectureCoverageEvidence,
+    ArchitectureUnexpectedEvidence,
+)
+
 
 class ArchitectureReportMetadata(TypedDict):
     id: str
@@ -163,16 +177,34 @@ class GuidanceHealthFinding(HealthFinding):
     remediation: str
 
 
+class ConformanceHealthFinding(HealthFinding):
+    kind: Literal["conformance"]
+    fingerprint: str
+    contract_unit: str
+    evidence: Annotated[
+        ArchitectureAssertionEvidence | ArchitectureUnexpectedEvidence | ArchitectureCoverageEvidence,
+        Field(discriminator="kind"),
+    ]
+    expected: dict[str, JsonValue]
+    actual: tuple[dict[str, JsonValue], ...]
+    support: ArchitectureSupportState
+    state: ArchitectureComparisonState
+    finding_kind: ArchitectureFindingKind
+
+
 class HealthReportSummary(ReportValue):
     id: str
     title: str
     failure_count: int
     advisory_count: int
+    coverage: tuple[ArchitectureConformanceCoverage, ...]
 
 
 class HealthReportSet(ReportValue):
     healthy: bool
     reports: tuple[dict[str, JsonValue], ...]
+    conformance: ArchitectureConformanceReport
+    attestation: ArchitectureConformanceAttestation
 
 
 class ArchitectureSource(ReportValue):
@@ -184,10 +216,16 @@ class ArchitectureSource(ReportValue):
     shape_yaml: str
 
 
+class ArchitectureObservation(ReportValue):
+    reports: tuple[dict[str, JsonValue], ...]
+    implementation_document: dict[str, JsonValue]
+
+
 class HealthReport(ReportValue):
     revision: str
     outcome: HealthOutcome
     healthy: bool
+    attestation: ArchitectureConformanceAttestation
     reports: tuple[HealthReportSummary, ...]
     failure_count: int
     advisory_count: int
@@ -196,11 +234,17 @@ class HealthReport(ReportValue):
     targets: tuple[str, ...]
     next_actions: tuple[str, ...]
     failures: tuple[
-        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        Annotated[
+            ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding | ConformanceHealthFinding,
+            Field(discriminator="kind"),
+        ],
         ...,
     ]
     advisories: tuple[
-        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        Annotated[
+            ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding | ConformanceHealthFinding,
+            Field(discriminator="kind"),
+        ],
         ...,
     ]
 
@@ -212,7 +256,10 @@ class HealthFindingPage(ReportValue):
     limit: int
     total: int
     items: tuple[
-        Annotated[ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding, Field(discriminator="kind")],
+        Annotated[
+            ShapeHealthFinding | FlowHealthFinding | GuidanceHealthFinding | ConformanceHealthFinding,
+            Field(discriminator="kind"),
+        ],
         ...,
     ]
     has_more: bool
