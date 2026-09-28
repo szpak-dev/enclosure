@@ -4,7 +4,7 @@ from wireup import injectable
 
 from ... import models
 from ...errors import ProjectsError
-from ..adapters import RecordsAdapter
+from ..adapters.records import RecordsAdapter
 from .model import (
     ConfiguredOperatingContractBinding,
     OperatingContract,

@@ -6,7 +6,7 @@ from wireup import injectable
 
 from enclosure.scaffoldings.services.renderings.model import RenderedFile
 
-from ..adapters import ScaffoldingsAdapter
+from ..adapters.scaffoldings import ScaffoldingsAdapter
 from ..registry.model import Project
 from ..workspaces.model import WorkspaceBinding
 from .adapters import AgentInstructionsAdapter, FilesystemAdapter
