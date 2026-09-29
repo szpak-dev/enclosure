@@ -261,7 +261,7 @@ class ArchitectureManifestResponse(Schema):
     publication_id: str = Field(description="Accepted architecture-contract publication identifier.")
     publication_version: int = Field(description="Accepted project-local publication version.", ge=1)
     publication_revision: str = Field(description="Revision of the accepted architecture-contract publication.")
-    units: list[dict[str, JsonValue]] = Field(description="Canonical expected-code contract units and facts.")
+    units: list[dict[str, JsonValue]] = Field(description="Canonical language-neutral contract units and assertions.")
     digest_algorithm: Literal["sha256"] = Field(description="Algorithm covering the canonical manifest.")
     digest: str = Field(description="Digest of the canonical expected-code contract.")
 
@@ -269,7 +269,8 @@ class ArchitectureManifestResponse(Schema):
 class ArchitectureComparisonResponse(Schema):
     schema_version: int = Field(description="Architecture-comparison schema version.", ge=1)
     contract_digest: str = Field(description="Digest of the expected architecture manifest.")
-    implementation_digest: str = Field(description="Digest of the observed Modwire document.")
+    implementation_digest: str = Field(description="Digest of canonical implementation evidence and receipts.")
+    realization_digest: str = Field(description="Digest of explicit architecture-to-implementation bindings.")
     source_digest: str = Field(description="Digest of the observed source manifest.")
     conclusion: Literal["conforms", "does_not_conform", "unverified"] = Field(
         description="Deterministic project-conformance conclusion."
@@ -532,15 +533,16 @@ class ArchitectureAssertionEvidence(Schema):
     diagram_evidence: tuple[ArchitectureDiagramEvidence, ...] = Field(
         description="Exact diagram elements and revisions supporting the assertion."
     )
-    source_symbol: str = Field(description="Canonical source or symbol identity evaluated by the assertion.")
+    implementation_evidence_ids: tuple[str, ...] = Field(
+        description="Canonical implementation evidence identities evaluated by the assertion."
+    )
 
 
 class ArchitectureUnexpectedEvidence(Schema):
     kind: Literal["unexpected"] = Field(description="Unexpected-implementation evidence discriminator.")
-    diagram_revisions: tuple[ArchitectureDiagramRevision, ...] = Field(
-        description="Accepted diagrams establishing closed coverage for the contract unit."
+    implementation_evidence_ids: tuple[str, ...] = Field(
+        description="Canonical unexpected implementation evidence identities."
     )
-    source_symbol: str = Field(description="Canonical unexpected source or symbol identity.")
 
 
 class ArchitectureCoverageEvidence(Schema):
@@ -548,18 +550,26 @@ class ArchitectureCoverageEvidence(Schema):
     diagram_revisions: tuple[ArchitectureDiagramRevision, ...] = Field(
         description="Accepted diagrams establishing closed coverage for the contract unit."
     )
-    capability: Literal[
-        "sources",
-        "symbols",
-        "callables",
-        "parameters",
-        "annotations",
-        "modifiers",
-        "attributes",
-        "inheritance",
-        "dependencies",
-        "spans",
-    ] = Field(description="Semantic capability whose closed coverage could not be verified.")
+    assertion_kind: Literal[
+        "artifact",
+        "classifier",
+        "member",
+        "relationship",
+        "entity",
+        "entity_field",
+    ] = Field(description="Language-neutral assertion kind whose closed coverage could not be verified.")
+
+
+class ArchitectureSemanticValue(Schema):
+    kind: Literal[
+        "artifact",
+        "classifier",
+        "member",
+        "relationship",
+        "entity",
+        "entity_field",
+    ] = Field(description="Language-neutral semantic value kind.")
+    fields: dict[str, JsonValue] = Field(description="Typed semantic fields serialized without provider payloads.")
 
 
 class ConformanceHealthFinding(HealthFinding):
@@ -570,30 +580,26 @@ class ConformanceHealthFinding(HealthFinding):
         ArchitectureAssertionEvidence | ArchitectureUnexpectedEvidence | ArchitectureCoverageEvidence,
         Field(discriminator="kind"),
     ] = Field(description="Typed, non-synthetic location evidence for this finding.")
-    expected: dict[str, JsonValue] = Field(description="Canonical expected contract value.")
-    actual: tuple[dict[str, JsonValue], ...] = Field(description="Canonical observed candidate values.")
-    support: Literal["supported", "partial", "unsupported"] = Field(
-        description="Observed extractor support for this semantic kind."
-    )
+    expected: ArchitectureSemanticValue = Field(description="Canonical expected semantic value.")
+    observed: tuple[ArchitectureSemanticValue, ...] = Field(description="Canonical observed semantic values.")
     state: Literal["fail", "unverified"] = Field(description="Non-passing assertion state.")
     finding_kind: Literal["missing", "unexpected", "mismatched", "ambiguous", "unsupported"] = Field(
         description="Typed conformance failure classification."
     )
+    owner: Literal["contract", "realization", "implementation", "observer"] = Field(
+        description="Authoritative boundary that owns remediation."
+    )
 
 
 class ArchitectureConformanceCoverage(Schema):
-    capability: Literal[
-        "sources",
-        "symbols",
-        "callables",
-        "parameters",
-        "annotations",
-        "modifiers",
-        "attributes",
-        "inheritance",
-        "dependencies",
-        "spans",
-    ] = Field(description="Semantic kind covered by the accepted contract.")
+    assertion_kind: Literal[
+        "artifact",
+        "classifier",
+        "member",
+        "relationship",
+        "entity",
+        "entity_field",
+    ] = Field(description="Language-neutral semantic kind covered by the accepted contract.")
     passed: int = Field(description="Passing mandatory assertions.", ge=0)
     failed: int = Field(description="Failing mandatory or closed-coverage assertions.", ge=0)
     unverified: int = Field(description="Mandatory assertions lacking complete evidence.", ge=0)
@@ -602,7 +608,8 @@ class ArchitectureConformanceCoverage(Schema):
 class ArchitectureAttestationComponent(Schema):
     kind: Literal[
         "contract",
-        "source",
+        "implementation_evidence",
+        "realization",
         "policies",
         "configuration",
         "schemas",
@@ -620,6 +627,10 @@ class ArchitectureConformanceAttestation(Schema):
         description="Complete ordered attestation evidence."
     )
     contract_digest: str = Field(description="Digest covering the accepted contract bundle.")
+    implementation_evidence_digest: str = Field(
+        description="Digest covering canonical observations and provider receipts."
+    )
+    realization_digest: str = Field(description="Digest covering every intent-to-evidence binding outcome.")
     source_digest: str = Field(description="Digest covering the observed source manifest.")
     policy_digest: str = Field(description="Digest covering the effective operating-contract policies.")
     configuration_digest: str = Field(description="Digest covering the architecture configuration revision.")

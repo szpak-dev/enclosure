@@ -15,6 +15,7 @@ from .architecture_contracts.model import (
 )
 from .architecture_contracts.service import ArchitectureContractsService
 from .architecture_manifests.model import ArchitectureComparison, ArchitectureContractManifest
+from .architecture_manifests.evidence.model import ImplementationContext
 from .architecture_manifests.service import ArchitectureManifestService
 from .context.model import WorkspaceContext
 from .context.service import WorkspaceContextService
@@ -166,19 +167,23 @@ class ProjectsService:
         publication_id: str,
     ) -> ArchitectureContractManifest:
         self.registry.get(project_id)
-        return self.architecture_manifests.compile(project_id, publication_id)
+        publication = self.architecture_contracts.get(project_id, publication_id)
+        return self.architecture_manifests.compile(publication)
 
     def compare_project_architecture_manifest(
         self,
         project_id: str,
         publication_id: str,
-        implementation_document: Mapping[str, object],
+        implementation_document: Mapping[str, JsonValue],
     ) -> ArchitectureComparison:
         self.registry.get(project_id)
+        publication = self.architecture_contracts.get(project_id, publication_id)
         return self.architecture_manifests.compare(
-            project_id,
-            publication_id,
-            implementation_document,
+            publication,
+            ImplementationContext(
+                implementation_document=implementation_document,
+                artifact_paths=(),
+            ),
         )
 
     def find_workspaces(self, project_id: str) -> tuple[WorkspaceBinding, ...]:

@@ -18,7 +18,7 @@ class PoliciesAttestationContributor(ArchitectureAttestationContributor):
         init=False,
     )
     name: str = field(default="policies", init=False)
-    order: int = field(default=30, init=False)
+    order: int = field(default=40, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
         return self.component(

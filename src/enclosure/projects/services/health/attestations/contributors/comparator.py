@@ -18,7 +18,7 @@ class ComparatorAttestationContributor(ArchitectureAttestationContributor):
         init=False,
     )
     name: str = field(default="comparator", init=False)
-    order: int = field(default=70, init=False)
+    order: int = field(default=80, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
         return self.component(context.identity.comparison.model_dump(mode="json"))

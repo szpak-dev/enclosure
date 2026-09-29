@@ -1,24 +1,15 @@
 from dataclasses import dataclass, field
 from typing import cast
 
-from pydantic import JsonValue
 from wireup import injectable
 
 from ....architecture_manifests.model import (
     ArchitectureAssertionFailure,
     ArchitectureAssertionResult,
     ArchitectureComparisonState,
-    ArchitectureContractManifest,
-    ArchitectureExpectedFailure,
     ArchitectureFindingKind,
-    ArchitectureUnexpectedFailure,
 )
-from ....architecture_manifests.observed.model import ObservedImplementationManifest
-from ..model import (
-    ArchitectureAssertionEvidence,
-    ArchitectureConformanceFinding,
-    ArchitectureUnexpectedEvidence,
-)
+from ..model import ArchitectureAssertionEvidence, ArchitectureConformanceFinding, ArchitectureUnexpectedEvidence
 from .base import ArchitectureConformanceFindingProjector
 
 
@@ -34,41 +25,32 @@ class ArchitectureFailureFindingProjector(ArchitectureConformanceFindingProjecto
     def project(
         self,
         result: ArchitectureAssertionResult,
-        contract: ArchitectureContractManifest,
-        observed: ObservedImplementationManifest,
     ) -> ArchitectureConformanceFinding:
         failure = cast(ArchitectureAssertionFailure, result)
-        expected: dict[str, JsonValue]
         if failure.kind == ArchitectureFindingKind.UNEXPECTED:
-            expected = {"required": False}
-            unexpected = cast(ArchitectureUnexpectedFailure, failure)
             evidence = ArchitectureUnexpectedEvidence(
-                diagram_revisions=self.unit(unexpected, contract).diagram_revisions,
-                source_symbol=unexpected.source_symbol,
+                implementation_evidence_ids=failure.implementation_evidence_ids,
             )
-            target = unexpected.source_symbol
         else:
-            expected = cast(ArchitectureExpectedFailure, failure).expected
             evidence = ArchitectureAssertionEvidence(
                 diagram_evidence=failure.evidence,
-                source_symbol=failure.assertion_id,
+                implementation_evidence_ids=failure.implementation_evidence_ids,
             )
-            target = failure.assertion_id
-        rule = f"architecture.conformance.{failure.capability.value}"
+        rule = f"architecture.conformance.{failure.assertion_kind.value}"
         return ArchitectureConformanceFinding(
             fingerprint=failure.fingerprint,
             contract_unit=failure.unit_key,
             evidence=evidence,
-            expected=expected,
-            actual=failure.actual,
-            support=self.support(failure, observed),
+            expected=failure.expected,
+            observed=failure.observed,
             state=failure.state,
             finding_kind=failure.kind,
+            owner=failure.owner,
             rule=rule,
-            target=target,
+            target=failure.assertion_id,
             message=(
                 f"Architecture assertion {failure.assertion_id!r} is {failure.kind.value} "
-                f"in contract unit {failure.unit_key!r}."
+                f"in contract unit {failure.unit_key!r}; remediation belongs to {failure.owner.value}."
             ),
-            next_action=f"Align {failure.assertion_id} with the accepted architecture contract.",
+            next_action=self.next_action(failure.owner, failure.assertion_id),
         )

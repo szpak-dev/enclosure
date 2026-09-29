@@ -7,6 +7,6 @@ class ArchitectureConformanceIdentity(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     producer: str = "enclosure.architecture-conformance"
-    producer_revision: str = "1"
+    producer_revision: str = "2"
     comparison: ArchitectureComparisonIdentity = Field(default_factory=ArchitectureComparisonIdentity)
-    attestation_schema_version: int = 1
+    attestation_schema_version: int = 2

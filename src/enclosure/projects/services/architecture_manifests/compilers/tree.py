@@ -12,11 +12,12 @@ from ...architecture_contracts.model import (
     ArchitectureDiagramRole,
     ArchitectureDiagramScope,
 )
-from ..facts.model import (
-    ArchitectureContractFact,
+from ..assertions.model import (
+    ArchitectureArtifactKind,
+    ArchitectureAssertion,
+    ArchitectureAssertionKind,
     ArchitectureDiagramEvidence,
-    ArchitectureFactCapability,
-    SourceContractFact,
+    ArtifactAssertion,
 )
 from .base import ArchitectureDiagramCompiler
 
@@ -32,38 +33,39 @@ class TreeArchitectureCompiler(ArchitectureDiagramCompiler):
         unit: ArchitectureContractUnit,
         diagram: ArchitectureContractDiagram,
         semantics: DiagramContractSemantics,
-    ) -> tuple[ArchitectureContractFact, ...]:
-        facts: list[ArchitectureContractFact] = []
+    ) -> tuple[ArchitectureAssertion, ...]:
+        assertions: list[ArchitectureAssertion] = []
         for path in semantics.paths:
             parsed = PurePosixPath(path.path)
             normalized = str(parsed)
             if parsed.is_absolute() or ".." in parsed.parts or normalized != path.path:
                 raise ProjectsError(f"Tree path {path.path!r} must be normalized and project-relative.")
-            if path.kind == "file":
-                if (
-                    unit.source_root != "."
-                    and normalized != unit.source_root
-                    and not normalized.startswith(f"{unit.source_root}/")
-                ):
-                    raise ProjectsError(
-                        f"Tree source {normalized!r} is outside contract source root {unit.source_root!r}."
-                    )
-                facts.append(
-                    SourceContractFact(
-                        id=f"source:{normalized}",
-                        capability=ArchitectureFactCapability.SOURCES,
-                        required=diagram.scope != ArchitectureDiagramScope.REFERENCE,
-                        evidence=(
-                            ArchitectureDiagramEvidence(
-                                diagram_id=diagram.diagram_id,
-                                diagram_revision=diagram.diagram_revision,
-                                element_id=path.element_id,
-                            ),
+            if (
+                unit.source_root != "."
+                and normalized != unit.source_root
+                and not normalized.startswith(f"{unit.source_root}/")
+            ):
+                continue
+            subject_id = f"artifact:{path.element_id}"
+            assertions.append(
+                ArtifactAssertion(
+                    id=subject_id,
+                    unit_key=unit.key,
+                    subject_id=subject_id,
+                    kind=ArchitectureAssertionKind.ARTIFACT,
+                    required=diagram.scope != ArchitectureDiagramScope.REFERENCE,
+                    evidence=(
+                        ArchitectureDiagramEvidence(
+                            diagram_id=diagram.diagram_id,
+                            diagram_revision=diagram.diagram_revision,
+                            element_id=path.element_id,
                         ),
-                        path=normalized,
-                    )
+                    ),
+                    path=normalized,
+                    artifact_kind=ArchitectureArtifactKind(path.kind),
                 )
-        identities = tuple(fact.id for fact in facts)
+            )
+        identities = tuple(assertion.id for assertion in assertions)
         if len(identities) != len(set(identities)):
-            raise ProjectsError(f"Tree diagram {diagram.diagram_id!r} declares duplicate source identities.")
-        return tuple(sorted(facts, key=lambda fact: fact.id))
+            raise ProjectsError(f"Tree diagram {diagram.diagram_id!r} declares duplicate artifact identities.")
+        return tuple(sorted(assertions, key=lambda assertion: assertion.id))

@@ -4,7 +4,9 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, JsonValue, SerializeAsAny
 
 from ..architecture_contracts.model import ArchitectureContractCoverage, ArchitectureContractExclusion
-from .facts.model import ArchitectureContractFact, ArchitectureDiagramEvidence, ArchitectureFactCapability
+from .assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, ArchitectureDiagramEvidence
+from .bindings.model import ArchitectureRealizationMap
+from .evidence.model import ImplementationEvidenceManifest
 
 
 class ArchitectureComparisonState(StrEnum):
@@ -32,10 +34,11 @@ class ArchitectureFindingKind(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
-class ArchitectureSupportState(StrEnum):
-    SUPPORTED = "supported"
-    PARTIAL = "partial"
-    UNSUPPORTED = "unsupported"
+class ArchitectureFindingOwner(StrEnum):
+    CONTRACT = "contract"
+    REALIZATION = "realization"
+    IMPLEMENTATION = "implementation"
+    OBSERVER = "observer"
 
 
 class ArchitectureDiagramRevision(BaseModel):
@@ -53,7 +56,7 @@ class ArchitectureContractManifestUnit(BaseModel):
     coverage: ArchitectureContractCoverage
     diagram_revisions: tuple[ArchitectureDiagramRevision, ...]
     exclusions: tuple[ArchitectureContractExclusion, ...]
-    facts: tuple[SerializeAsAny[ArchitectureContractFact], ...]
+    assertions: tuple[SerializeAsAny[ArchitectureAssertion], ...]
 
 
 class ArchitectureContractManifest(BaseModel):
@@ -69,38 +72,41 @@ class ArchitectureContractManifest(BaseModel):
     digest: str
 
 
+class ArchitectureSemanticValue(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: ArchitectureAssertionKind
+    fields: dict[str, JsonValue]
+
+
 class ArchitectureAssertionResult(BaseModel, ABC):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     fingerprint: str
     assertion_id: str
     unit_key: str
-    capability: ArchitectureFactCapability
+    assertion_kind: ArchitectureAssertionKind
     scope: ArchitectureAssertionScope
     state: ArchitectureComparisonState
+    owner: ArchitectureFindingOwner
     evidence: tuple[ArchitectureDiagramEvidence, ...]
+    implementation_evidence_ids: tuple[str, ...]
 
 
 class ArchitectureAssertionPass(ArchitectureAssertionResult):
-    actual_id: str
+    evidence_id: str
 
 
 class ArchitectureAssertionFailure(ArchitectureAssertionResult):
     kind: ArchitectureFindingKind
-    actual: tuple[dict[str, JsonValue], ...]
-
-
-class ArchitectureExpectedFailure(ArchitectureAssertionFailure):
-    expected: dict[str, JsonValue]
-
-
-class ArchitectureUnexpectedFailure(ArchitectureAssertionFailure):
-    source_symbol: str
+    expected: ArchitectureSemanticValue
+    observed: tuple[ArchitectureSemanticValue, ...]
 
 
 class ArchitectureAssertionUnverified(ArchitectureAssertionResult):
     kind: ArchitectureFindingKind
-    support: ArchitectureSupportState
+    expected: ArchitectureSemanticValue
+    diagram_revisions: tuple[ArchitectureDiagramRevision, ...]
     explanation: str
 
 
@@ -110,6 +116,7 @@ class ArchitectureComparison(BaseModel):
     schema_version: int
     contract_digest: str
     implementation_digest: str
+    realization_digest: str
     source_digest: str
     conclusion: ArchitectureComparisonConclusion
     results: tuple[SerializeAsAny[ArchitectureAssertionResult], ...]
@@ -117,3 +124,12 @@ class ArchitectureComparison(BaseModel):
     failed: int
     unverified: int
     digest: str
+
+
+class ArchitectureComparisonBundle(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    contract: ArchitectureContractManifest
+    implementation: ImplementationEvidenceManifest
+    realization: ArchitectureRealizationMap
+    comparison: ArchitectureComparison

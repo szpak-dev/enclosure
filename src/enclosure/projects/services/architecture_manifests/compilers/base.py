@@ -7,7 +7,7 @@ from ...architecture_contracts.model import (
     ArchitectureContractUnit,
     ArchitectureDiagramRole,
 )
-from ..facts.model import ArchitectureContractFact
+from ..assertions.model import ArchitectureAssertion
 
 
 class ArchitectureDiagramCompiler(ABC):
@@ -20,5 +20,5 @@ class ArchitectureDiagramCompiler(ABC):
         unit: ArchitectureContractUnit,
         diagram: ArchitectureContractDiagram,
         semantics: DiagramContractSemantics,
-    ) -> tuple[ArchitectureContractFact, ...]:
+    ) -> tuple[ArchitectureAssertion, ...]:
         raise NotImplementedError

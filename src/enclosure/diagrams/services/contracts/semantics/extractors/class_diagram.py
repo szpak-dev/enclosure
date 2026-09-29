@@ -9,11 +9,13 @@ from mermaiden.diagrams.classdiagram.values.members import ClassType
 from wireup import injectable
 
 from ..model import (
+    DiagramContractCardinality,
     DiagramContractMember,
     DiagramContractParameter,
     DiagramContractRelation,
     DiagramContractSemantics,
     DiagramContractSymbol,
+    DiagramContractType,
 )
 from .base import DiagramSemanticExtractor
 
@@ -24,10 +26,12 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
     kind: str = field(default="classDiagram", init=False)
     order: int = field(default=20, init=False)
 
-    def type_name(self, value: ClassType) -> str:
-        if not value.arguments:
-            return value.name
-        return f"{value.name}[{self.type_name(value.arguments[0])}]"
+    def contract_type(self, value: ClassType) -> DiagramContractType:
+        return DiagramContractType(
+            name=value.name,
+            arguments=tuple(self.contract_type(argument) for argument in value.arguments),
+            cardinality=DiagramContractCardinality.ONE,
+        )
 
     def extract(self, diagram: domain.DiagramModel) -> DiagramContractSemantics:
         class_model = cast(mermaiden.diagrams.classdiagram.diagram.ClassDiagram, diagram)
@@ -38,10 +42,12 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
                 DiagramContractMember(
                     name=attribute.name,
                     kind="attribute",
-                    type=self.type_name(attribute.type),
+                    type=self.contract_type(attribute.type),
                     visibility=attribute.visibility.value,
                     modifier="static" if attribute.static else "instance",
                     parameters=(),
+                    keys=(),
+                    cardinality=DiagramContractCardinality.ONE,
                 )
                 for attribute in class_value.attributes
             ]
@@ -49,17 +55,19 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
                 DiagramContractMember(
                     name=method.name,
                     kind="method",
-                    type=self.type_name(method.return_type),
+                    type=self.contract_type(method.return_type),
                     visibility=method.visibility.value,
                     modifier=method.modifier.value,
                     parameters=tuple(
                         DiagramContractParameter(
                             name=parameter.name,
-                            type=self.type_name(parameter.type),
+                            type=self.contract_type(parameter.type),
                             position=position,
                         )
                         for position, parameter in enumerate(method.parameters)
                     ),
+                    keys=(),
+                    cardinality=DiagramContractCardinality.ONE,
                 )
                 for method in class_value.methods
             )
@@ -69,7 +77,7 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
                     label=class_value.label,
                     kind="class",
                     annotations=class_value.annotations,
-                    members=tuple(sorted(members, key=lambda item: (item.kind, item.name, item.type))),
+                    members=tuple(sorted(members, key=lambda item: (item.kind, item.name))),
                 )
             )
         relations = tuple(
@@ -79,6 +87,9 @@ class ClassDiagramSemanticExtractor(DiagramSemanticExtractor):
                 target_id=relation.target_id,
                 kind=relation.relation_kind.value,
                 label=relation.label,
+                source_cardinality=DiagramContractCardinality.ONE,
+                target_cardinality=DiagramContractCardinality.ONE,
+                identifying=False,
             )
             for relation in (cast(ClassRelation, item) for item in class_model.find_relations(""))
         )

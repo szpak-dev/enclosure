@@ -12,7 +12,7 @@ from .base import ArchitectureAttestationContributor
 
 @injectable(as_type=ArchitectureAttestationContributor, qualifier="architecture-contract-attestation")
 @dataclass(frozen=True)
-class ContractAttestationContributor(ArchitectureAttestationContributor):
+class ArchitectureContractAttestationContributor(ArchitectureAttestationContributor):
     kind: ArchitectureAttestationEvidenceKind = field(
         default=ArchitectureAttestationEvidenceKind.CONTRACT,
         init=False,

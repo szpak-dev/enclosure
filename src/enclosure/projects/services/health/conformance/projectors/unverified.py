@@ -8,9 +8,7 @@ from ....architecture_manifests.model import (
     ArchitectureAssertionScope,
     ArchitectureAssertionUnverified,
     ArchitectureComparisonState,
-    ArchitectureContractManifest,
 )
-from ....architecture_manifests.observed.model import ObservedImplementationManifest
 from ..model import ArchitectureAssertionEvidence, ArchitectureConformanceFinding
 from .base import ArchitectureConformanceFindingProjector
 
@@ -30,29 +28,23 @@ class ArchitectureUnverifiedFindingProjector(ArchitectureConformanceFindingProje
     def project(
         self,
         result: ArchitectureAssertionResult,
-        contract: ArchitectureContractManifest,
-        observed: ObservedImplementationManifest,
     ) -> ArchitectureConformanceFinding:
         unverified = cast(ArchitectureAssertionUnverified, result)
-        expected = self.expected(unverified, contract)
-        rule = f"architecture.conformance.{unverified.capability.value}"
+        rule = f"architecture.conformance.{unverified.assertion_kind.value}"
         return ArchitectureConformanceFinding(
             fingerprint=unverified.fingerprint,
             contract_unit=unverified.unit_key,
             evidence=ArchitectureAssertionEvidence(
                 diagram_evidence=unverified.evidence,
-                source_symbol=unverified.assertion_id,
+                implementation_evidence_ids=unverified.implementation_evidence_ids,
             ),
-            expected=expected.model_dump(mode="json", exclude={"evidence"}),
-            actual=(),
-            support=unverified.support,
+            expected=unverified.expected,
+            observed=(),
             state=unverified.state,
             finding_kind=unverified.kind,
+            owner=unverified.owner,
             rule=rule,
             target=unverified.assertion_id,
             message=unverified.explanation,
-            next_action=(
-                f"Provide complete {unverified.capability.value} evidence for {unverified.assertion_id} "
-                "before accepting conformance."
-            ),
+            next_action=self.next_action(unverified.owner, unverified.assertion_id),
         )
