@@ -344,6 +344,7 @@ class ArchitectureContractFixture:
                 {"operation": "add_directory", "arguments": {"id": "source", "label": "src"}},
                 {"operation": "add_directory", "arguments": {"id": "example", "label": "example"}},
                 {"operation": "add_file", "arguments": {"id": "service", "label": "service.py"}},
+                {"operation": "add_file", "arguments": {"id": "models", "label": "models.py"}},
                 {
                     "operation": "add_branch",
                     "arguments": {"id": "source-example", "parent_id": "source", "child_id": "example"},
@@ -351,6 +352,10 @@ class ArchitectureContractFixture:
                 {
                     "operation": "add_branch",
                     "arguments": {"id": "example-service", "parent_id": "example", "child_id": "service"},
+                },
+                {
+                    "operation": "add_branch",
+                    "arguments": {"id": "example-models", "parent_id": "example", "child_id": "models"},
                 },
             ],
         )
@@ -364,24 +369,44 @@ class ArchitectureContractFixture:
                 "attributes": [
                     {
                         "name": "value",
-                        "type": {"name": "str"},
+                        "type": {"name": "String"},
                         "visibility": "public",
-                        "static": True,
+                        "static": False,
                     }
                 ],
                 "methods": [
                     {
                         "name": "execute",
-                        "parameters": [{"name": "request", "type": {"name": "str"}}],
-                        "return_type": {"name": "str"},
+                        "parameters": [{"name": "request", "type": {"name": "String"}}],
+                        "return_type": {"name": "String"},
                         "visibility": "public",
                         "modifier": "instance",
                     }
                 ],
             },
         )
+        entity_id = "example-record"
         entity_commands: list[dict[str, object]] = [
-            {"operation": "add_entity", "arguments": {"id": identity, "label": "ExampleService"}}
+            {"operation": "add_entity", "arguments": {"id": entity_id, "label": "EXAMPLE_RECORD"}},
+            {
+                "operation": "add_attribute",
+                "arguments": {
+                    "id": "example-record-id",
+                    "label": "id",
+                    "data_type": "string",
+                    "entity_id": entity_id,
+                    "keys": ["PK"],
+                },
+            },
+            {
+                "operation": "add_attribute",
+                "arguments": {
+                    "id": "example-record-name",
+                    "label": "name",
+                    "data_type": "string",
+                    "entity_id": entity_id,
+                },
+            },
         ]
         entity_commands.extend(entity_attributes)
         entity = self.create_diagram_batch(
@@ -446,7 +471,10 @@ def create_architecture_contract_fixture(
     return ArchitectureContractFixture(client, registered.json()["project"]["id"], diagram_set.json()["id"])
 
 
-def architecture_project_source(root: Path) -> None:
+def architecture_project_source(
+    root: Path,
+    name_field: str = "models.CharField(max_length=120)",
+) -> None:
     source = root / "src" / "example" / "service.py"
     source.parent.mkdir(parents=True)
     source.write_text(
@@ -457,10 +485,21 @@ def architecture_project_source(root: Path) -> None:
         "        return request\n",
         encoding="utf-8",
     )
+    model = root / "src" / "example" / "models.py"
+    model.write_text(
+        "from django.db import models\n\n"
+        "class ExampleRecordModel(models.Model):\n"
+        "    id = models.UUIDField(primary_key=True)\n"
+        f"    name = {name_field}\n",
+        encoding="utf-8",
+    )
 
 
-def implementation_document(root: Path) -> dict[str, object]:
-    architecture_project_source(root)
+def implementation_document(
+    root: Path,
+    name_field: str = "models.CharField(max_length=120)",
+) -> dict[str, object]:
+    architecture_project_source(root, name_field)
     application = ModwireApplication.create()
     code_map = application.generate_map("python", str(root), ScanPolicy(excluded_patterns=("app.py",)))
     document = application.implementation_manifest(code_map, application.implementation_manifest_formats()[0])
@@ -777,7 +816,7 @@ def test_rejects_invalid_project_architecture_contract_members(
 
 
 @pytest.mark.django_db
-def test_manifest_compilation_rejects_conflicting_diagram_declarations(
+def test_manifest_compilation_keeps_uml_members_separate_from_entity_fields(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -791,7 +830,7 @@ def test_manifest_compilation_rejects_conflicting_diagram_declarations(
                     "id": "entity-value",
                     "label": "value",
                     "data_type": "int",
-                    "entity_id": "src/example/service.py::class:src/example/service.ExampleService",
+                    "entity_id": "example-record",
                 },
             },
         )
@@ -801,8 +840,10 @@ def test_manifest_compilation_rejects_conflicting_diagram_declarations(
         f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/manifest"
     )
 
-    assert response.status_code == 422, response.json()
-    assert "has conflicting declarations" in response.json()["detail"]
+    assert response.status_code == 200, response.json()
+    assertions = response.json()["units"][0]["assertions"]
+    assert any(item["kind"] == "member" and item["name"] == "value" for item in assertions)
+    assert any(item["kind"] == "entity_field" and item["name"] == "value" for item in assertions)
 
 
 @pytest.mark.django_db
@@ -856,7 +897,11 @@ def test_comparison_rejects_multiple_parameter_type_annotations_as_a_mismatch(
     assert response.status_code == 200, response.json()
     comparison = response.json()
     parameter_failures = [
-        result for result in comparison["results"] if result["capability"] == "parameters" and result["state"] == "fail"
+        result
+        for result in comparison["results"]
+        if result["assertion_kind"] == "member"
+        and result["state"] == "fail"
+        and result["expected"]["fields"]["name"] == "execute"
     ]
     assert comparison["conclusion"] == "does_not_conform"
     assert [result["kind"] for result in parameter_failures] == ["mismatched"], comparison
@@ -895,22 +940,57 @@ def test_compiled_architecture_manifest_preserves_the_complete_attribute_contrac
     )
 
     assert response.status_code == 200, response.json()
-    attribute = next(fact for fact in response.json()["units"][0]["facts"] if fact["capability"] == "attributes")
+    attribute = next(
+        assertion
+        for assertion in response.json()["units"][0]["assertions"]
+        if assertion["kind"] == "member" and assertion["name"] == "value"
+    )
     assert {
         "name": attribute["name"],
-        "annotation": attribute["annotation"],
+        "type": attribute["type"],
         "visibility": attribute["visibility"],
-        "member_kind": attribute["member_kind"],
+        "ownership": attribute["ownership"],
     } == {
         "name": "value",
-        "annotation": "str",
+        "type": {"name": "String", "arguments": [], "cardinality": "one"},
         "visibility": "public",
-        "member_kind": "static",
+        "ownership": "instance",
     }
 
 
 @pytest.mark.django_db
-def test_public_comparison_accepts_aligned_declared_code(
+def test_public_comparison_reports_language_neutral_entity_field_drift(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    publication = fixture.publish_example_architecture()
+    document = implementation_document(tmp_path, "models.IntegerField()")
+
+    response = client.post(
+        f"/api/projects/{fixture.project_id}/architecture-contract-publications/{publication['id']}/comparisons",
+        data={"implementation_document": document},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200, response.json()
+    comparison = response.json()
+    failures = [
+        result
+        for result in comparison["results"]
+        if result["assertion_kind"] == "entity_field" and result["state"] == "fail"
+    ]
+    assert comparison["conclusion"] == "does_not_conform"
+    assert len(failures) == 1, comparison
+    assert failures[0]["owner"] == "implementation"
+    assert failures[0]["expected"]["fields"]["type"]["name"] == "string"
+    assert failures[0]["observed"][0]["fields"]["type"]["name"] == "int"
+    assert "IntegerField" not in json.dumps(comparison)
+
+
+@pytest.mark.django_db
+def test_public_comparison_accepts_language_neutral_entity_contract(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -934,6 +1014,10 @@ def test_public_comparison_accepts_aligned_declared_code(
     assert comparison["failed"] == 0
     assert comparison["unverified"] == 0
     assert all(result["state"] == "pass" for result in comparison["results"])
+    entity_results = [
+        result for result in comparison["results"] if result["assertion_kind"] in {"entity", "entity_field"}
+    ]
+    assert len(entity_results) == 3
 
 
 @pytest.mark.django_db
@@ -954,12 +1038,12 @@ def test_closed_comparison_does_not_treat_an_external_import_as_unexpected(
 
     assert response.status_code == 200, response.json()
     comparison = response.json()
-    dependency_failures = [
+    relationship_failures = [
         result
         for result in comparison["results"]
-        if result["capability"] == "dependencies" and result["state"] == "fail"
+        if result["assertion_kind"] == "relationship" and result["state"] == "fail"
     ]
-    assert dependency_failures == []
+    assert relationship_failures == []
 
 
 @pytest.mark.django_db
@@ -2166,7 +2250,7 @@ def test_health_rejects_a_project_without_an_accepted_architecture_contract(
 
 
 @pytest.mark.django_db
-def test_health_blocks_closed_coverage_when_modwire_support_is_incomplete(
+def test_health_blocks_closed_coverage_when_observer_support_is_incomplete(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
@@ -2186,15 +2270,18 @@ def test_health_blocks_closed_coverage_when_modwire_support_is_incomplete(
     assert response.status_code == 200, response.json()
     assert response.json()["healthy"] is False
     conformance = next(report for report in response.json()["reports"] if report["id"] == "architecture.conformance")
-    coverage = {item["capability"]: item for item in conformance["coverage"]}
-    assert coverage["modifiers"]["unverified"] == 1
-    assert coverage["spans"]["unverified"] == 1
+    coverage = {item["assertion_kind"]: item for item in conformance["coverage"]}
+    assert coverage["member"]["unverified"] == 1
+    assert coverage["relationship"]["unverified"] == 1
     coverage_findings = [
         finding
         for finding in response.json()["failures"]
         if finding["kind"] == "conformance" and finding["evidence"]["kind"] == "coverage"
     ]
-    assert {finding["evidence"]["capability"] for finding in coverage_findings} >= {"modifiers", "spans"}
+    assert {finding["evidence"]["assertion_kind"] for finding in coverage_findings} == {
+        "member",
+        "relationship",
+    }
     assert {finding["target"] for finding in coverage_findings} == {"architecture-contract-unit:application"}
 
 
@@ -2263,16 +2350,18 @@ def test_health_returns_typed_conformance_evidence_for_mismatched_code(
     finding = next(
         finding
         for finding in response.json()["failures"]
-        if finding["kind"] == "conformance" and finding["rule"] == "architecture.conformance.parameters"
+        if finding["kind"] == "conformance" and finding["rule"] == "architecture.conformance.member"
     )
     assert finding["finding_kind"] == "mismatched"
     assert finding["state"] == "fail"
-    assert finding["support"] == "supported"
+    assert finding["owner"] == "implementation"
     assert finding["evidence"]["kind"] == "assertion"
     assert finding["evidence"]["diagram_evidence"]
-    assert finding["evidence"]["source_symbol"] == finding["target"]
-    assert finding["expected"]["annotation"] == "str"
-    assert finding["actual"][0]["annotations"] == ["int"]
+    assert finding["evidence"]["implementation_evidence_ids"]
+    assert finding["expected"]["kind"] == "member"
+    assert finding["expected"]["fields"]["parameters"][0]["type"]["name"] == "String"
+    assert finding["observed"][0]["kind"] == "member"
+    assert finding["observed"][0]["fields"]["parameters"][0]["type"]["name"] == "Integer"
     assert len(finding["fingerprint"]) == 64
 
 
@@ -2299,14 +2388,22 @@ def test_health_returns_a_complete_attestation_for_an_aligned_project(
     assert response.json()["reports"]
     assert all(report["failure_count"] == 0 for report in response.json()["reports"])
     conformance = next(report for report in response.json()["reports"] if report["id"] == "architecture.conformance")
-    assert len(conformance["coverage"]) == 10
+    assert {item["assertion_kind"] for item in conformance["coverage"]} == {
+        "artifact",
+        "classifier",
+        "entity",
+        "entity_field",
+        "member",
+        "relationship",
+    }
     assert sum(item["passed"] for item in conformance["coverage"]) > 0
     assert all(item["failed"] == 0 and item["unverified"] == 0 for item in conformance["coverage"])
     attestation = response.json()["attestation"]
     assert attestation["digest_algorithm"] == "sha256"
     assert [component["kind"] for component in attestation["components"]] == [
         "contract",
-        "source",
+        "implementation_evidence",
+        "realization",
         "policies",
         "configuration",
         "schemas",

@@ -9,7 +9,12 @@ from wireup import injectable
 
 from ....errors import ProjectsError
 from ..assertions.model import ArchitectureAssertionKind
-from ..evidence.model import ArtifactEvidence, ImplementationContext, ImplementationEvidence, ImplementationEvidenceManifest
+from ..evidence.model import (
+    ArtifactEvidence,
+    ImplementationContext,
+    ImplementationEvidence,
+    ImplementationEvidenceManifest,
+)
 from .base import ArchitectureEvidenceProvider
 
 
@@ -41,9 +46,11 @@ class ArchitectureEvidenceCollector:
             raise ProjectsError("Canonical implementation evidence identities must be unique.")
         receipts = tuple(result.receipt for result in collected)
         source_digests = tuple(sorted({receipt.source_digest for receipt in receipts if receipt.source_digest}))
-        source_digest = source_digests[0] if len(source_digests) == 1 else sha256(
-            "\n".join(source_digests).encode("utf-8")
-        ).hexdigest()
+        source_digest = (
+            source_digests[0]
+            if len(source_digests) == 1
+            else sha256("\n".join(source_digests).encode("utf-8")).hexdigest()
+        )
         payload = {
             "schema_version": 1,
             "provider_receipts": [receipt.model_dump(mode="json") for receipt in receipts],

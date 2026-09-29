@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from time import perf_counter_ns
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import structlog
 from django import setup
 from django.db import connections
 from wireup import SyncContainer
 
-from ..evaluation import HealthWorkerEvaluationService
 from ..model import HealthExecutionRequest, HealthRunOutcome
+
+if TYPE_CHECKING:
+    from ..evaluation import HealthWorkerEvaluationService
 
 
 @dataclass(frozen=True)
@@ -19,6 +23,8 @@ class HealthWorkerProcess:
     def run(self) -> None:
         setup()
         from enclosure.autowiring import application
+
+        from ..evaluation import HealthWorkerEvaluationService
 
         connections.close_all()
         container = cast(SyncContainer, application.create_container())

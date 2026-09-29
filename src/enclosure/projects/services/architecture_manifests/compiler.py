@@ -68,9 +68,7 @@ class ArchitectureContractCompiler:
             ordered = tuple(sorted(merged.values(), key=lambda item: (item.kind.value, item.id)))
             subjects = {assertion.subject_id for assertion in ordered}
             classifiers = {
-                assertion.subject_id
-                for assertion in ordered
-                if assertion.kind == ArchitectureAssertionKind.CLASSIFIER
+                assertion.subject_id for assertion in ordered if assertion.kind == ArchitectureAssertionKind.CLASSIFIER
             }
             entities = {
                 assertion.subject_id for assertion in ordered if assertion.kind == ArchitectureAssertionKind.ENTITY

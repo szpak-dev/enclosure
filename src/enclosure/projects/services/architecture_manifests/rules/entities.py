@@ -27,4 +27,8 @@ class EntityComparisonRule(ArchitectureComparisonRule):
     ) -> ArchitectureAssertionResult:
         expected_entity = cast(EntityAssertion, assertion)
         observed_entity = cast(EntityEvidence, evidence)
-        return self.result(assertion, evidence, expected_entity.name == observed_entity.name)
+        return self.result(
+            assertion,
+            evidence,
+            expected_entity.name.replace("_", "").casefold() == observed_entity.name.replace("_", "").casefold(),
+        )

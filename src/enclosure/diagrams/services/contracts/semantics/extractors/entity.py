@@ -37,9 +37,7 @@ class EntitySemanticExtractor(DiagramSemanticExtractor):
         return DiagramContractType(
             name=value.removesuffix("?"),
             arguments=(),
-            cardinality=(
-                DiagramContractCardinality.OPTIONAL if optional else DiagramContractCardinality.ONE
-            ),
+            cardinality=(DiagramContractCardinality.OPTIONAL if optional else DiagramContractCardinality.ONE),
         )
 
     def extract(self, diagram: domain.DiagramModel) -> DiagramContractSemantics:

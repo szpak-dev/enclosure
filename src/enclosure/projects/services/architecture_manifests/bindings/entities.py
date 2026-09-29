@@ -18,7 +18,7 @@ from .model import ArchitectureBindingContext, ArchitectureBindingOutcome
 class EntityBindingRule(ArchitectureBindingRule):
     assertion_kind: ArchitectureAssertionKind = field(default=ArchitectureAssertionKind.ENTITY, init=False)
     name: str = field(default="entities", init=False)
-    order: int = field(default=50, init=False)
+    order: int = field(default=40, init=False)
 
     def bind(
         self,
@@ -30,6 +30,7 @@ class EntityBindingRule(ArchitectureBindingRule):
             cast(EntityEvidence, item)
             for item in context.observed.evidence
             if item.kind == ArchitectureAssertionKind.ENTITY
-            and cast(EntityEvidence, item).name == expected_entity.name
+            and cast(EntityEvidence, item).name.replace("_", "").casefold()
+            == expected_entity.name.replace("_", "").casefold()
         )
         return self.outcome(assertion, context, candidates)

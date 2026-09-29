@@ -14,8 +14,8 @@ from .architecture_contracts.model import (
     ArchitectureContractUnitInput,
 )
 from .architecture_contracts.service import ArchitectureContractsService
-from .architecture_manifests.model import ArchitectureComparison, ArchitectureContractManifest
 from .architecture_manifests.evidence.model import ImplementationContext
+from .architecture_manifests.model import ArchitectureComparison, ArchitectureContractManifest
 from .architecture_manifests.service import ArchitectureManifestService
 from .context.model import WorkspaceContext
 from .context.service import WorkspaceContextService

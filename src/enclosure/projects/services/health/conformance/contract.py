@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from wireup import injectable
 
 from ....errors import ProjectsError
-from ...architecture_manifests.service import ArchitectureManifestService
 from ...architecture_contracts.service import ArchitectureContractsService
+from ...architecture_manifests.service import ArchitectureManifestService
 from ...contracts.model import ConfiguredOperatingContractBinding
 from ...registry.model import ArchitectureConfiguration
 from .model import ArchitectureHealthContract

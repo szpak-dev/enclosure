@@ -812,6 +812,13 @@ class PublicMcpClient:
             "        return request\n",
             encoding="utf-8",
         )
+        (source.parent / "models.py").write_text(
+            "from django.db import models\n\n"
+            "class ExampleRecordModel(models.Model):\n"
+            "    id = models.UUIDField(primary_key=True)\n"
+            "    name = models.CharField(max_length=120)\n",
+            encoding="utf-8",
+        )
         diagram_set = await http_client.post(
             "/api/diagram-sets",
             json={"title": "Example architecture", "description": "Accepted example health contract."},
@@ -837,6 +844,7 @@ class PublicMcpClient:
                 {"operation": "add_directory", "arguments": {"id": "source", "label": "src"}},
                 {"operation": "add_directory", "arguments": {"id": "example", "label": "example"}},
                 {"operation": "add_file", "arguments": {"id": "service", "label": "service.py"}},
+                {"operation": "add_file", "arguments": {"id": "models", "label": "models.py"}},
                 {
                     "operation": "add_branch",
                     "arguments": {"id": "source-example", "parent_id": "source", "child_id": "example"},
@@ -844,6 +852,10 @@ class PublicMcpClient:
                 {
                     "operation": "add_branch",
                     "arguments": {"id": "example-service", "parent_id": "example", "child_id": "service"},
+                },
+                {
+                    "operation": "add_branch",
+                    "arguments": {"id": "example-models", "parent_id": "example", "child_id": "models"},
                 },
             ],
         )
@@ -857,13 +869,18 @@ class PublicMcpClient:
                         "id": identity,
                         "label": "ExampleService",
                         "attributes": [
-                            {"name": "value", "type": {"name": "str"}, "visibility": "public", "static": True}
+                            {
+                                "name": "value",
+                                "type": {"name": "String"},
+                                "visibility": "public",
+                                "static": False,
+                            }
                         ],
                         "methods": [
                             {
                                 "name": "execute",
-                                "parameters": [{"name": "request", "type": {"name": "str"}}],
-                                "return_type": {"name": "str"},
+                                "parameters": [{"name": "request", "type": {"name": "String"}}],
+                                "return_type": {"name": "String"},
                                 "visibility": "public",
                                 "modifier": "instance",
                             }
@@ -875,7 +892,28 @@ class PublicMcpClient:
         entity = await create_diagram(
             "Example entity",
             "erDiagram",
-            [{"operation": "add_entity", "arguments": {"id": identity, "label": "ExampleService"}}],
+            [
+                {"operation": "add_entity", "arguments": {"id": "example-record", "label": "EXAMPLE_RECORD"}},
+                {
+                    "operation": "add_attribute",
+                    "arguments": {
+                        "id": "example-record-id",
+                        "label": "id",
+                        "data_type": "string",
+                        "entity_id": "example-record",
+                        "keys": ["PK"],
+                    },
+                },
+                {
+                    "operation": "add_attribute",
+                    "arguments": {
+                        "id": "example-record-name",
+                        "label": "name",
+                        "data_type": "string",
+                        "entity_id": "example-record",
+                    },
+                },
+            ],
         )
         diagrams = [
             {"diagram_id": tree["id"], "expected_revision": tree["revision"], "role": "tree", "scope": "complete"},

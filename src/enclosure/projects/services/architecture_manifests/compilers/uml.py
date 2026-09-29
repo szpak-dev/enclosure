@@ -102,9 +102,7 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
             )
             for member in symbol.members:
                 member_kind = (
-                    ArchitectureMemberKind.PROPERTY
-                    if member.kind == "attribute"
-                    else ArchitectureMemberKind.OPERATION
+                    ArchitectureMemberKind.PROPERTY if member.kind == "attribute" else ArchitectureMemberKind.OPERATION
                 )
                 member_id = f"member:{symbol.element_id}:{member_kind.value}:{member.name}"
                 assertions.append(

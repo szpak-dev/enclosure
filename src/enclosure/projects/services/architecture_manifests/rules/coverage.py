@@ -74,8 +74,7 @@ class ArchitectureCoverageEvaluator:
                     if item.kind != kind or item.id in bound_ids or not self.inside(unit.source_root, item):
                         continue
                     if any(
-                        item.locator.path == exclusion.path
-                        or item.locator.path.startswith(f"{exclusion.path}/")
+                        item.locator.path == exclusion.path or item.locator.path.startswith(f"{exclusion.path}/")
                         for exclusion in unit.exclusions
                     ):
                         continue

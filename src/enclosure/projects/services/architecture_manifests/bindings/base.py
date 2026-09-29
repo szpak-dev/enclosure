@@ -7,9 +7,9 @@ from ..evidence.model import (
 )
 from .model import (
     ArchitectureAmbiguousBinding,
+    ArchitectureBindingContext,
     ArchitectureBindingOutcome,
     ArchitectureBindingState,
-    ArchitectureBindingContext,
     ArchitectureBoundBinding,
     ArchitectureMissingBinding,
     ArchitectureUnsupportedBinding,

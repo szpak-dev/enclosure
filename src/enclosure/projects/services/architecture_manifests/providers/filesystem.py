@@ -25,12 +25,7 @@ class FilesystemArtifactEvidenceProvider(ArchitectureEvidenceProvider):
 
     def collect(self, context: ImplementationContext) -> ImplementationEvidenceSet:
         paths = tuple(sorted(set(context.artifact_paths)))
-        directories = {
-            str(parent)
-            for path in paths
-            for parent in PurePosixPath(path).parents
-            if str(parent) != "."
-        }
+        directories = {str(parent) for path in paths for parent in PurePosixPath(path).parents if str(parent) != "."}
         evidence: list[ImplementationEvidence] = []
         evidence.extend(
             ArtifactEvidence(

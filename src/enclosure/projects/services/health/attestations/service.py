@@ -39,9 +39,7 @@ class ArchitectureAttestationService:
             digest_algorithm="sha256",
             components=components,
             contract_digest=indexed[ArchitectureAttestationEvidenceKind.CONTRACT],
-            implementation_evidence_digest=indexed[
-                ArchitectureAttestationEvidenceKind.IMPLEMENTATION_EVIDENCE
-            ],
+            implementation_evidence_digest=indexed[ArchitectureAttestationEvidenceKind.IMPLEMENTATION_EVIDENCE],
             realization_digest=indexed[ArchitectureAttestationEvidenceKind.REALIZATION],
             source_digest=context.implementation.source_digest,
             policy_digest=indexed[ArchitectureAttestationEvidenceKind.POLICIES],
