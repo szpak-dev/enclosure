@@ -1,33 +1,45 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from wireup import injectable
 
-from ..adapters.modwire import ModwireManifestAdapter
-from ..architecture_contracts.service import ArchitectureContractsService
+from ..architecture_contracts.model import ArchitectureContractPublication
+from .bindings.resolver import ArchitectureBindingResolver
 from .comparator import ArchitectureContractComparator
 from .compiler import ArchitectureContractCompiler
-from .model import ArchitectureComparison, ArchitectureContractManifest
+from .evidence.model import ImplementationContext
+from .model import ArchitectureComparison, ArchitectureComparisonBundle, ArchitectureContractManifest
+from .providers.collector import ArchitectureEvidenceCollector
 
 
 @injectable
 @dataclass(frozen=True)
 class ArchitectureManifestService:
-    contracts: ArchitectureContractsService
     compiler: ArchitectureContractCompiler
+    evidence_collector: ArchitectureEvidenceCollector
+    binding_resolver: ArchitectureBindingResolver
     comparator: ArchitectureContractComparator
-    modwire: ModwireManifestAdapter
 
-    def compile(self, project_id: str, publication_id: str) -> ArchitectureContractManifest:
-        publication = self.contracts.get(project_id, publication_id)
+    def compile(self, publication: ArchitectureContractPublication) -> ArchitectureContractManifest:
         return self.compiler.compile(publication)
 
     def compare(
         self,
-        project_id: str,
-        publication_id: str,
-        implementation_document: Mapping[str, object],
+        publication: ArchitectureContractPublication,
+        context: ImplementationContext,
     ) -> ArchitectureComparison:
-        contract = self.compile(project_id, publication_id)
-        implementation = self.modwire.read(implementation_document)
-        return self.comparator.compare(contract, implementation)
+        return self.evaluate(self.compile(publication), context).comparison
+
+    def evaluate(
+        self,
+        contract: ArchitectureContractManifest,
+        context: ImplementationContext,
+    ) -> ArchitectureComparisonBundle:
+        implementation = self.evidence_collector.collect(context)
+        realization = self.binding_resolver.resolve(contract, implementation)
+        comparison = self.comparator.compare(contract, implementation, realization)
+        return ArchitectureComparisonBundle(
+            contract=contract,
+            implementation=implementation,
+            realization=realization,
+            comparison=comparison,
+        )

@@ -12,13 +12,13 @@ from .base import ArchitectureAttestationContributor
 
 @injectable(as_type=ArchitectureAttestationContributor, qualifier="architecture-findings-attestation")
 @dataclass(frozen=True)
-class FindingsAttestationContributor(ArchitectureAttestationContributor):
+class ArchitectureFindingAttestationContributor(ArchitectureAttestationContributor):
     kind: ArchitectureAttestationEvidenceKind = field(
         default=ArchitectureAttestationEvidenceKind.FINDINGS,
         init=False,
     )
     name: str = field(default="findings", init=False)
-    order: int = field(default=80, init=False)
+    order: int = field(default=90, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
-        return ArchitectureAttestationComponent(kind=self.kind, digest=context.comparison.digest)
+        return self.component([finding.model_dump(mode="json") for finding in context.findings])

@@ -18,15 +18,20 @@ class ToolsAttestationContributor(ArchitectureAttestationContributor):
         init=False,
     )
     name: str = field(default="tools", init=False)
-    order: int = field(default=60, init=False)
+    order: int = field(default=70, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
         return self.component(
             {
                 "conformance_producer": context.identity.producer,
                 "conformance_producer_revision": context.identity.producer_revision,
-                "extractor_id": context.observed.extractor_id,
-                "language": context.observed.language,
-                "modwire_version": context.observed.modwire_version,
+                "providers": [
+                    {
+                        "provider": receipt.provider,
+                        "version": receipt.version,
+                        "language": receipt.language,
+                    }
+                    for receipt in context.implementation.provider_receipts
+                ],
             }
         )

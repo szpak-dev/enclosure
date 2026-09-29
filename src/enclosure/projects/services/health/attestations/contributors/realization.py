@@ -10,15 +10,15 @@ from ..model import (
 from .base import ArchitectureAttestationContributor
 
 
-@injectable(as_type=ArchitectureAttestationContributor, qualifier="architecture-source-attestation")
+@injectable(as_type=ArchitectureAttestationContributor, qualifier="architecture-realization-attestation")
 @dataclass(frozen=True)
-class SourceAttestationContributor(ArchitectureAttestationContributor):
+class ArchitectureRealizationAttestationContributor(ArchitectureAttestationContributor):
     kind: ArchitectureAttestationEvidenceKind = field(
-        default=ArchitectureAttestationEvidenceKind.SOURCE,
+        default=ArchitectureAttestationEvidenceKind.REALIZATION,
         init=False,
     )
-    name: str = field(default="source", init=False)
-    order: int = field(default=20, init=False)
+    name: str = field(default="realization", init=False)
+    order: int = field(default=30, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
-        return ArchitectureAttestationComponent(kind=self.kind, digest=context.observed.source_digest)
+        return ArchitectureAttestationComponent(kind=self.kind, digest=context.realization.digest)

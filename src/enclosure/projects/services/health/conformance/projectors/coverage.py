@@ -8,9 +8,7 @@ from ....architecture_manifests.model import (
     ArchitectureAssertionScope,
     ArchitectureAssertionUnverified,
     ArchitectureComparisonState,
-    ArchitectureContractManifest,
 )
-from ....architecture_manifests.observed.model import ObservedImplementationManifest
 from ..model import ArchitectureConformanceFinding, ArchitectureCoverageEvidence
 from .base import ArchitectureConformanceFindingProjector
 
@@ -30,27 +28,23 @@ class ArchitectureCoverageFindingProjector(ArchitectureConformanceFindingProject
     def project(
         self,
         result: ArchitectureAssertionResult,
-        contract: ArchitectureContractManifest,
-        observed: ObservedImplementationManifest,
     ) -> ArchitectureConformanceFinding:
         unverified = cast(ArchitectureAssertionUnverified, result)
-        rule = f"architecture.conformance.{unverified.capability.value}"
+        rule = f"architecture.conformance.{unverified.assertion_kind.value}"
         return ArchitectureConformanceFinding(
             fingerprint=unverified.fingerprint,
             contract_unit=unverified.unit_key,
             evidence=ArchitectureCoverageEvidence(
-                diagram_revisions=self.unit(unverified, contract).diagram_revisions,
-                capability=unverified.capability,
+                diagram_revisions=unverified.diagram_revisions,
+                assertion_kind=unverified.assertion_kind,
             ),
-            expected={"coverage": "closed", "capability": unverified.capability.value},
-            actual=(),
-            support=unverified.support,
+            expected=unverified.expected,
+            observed=(),
             state=unverified.state,
             finding_kind=unverified.kind,
+            owner=unverified.owner,
             rule=rule,
             target=f"architecture-contract-unit:{unverified.unit_key}",
             message=unverified.explanation,
-            next_action=(
-                f"Provide complete {unverified.capability.value} extraction support before accepting closed coverage."
-            ),
+            next_action=self.next_action(unverified.owner, unverified.assertion_id),
         )

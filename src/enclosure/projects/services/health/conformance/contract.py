@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from wireup import injectable
 
 from ....errors import ProjectsError
+from ...architecture_contracts.service import ArchitectureContractsService
 from ...architecture_manifests.service import ArchitectureManifestService
 from ...contracts.model import ConfiguredOperatingContractBinding
 from ...registry.model import ArchitectureConfiguration
@@ -12,6 +13,7 @@ from .model import ArchitectureHealthContract
 @injectable
 @dataclass(frozen=True)
 class ArchitectureHealthContractService:
+    contracts: ArchitectureContractsService
     manifests: ArchitectureManifestService
 
     def resolve(
@@ -29,7 +31,8 @@ class ArchitectureHealthContractService:
         if len(references) != 1:
             raise ProjectsError("Project health requires exactly one accepted project architecture contract.")
         reference = references[0]
-        manifest = self.manifests.compile(project_id, reference.id)
+        publication = self.contracts.get(project_id, reference.id)
+        manifest = self.manifests.compile(publication)
         if manifest.publication_revision != reference.revision:
             raise ProjectsError("The accepted project architecture contract revision has drifted.")
         return ArchitectureHealthContract(

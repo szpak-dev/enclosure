@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 import yaml
@@ -61,7 +62,22 @@ class ArchitectureAdapter:
         return ArchitectureObservation(
             reports=tuple(cast(dict[str, JsonValue], report.to_dict(mode="json")) for report in reports.value),
             implementation_document=cast(dict[str, JsonValue], document.model_dump(mode="json")),
+            artifact_paths=self.artifact_paths(source.architecture_root),
         )
+
+    def artifact_paths(self, root: str) -> tuple[str, ...]:
+        architecture_root = Path(root)
+        return tuple(
+            sorted(
+                path.relative_to(architecture_root).as_posix()
+                for path in architecture_root.rglob("*")
+                if path.is_file() and self.includes_artifact(path, architecture_root)
+            )
+        )
+
+    def includes_artifact(self, path: Path, root: Path) -> bool:
+        relative = path.relative_to(root)
+        return "__pycache__" not in relative.parts and path.suffix != ".pyc" and path.name != ".DS_Store"
 
     def verify_source_identity(self, source: ArchitectureSource, expected_digest: str) -> None:
         application = ModwireApplication.create()

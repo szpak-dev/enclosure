@@ -1,11 +1,28 @@
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict
+
+
+class DiagramContractCardinality(StrEnum):
+    ONE = "one"
+    OPTIONAL = "optional"
+    MANY = "many"
+    NONEMPTY_MANY = "nonempty_many"
+
+
+class DiagramContractType(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str
+    arguments: tuple["DiagramContractType", ...]
+    cardinality: DiagramContractCardinality
 
 
 class DiagramContractParameter(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
-    type: str
+    type: DiagramContractType
     position: int
 
 
@@ -14,10 +31,12 @@ class DiagramContractMember(BaseModel):
 
     name: str
     kind: str
-    type: str
+    type: DiagramContractType
     visibility: str
     modifier: str
     parameters: tuple[DiagramContractParameter, ...]
+    keys: tuple[str, ...]
+    cardinality: DiagramContractCardinality
 
 
 class DiagramContractPath(BaseModel):
@@ -46,6 +65,9 @@ class DiagramContractRelation(BaseModel):
     target_id: str
     kind: str
     label: str
+    source_cardinality: DiagramContractCardinality
+    target_cardinality: DiagramContractCardinality
+    identifying: bool
 
 
 class DiagramContractSemantics(BaseModel):

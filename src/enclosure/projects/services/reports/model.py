@@ -6,7 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from ..architecture_manifests.model import (
     ArchitectureComparisonState,
     ArchitectureFindingKind,
-    ArchitectureSupportState,
+    ArchitectureFindingOwner,
+    ArchitectureSemanticValue,
 )
 from ..health.attestations.model import ArchitectureConformanceAttestation
 from ..health.conformance.model import (
@@ -185,11 +186,11 @@ class ConformanceHealthFinding(HealthFinding):
         ArchitectureAssertionEvidence | ArchitectureUnexpectedEvidence | ArchitectureCoverageEvidence,
         Field(discriminator="kind"),
     ]
-    expected: dict[str, JsonValue]
-    actual: tuple[dict[str, JsonValue], ...]
-    support: ArchitectureSupportState
+    expected: ArchitectureSemanticValue
+    observed: tuple[ArchitectureSemanticValue, ...]
     state: ArchitectureComparisonState
     finding_kind: ArchitectureFindingKind
+    owner: ArchitectureFindingOwner
 
 
 class HealthReportSummary(ReportValue):
@@ -219,6 +220,7 @@ class ArchitectureSource(ReportValue):
 class ArchitectureObservation(ReportValue):
     reports: tuple[dict[str, JsonValue], ...]
     implementation_document: dict[str, JsonValue]
+    artifact_paths: tuple[str, ...]
 
 
 class HealthReport(ReportValue):

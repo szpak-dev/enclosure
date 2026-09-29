@@ -18,7 +18,7 @@ class SchemasAttestationContributor(ArchitectureAttestationContributor):
         init=False,
     )
     name: str = field(default="schemas", init=False)
-    order: int = field(default=50, init=False)
+    order: int = field(default=60, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
         return self.component(
@@ -26,6 +26,6 @@ class SchemasAttestationContributor(ArchitectureAttestationContributor):
                 "attestation_schema_version": context.identity.attestation_schema_version,
                 "comparison_schema_version": context.comparison.schema_version,
                 "contract_schema_version": context.contract.schema_version,
-                "implementation_schema_version": context.observed.schema_version,
+                "implementation_schema_version": context.implementation.schema_version,
             }
         )

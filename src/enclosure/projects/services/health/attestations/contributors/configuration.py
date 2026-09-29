@@ -18,7 +18,7 @@ class ConfigurationAttestationContributor(ArchitectureAttestationContributor):
         init=False,
     )
     name: str = field(default="configuration", init=False)
-    order: int = field(default=40, init=False)
+    order: int = field(default=50, init=False)
 
     def contribute(self, context: ArchitectureAttestationContext) -> ArchitectureAttestationComponent:
         return ArchitectureAttestationComponent(kind=self.kind, digest=context.configuration_revision)
