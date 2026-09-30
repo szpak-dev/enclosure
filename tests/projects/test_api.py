@@ -3,9 +3,10 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from errno import ENXIO
 from hashlib import sha256
 from pathlib import Path
-from time import monotonic
+from time import monotonic, sleep
 from typing import cast
 
 import pytest
@@ -184,8 +185,14 @@ class BlockingArchitectureSource:
         os.mkfifo(path)
         return cls(path=path)
 
-    def connect_reader(self) -> int:
-        return os.open(self.path, os.O_WRONLY)
+    async def connect_writer_when_ready(self) -> int:
+        while True:
+            try:
+                return os.open(self.path, os.O_WRONLY | os.O_NONBLOCK)
+            except OSError as error:
+                if error.errno != ENXIO:
+                    raise
+                await asyncio.sleep(0.01)
 
     def replace(self) -> None:
         replacement = self.path.with_name(f".{self.path.name}.replacement")
@@ -203,6 +210,7 @@ class DisconnectingHealthRequest:
     application: ASGIApp
     path: str
     source: BlockingArchitectureSource
+    disconnect_sent: asyncio.Event = field(default_factory=asyncio.Event)
     receive_count: int = 0
     writers: list[int] = field(default_factory=list)
     messages: list[Message] = field(default_factory=list)
@@ -225,9 +233,17 @@ class DisconnectingHealthRequest:
                 "server": ("testserver", 80),
             },
         )
+        application = asyncio.create_task(self.application(scope, self.receive, self.send))
         try:
-            await asyncio.wait_for(self.application(scope, self.receive, self.send), timeout=5)
+            await asyncio.wait_for(self.disconnect_sent.wait(), timeout=15)
+            await asyncio.wait_for(application, timeout=5)
         finally:
+            if not application.done():
+                application.cancel()
+                try:
+                    await application
+                except asyncio.CancelledError:
+                    pass
             for writer in self.writers:
                 os.close(writer)
             self.source.replace()
@@ -236,8 +252,9 @@ class DisconnectingHealthRequest:
         self.receive_count += 1
         if self.receive_count == 1:
             return {"type": "http.request", "body": b"", "more_body": False}
-        writer = await asyncio.to_thread(self.source.connect_reader)
+        writer = await self.source.connect_writer_when_ready()
         self.writers.append(writer)
+        self.disconnect_sent.set()
         return {"type": "http.disconnect"}
 
     async def send(self, message: Message) -> None:
@@ -2717,6 +2734,7 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     source = BlockingArchitectureSource.create(tmp_path)
     resolution = client.post(
@@ -2727,13 +2745,21 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
     accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    caplog.clear()
+    with ThreadPoolExecutor(max_workers=1) as executor:
         active_request = executor.submit(Client().get, path)
-        writer = source.connect_reader()
+        acquisition_deadline = monotonic() + 5
+        while not any(
+            cast(dict[str, object], record.msg).get("event") == "project_health_capacity_acquired"
+            for record in caplog.records
+            if record.name.startswith("enclosure.projects.services.health")
+        ):
+            if monotonic() >= acquisition_deadline:
+                pytest.fail("Active health request did not acquire capacity.")
+            sleep(0.01)
         started = monotonic()
         unavailable = client.get(path)
         unavailable_duration = monotonic() - started
-        os.close(writer)
         bounded = active_request.result(timeout=5)
 
     source.replace()
