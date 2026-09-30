@@ -1,4 +1,6 @@
 import multiprocessing
+import os
+import signal
 from dataclasses import dataclass, field
 from multiprocessing.connection import Connection
 from time import monotonic
@@ -54,16 +56,36 @@ class HealthWorkerClient:
                 return self.failed_result()
 
     def terminate(self) -> None:
-        if self.process.is_alive():
-            self.process.terminate()
-            self.process.join(self.termination_grace_seconds)
-        else:
-            self.process.join()
-        if self.process.is_alive():
-            self.process.kill()
-            self.process.join()
-        self.connection.close()
-        self.process.close()
+        process_id = self.process.pid
+        try:
+            group_signaled = False
+            if self.process.is_alive():
+                if process_id is not None:
+                    try:
+                        os.killpg(process_id, signal.SIGTERM)
+                        group_signaled = True
+                    except (PermissionError, ProcessLookupError):
+                        pass
+                if not group_signaled:
+                    self.process.terminate()
+                self.process.join(self.termination_grace_seconds)
+            else:
+                self.process.join()
+            group_killed = False
+            if process_id is not None and group_signaled:
+                try:
+                    os.killpg(process_id, signal.SIGKILL)
+                    group_killed = True
+                except (PermissionError, ProcessLookupError):
+                    pass
+            if self.process.is_alive() and not group_killed:
+                self.process.kill()
+            if self.process.is_alive():
+                self.process.join()
+        finally:
+            self.connection.close()
+            if not self.process.is_alive():
+                self.process.close()
 
     def failed_result(self) -> IncompleteHealthExecutionResult:
         return self.terminal_result(
