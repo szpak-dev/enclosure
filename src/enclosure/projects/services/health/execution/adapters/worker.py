@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from time import perf_counter_ns
@@ -21,6 +22,7 @@ class HealthWorkerProcess:
     connection: Connection
 
     def run(self) -> None:
+        os.setsid()
         setup()
         from enclosure.autowiring import application
 
