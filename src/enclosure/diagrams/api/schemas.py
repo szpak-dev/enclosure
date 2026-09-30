@@ -1,19 +1,16 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from ninja import Schema
-from pydantic import ConfigDict, Field, JsonValue
+from pydantic import Field, JsonValue
+
+from enclosure.shared.schemas import StrictSchema
 
 DiagramId = Annotated[str, Field(description="Diagram identifier.")]
 DiagramSetId = Annotated[str, Field(description="Diagram set identifier.")]
 DiagramKindId = Annotated[str, Field(description="Mermaiden diagram-kind identifier.")]
 
 
-class StrictSchema(Schema):
-    model_config = ConfigDict(extra="forbid")
-
-
-class DiagramKind(Schema):
+class DiagramKind(StrictSchema):
     id: DiagramKindId
     name: str = Field(description="Human-readable diagram-kind name.")
 
@@ -32,13 +29,13 @@ class DiagramKindDescription(DiagramKind):
     content_total_characters: int = Field(description="Canonical contract size in characters.", ge=0)
 
 
-class ReadDiagramKindContent(Schema):
+class ReadDiagramKindContent(StrictSchema):
     expected_revision: str = Field(description="Diagram-kind revision on which the read is based.")
     offset: int = Field(default=0, description="Character offset at which the read starts.", ge=0)
     limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
-class DiagramKindContent(Schema):
+class DiagramKindContent(StrictSchema):
     kind: DiagramKindId
     revision: str = Field(description="SHA-256 revision of the canonical diagram-kind contract.")
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
@@ -49,7 +46,7 @@ class DiagramKindContent(Schema):
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
-class DiagramCommandSchema(Schema):
+class DiagramCommandSchema(StrictSchema):
     kind: DiagramKindId
     operation: str = Field(description="Command operation name.")
     content_revision: str = Field(description="SHA-256 revision of the canonical diagram-kind contract.")
@@ -122,13 +119,13 @@ class ApplyDiagramCommandBatch(StrictSchema):
     )
 
 
-class DiagramCommandBatchReceipt(Schema):
+class DiagramCommandBatchReceipt(StrictSchema):
     diagram_id: DiagramId
     revision: int = Field(description="Resulting optimistic-concurrency revision.", ge=1)
     applied_count: int = Field(description="Number of commands applied by the accepted batch.", ge=1, le=1000)
 
 
-class DiagramReference(Schema):
+class DiagramReference(StrictSchema):
     id: DiagramId
     title: str = Field(description="Human-readable diagram title.")
     kind: DiagramKindId
@@ -150,14 +147,14 @@ class Diagram(DiagramSummary):
     snapshot_total_characters: int = Field(description="Total characters in the canonical snapshot JSON.", ge=0)
 
 
-class ReadDiagramContent(Schema):
+class ReadDiagramContent(StrictSchema):
     document: Literal["source", "snapshot"] = Field(description="Diagram document to read.")
     expected_revision: int = Field(description="Diagram revision on which this read is based.", ge=1)
     offset: int = Field(default=0, description="Character offset at which the bounded read starts.", ge=0)
     limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
-class DiagramContent(Schema):
+class DiagramContent(StrictSchema):
     diagram_id: DiagramId
     revision: int = Field(description="Diagram revision used for this read.", ge=1)
     document: Literal["source", "snapshot"] = Field(description="Diagram document that was read.")
@@ -169,7 +166,7 @@ class DiagramContent(Schema):
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
-class DiagramSetSummary(Schema):
+class DiagramSetSummary(StrictSchema):
     id: DiagramSetId
     title: str = Field(description="Human-readable diagram-set title.")
     description: str = Field(description="Purpose and topic of the diagram set.")
@@ -181,19 +178,19 @@ class DiagramSet(DiagramSetSummary):
     pass
 
 
-class FindPage(Schema):
+class FindPage(StrictSchema):
     offset: int = Field(default=0, description="Item offset at which the page starts.", ge=0)
     limit: int = Field(default=50, description="Maximum items returned by the page.", ge=1, le=100)
 
 
-class DiagramSetPage(Schema):
+class DiagramSetPage(StrictSchema):
     items: list[DiagramSetSummary] = Field(description="Diagram-set summaries in this bounded page.")
     has_more: bool = Field(description="Whether another page of diagram sets remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class DiagramPage(Schema):
+class DiagramPage(StrictSchema):
     items: list[DiagramReference] = Field(description="Diagram references in this bounded page.")
     has_more: bool = Field(description="Whether another page of diagrams remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)

@@ -1,37 +1,38 @@
 from typing import Annotated, Literal
 
-from ninja import Schema
 from pydantic import Field, JsonValue
+
+from enclosure.shared.schemas import StrictSchema
 
 ProjectId = Annotated[str, Field(description="Project identifier.")]
 WorkspaceId = Annotated[str, Field(description="Workspace-binding identifier.")]
 
 
-class DiscoverProject(Schema):
+class DiscoverProject(StrictSchema):
     root: str = Field(description="Absolute path to the project directory.")
 
 
-class DetectedStack(Schema):
+class DetectedStack(StrictSchema):
     language: str = Field(description="Detected programming-language identifier.")
     language_version: str = Field(description="Detected programming-language version, when available.")
     package_manager: str = Field(description="Detected package-manager identifier.")
 
 
-class DiscoveredProject(Schema):
+class DiscoveredProject(StrictSchema):
     root: str = Field(description="Absolute path to the project directory.")
     stack: DetectedStack = Field(description="Technology stack detected in the project directory.")
 
 
-class FindProjectByRoot(Schema):
+class FindProjectByRoot(StrictSchema):
     root: str = Field(description="Absolute path to the registered project directory.")
 
 
-class GetWorkspaceContext(Schema):
+class GetWorkspaceContext(StrictSchema):
     root: str = Field(description="Absolute path to the registered project directory.")
     task: str = Field(description="Current task used to select relevant project guidance.")
 
 
-class WorkspaceGuidance(Schema):
+class WorkspaceGuidance(StrictSchema):
     id: str = Field(description="Guidance record identifier.")
     title: str = Field(description="Guidance title.")
     summary: str = Field(description="Compact statement of the guidance purpose.")
@@ -44,20 +45,20 @@ class WorkspaceGuidance(Schema):
     checks: list[str] = Field(description="Checks required before handoff.")
 
 
-class WorkspaceAuthority(Schema):
+class WorkspaceAuthority(StrictSchema):
     kind: Literal["project-operating-contract"] = Field(description="Authority mechanism used for this response.")
     id: str = Field(description="Stable identifier of the effective authority.")
     revision: str = Field(description="Deterministic revision of the effective authority.")
     provenance: str = Field(description="Origin of the effective operating contract.")
 
 
-class WorkspaceContextDiagnostic(Schema):
+class WorkspaceContextDiagnostic(StrictSchema):
     code: str = Field(description="Stable machine-readable readiness diagnostic code.")
     message: str = Field(description="Actionable explanation of the readiness problem.")
     guidance_ids: list[str] = Field(description="Bound guidance records affected by the diagnostic.")
 
 
-class ReceiptItem(Schema):
+class ReceiptItem(StrictSchema):
     record_id: str = Field(description="Durable guidance record identifier for get_record follow-up.")
     title: str = Field(description="Guidance title.")
     requirement: Literal["mandatory", "supplemental"] = Field(
@@ -72,7 +73,7 @@ class ReceiptItem(Schema):
     checks: list[str] = Field(description="Checks contributed by the selected guidance.")
 
 
-class ContextBudget(Schema):
+class ContextBudget(StrictSchema):
     used_optional_characters: int = Field(
         description="Characters consumed by minified serialized selected supplemental guidance."
     )
@@ -81,20 +82,20 @@ class ContextBudget(Schema):
     )
 
 
-class ContextCoverage(Schema):
+class ContextCoverage(StrictSchema):
     status: Literal["complete", "partial"] = Field(description="Whether selection has omissions or diagnostics.")
     selected_count: int = Field(description="Number of selected guidance items.")
     omitted_count: int = Field(description="Number of omitted supplemental guidance items.")
     diagnostic_count: int = Field(description="Number of context diagnostics.")
 
 
-class ContextOmission(Schema):
+class ContextOmission(StrictSchema):
     code: Literal["optional-budget-exhausted"] = Field(description="Stable omission reason code.")
     guidance_ids: list[str] = Field(description="Supplemental guidance records omitted by the context budget.")
     message: str = Field(description="Human-readable omission explanation.")
 
 
-class ContextReceipt(Schema):
+class ContextReceipt(StrictSchema):
     authority: WorkspaceAuthority = Field(description="Authority and revision used to resolve this response.")
     items: list[ReceiptItem] = Field(description="Selection receipt in effective guidance order.")
     required_checks: list[str] = Field(description="Ordered, de-duplicated checks required before handoff.")
@@ -109,7 +110,7 @@ class ContextReceipt(Schema):
     )
 
 
-class WorkspaceContext(Schema):
+class WorkspaceContext(StrictSchema):
     project_id: ProjectId
     root: str = Field(description="Registered project root.")
     readiness: Literal["ready", "incomplete", "conflicted"] = Field(
@@ -121,18 +122,18 @@ class WorkspaceContext(Schema):
     receipt: ContextReceipt = Field(description="Deterministic explanation of selection, coverage, and checks.")
 
 
-class GuidanceScope(Schema):
+class GuidanceScope(StrictSchema):
     id: str = Field(description="Guidance-scope identifier.")
     project_id: ProjectId
     record_id: str = Field(description="Optional guidance record made eligible for this project.")
     position: int = Field(description="Deterministic fallback position within the project.", ge=1)
 
 
-class ReplaceGuidanceScopes(Schema):
+class ReplaceGuidanceScopes(StrictSchema):
     record_ids: list[str] = Field(description="Ordered optional guidance records eligible for routing.")
 
 
-class GuidanceRelationshipInput(Schema):
+class GuidanceRelationshipInput(StrictSchema):
     source_record_id: str = Field(description="Guidance record at the relationship source.")
     target_record_id: str = Field(description="Guidance record at the relationship target.")
     kind: Literal["prerequisite", "containment", "refinement", "escalation"] = Field(
@@ -145,13 +146,13 @@ class GuidanceRelationship(GuidanceRelationshipInput):
     project_id: ProjectId
 
 
-class ReplaceGuidanceRelationships(Schema):
+class ReplaceGuidanceRelationships(StrictSchema):
     relationships: list[GuidanceRelationshipInput] = Field(
         description="Complete project-scoped guidance relationship set."
     )
 
 
-class RegisterProject(Schema):
+class RegisterProject(StrictSchema):
     discovery: DiscoveredProject = Field(description="Detected project root and technology stack.")
     architecture_root: str = Field(description="Absolute path analyzed by the architecture rules.")
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
@@ -162,7 +163,7 @@ class RegisterProject(Schema):
     )
 
 
-class UpdateProject(Schema):
+class UpdateProject(StrictSchema):
     title: str = Field(description="Editable logical project title.", min_length=1, max_length=255)
     stack: DetectedStack = Field(description="Detected technology stack for the logical project.")
     boundaries_yaml: str = Field(description="Modwire boundary configuration in YAML.")
@@ -170,7 +171,7 @@ class UpdateProject(Schema):
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
 
 
-class ArchitectureContractDiagramInput(Schema):
+class ArchitectureContractDiagramInput(StrictSchema):
     diagram_id: str = Field(description="Diagram identifier selected for the contract unit.", min_length=1)
     expected_revision: int = Field(description="Exact diagram revision accepted for publication.", ge=1)
     role: Literal["tree", "uml", "entity"] = Field(description="Explicit semantic role of the diagram.")
@@ -179,12 +180,12 @@ class ArchitectureContractDiagramInput(Schema):
     )
 
 
-class ArchitectureContractExclusionInput(Schema):
+class ArchitectureContractExclusionInput(StrictSchema):
     path: str = Field(description="Normalized relative path excluded from contract coverage.", min_length=1)
     reason: str = Field(description="Mandatory rationale for the explicit exclusion.", min_length=1)
 
 
-class ArchitectureContractUnitInput(Schema):
+class ArchitectureContractUnitInput(StrictSchema):
     key: str = Field(description="Stable contract-unit key within the publication.", min_length=1)
     diagram_set_id: str = Field(description="Diagram set containing every member diagram.", min_length=1)
     source_root: str = Field(description="Normalized project-relative source root governed by the unit.", min_length=1)
@@ -199,14 +200,14 @@ class ArchitectureContractUnitInput(Schema):
     )
 
 
-class PublishArchitectureContract(Schema):
+class PublishArchitectureContract(StrictSchema):
     units: list[ArchitectureContractUnitInput] = Field(
         description="Ordered contract units forming the immutable project architecture publication.",
         min_length=1,
     )
 
 
-class ArchitectureContractDiagram(Schema):
+class ArchitectureContractDiagram(StrictSchema):
     id: str = Field(description="Published diagram-membership identifier.")
     diagram_id: str = Field(description="Source diagram identifier retained as provenance.")
     diagram_revision: int = Field(description="Exact accepted source diagram revision.", ge=1)
@@ -222,14 +223,14 @@ class ArchitectureContractDiagram(Schema):
     position: int = Field(description="Deterministic diagram position within the unit.", ge=0)
 
 
-class ArchitectureContractExclusion(Schema):
+class ArchitectureContractExclusion(StrictSchema):
     id: str = Field(description="Published exclusion identifier.")
     path: str = Field(description="Normalized relative excluded path.")
     reason: str = Field(description="Accepted rationale for the exclusion.")
     position: int = Field(description="Deterministic exclusion position within the unit.", ge=0)
 
 
-class ArchitectureContractUnit(Schema):
+class ArchitectureContractUnit(StrictSchema):
     id: str = Field(description="Published contract-unit identifier.")
     key: str = Field(description="Stable contract-unit key within the publication.")
     diagram_set_id: str = Field(description="Source diagram-set identity retained as provenance.")
@@ -240,7 +241,7 @@ class ArchitectureContractUnit(Schema):
     exclusions: list[ArchitectureContractExclusion] = Field(description="Explicit accepted coverage exclusions.")
 
 
-class ArchitectureContractPublication(Schema):
+class ArchitectureContractPublication(StrictSchema):
     id: str = Field(description="Immutable architecture-contract publication identifier.")
     project_id: ProjectId
     version: int = Field(description="Project-local monotonically increasing publication version.", ge=1)
@@ -249,13 +250,13 @@ class ArchitectureContractPublication(Schema):
     units: list[ArchitectureContractUnit] = Field(description="Ordered immutable project contract units.")
 
 
-class CompareArchitectureManifest(Schema):
+class CompareArchitectureManifest(StrictSchema):
     implementation_document: dict[str, JsonValue] = Field(
         description="Canonical public Modwire implementation-manifest document."
     )
 
 
-class ArchitectureManifestResponse(Schema):
+class ArchitectureManifestResponse(StrictSchema):
     schema_version: int = Field(description="Architecture-manifest schema version.", ge=1)
     project_id: ProjectId
     publication_id: str = Field(description="Accepted architecture-contract publication identifier.")
@@ -266,7 +267,7 @@ class ArchitectureManifestResponse(Schema):
     digest: str = Field(description="Digest of the canonical expected-code contract.")
 
 
-class ArchitectureComparisonResponse(Schema):
+class ArchitectureComparisonResponse(StrictSchema):
     schema_version: int = Field(description="Architecture-comparison schema version.", ge=1)
     contract_digest: str = Field(description="Digest of the expected architecture manifest.")
     implementation_digest: str = Field(description="Digest of canonical implementation evidence and receipts.")
@@ -282,27 +283,27 @@ class ArchitectureComparisonResponse(Schema):
     digest: str = Field(description="Digest of the canonical comparison result.")
 
 
-class CreateOperatingContract(Schema):
+class CreateOperatingContract(StrictSchema):
     title: str = Field(description="Human-readable operating-contract title.", min_length=1)
     authority: str = Field(description="Stable canonical authority owned by this contract.", min_length=1)
     provenance: str = Field(description="Origin of the contract definition.", min_length=1)
 
 
-class OperatingContract(Schema):
+class OperatingContract(StrictSchema):
     id: str = Field(description="Operating-contract identifier.")
     title: str = Field(description="Human-readable operating-contract title.")
     authority: str = Field(description="Stable canonical authority owned by this contract.")
     provenance: str = Field(description="Origin of the contract definition.")
 
 
-class OperatingContractReference(Schema):
+class OperatingContractReference(StrictSchema):
     kind: Literal["guidance", "policy", "architecture"] = Field(description="Referenced contract kind.")
     id: str = Field(description="Identifier owned by the referenced domain.", min_length=1)
     authority: str = Field(description="Canonical authority of the referenced contract.", min_length=1)
     revision: str = Field(description="Immutable referenced revision.", min_length=1)
 
 
-class PublishOperatingContractRevision(Schema):
+class PublishOperatingContractRevision(StrictSchema):
     record_ids: list[str] = Field(description="Mandatory guidance records captured by this revision.", min_length=1)
     references: list[OperatingContractReference] = Field(
         default_factory=list,
@@ -310,14 +311,14 @@ class PublishOperatingContractRevision(Schema):
     )
 
 
-class OperatingContractRevision(Schema):
+class OperatingContractRevision(StrictSchema):
     id: str = Field(description="Published operating-contract revision identifier.")
     contract_id: str = Field(description="Owning operating-contract identifier.")
     version: int = Field(description="Contract-local immutable revision number.", ge=1)
     references: list[OperatingContractReference] = Field(description="Ordered immutable contract references.")
 
 
-class WriteOperatingContractBinding(Schema):
+class WriteOperatingContractBinding(StrictSchema):
     contract_id: str = Field(description="Operating contract to bind.")
     version: int = Field(description="Published revision anchoring the binding.", ge=1)
     update_policy: Literal["pinned", "follow-latest"] = Field(
@@ -325,7 +326,7 @@ class WriteOperatingContractBinding(Schema):
     )
 
 
-class ConfiguredOperatingContractBinding(Schema):
+class ConfiguredOperatingContractBinding(StrictSchema):
     state: Literal["configured"] = Field(description="Discriminator for an active operating-contract binding.")
     project_id: ProjectId
     contract: OperatingContract = Field(description="Canonical operating-contract envelope bound to the project.")
@@ -338,12 +339,12 @@ class ConfiguredOperatingContractBinding(Schema):
     )
 
 
-class UnconfiguredOperatingContractBinding(Schema):
+class UnconfiguredOperatingContractBinding(StrictSchema):
     state: Literal["unconfigured"] = Field(description="Discriminator for a project without a contract binding.")
     project_id: ProjectId
 
 
-class GenerateProjectSource(Schema):
+class GenerateProjectSource(StrictSchema):
     destination: str = Field(
         description="Destination directory relative to the registered project root.",
         min_length=1,
@@ -351,16 +352,16 @@ class GenerateProjectSource(Schema):
     parameters: dict[str, JsonValue] = Field(description="Values for the associated scaffolding variables.")
 
 
-class GeneratedProjectSource(Schema):
+class GeneratedProjectSource(StrictSchema):
     files: tuple[str, ...] = Field(description="Written file paths relative to the registered project root.")
 
 
-class ProjectReference(Schema):
+class ProjectReference(StrictSchema):
     id: ProjectId
     title: str = Field(description="Editable logical project title.")
 
 
-class Project(Schema):
+class Project(StrictSchema):
     id: ProjectId
     title: str = Field(description="Editable logical project title.")
     language_id: str = Field(description="Detected programming-language identifier.")
@@ -369,7 +370,7 @@ class Project(Schema):
     scaffolding_id: str = Field(description="Identifier of the scaffolding used to generate project source code.")
 
 
-class WriteWorkspaceBinding(Schema):
+class WriteWorkspaceBinding(StrictSchema):
     root: str = Field(description="Absolute path to the local project checkout.", min_length=1, max_length=1024)
     architecture_root: str = Field(
         description="Absolute local path analyzed by the architecture rules.",
@@ -382,7 +383,7 @@ class ReplaceWorkspaceBinding(WriteWorkspaceBinding):
     expected_revision: int = Field(description="Current workspace revision used for conflict detection.", ge=1)
 
 
-class DeleteWorkspaceBinding(Schema):
+class DeleteWorkspaceBinding(StrictSchema):
     expected_revision: int = Field(description="Current workspace revision used for conflict detection.", ge=1)
 
 
@@ -392,19 +393,19 @@ class WorkspaceBinding(WriteWorkspaceBinding):
     revision: int = Field(description="Optimistic-concurrency revision.", ge=1)
 
 
-class WorkspaceStatus(Schema):
+class WorkspaceStatus(StrictSchema):
     workspace: WorkspaceBinding = Field(description="Inspected local workspace binding.")
     state: Literal["available", "missing_root", "missing_architecture_root"] = Field(
         description="Availability derived from the local filesystem."
     )
 
 
-class WorkspaceResolution(Schema):
+class WorkspaceResolution(StrictSchema):
     project: Project = Field(description="Portable logical project.")
     workspace: WorkspaceBinding = Field(description="Exact normalized local workspace binding.")
 
 
-class ProjectArchitectureConfigurationReference(Schema):
+class ProjectArchitectureConfigurationReference(StrictSchema):
     id: str = Field(description="Architecture configuration identifier within the project.")
     project_id: ProjectId
     revision: str = Field(description="Deterministic revision of the architecture configuration.")
@@ -419,19 +420,19 @@ class ProjectArchitectureConfiguration(ProjectArchitectureConfigurationReference
     shape_total_characters: int = Field(description="Total characters in architecture-shape YAML.", ge=0)
 
 
-class FindPage(Schema):
+class FindPage(StrictSchema):
     offset: int = Field(default=0, description="Item offset at which the page starts.", ge=0)
     limit: int = Field(default=50, description="Maximum items returned by the page.", ge=1, le=100)
 
 
-class ProjectPage(Schema):
+class ProjectPage(StrictSchema):
     items: list[ProjectReference] = Field(description="Project references in this bounded page.")
     has_more: bool = Field(description="Whether another page of projects remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class ArchitectureConfigurationPage(Schema):
+class ArchitectureConfigurationPage(StrictSchema):
     items: list[ProjectArchitectureConfigurationReference] = Field(
         description="Architecture configuration references in this bounded page."
     )
@@ -440,28 +441,28 @@ class ArchitectureConfigurationPage(Schema):
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class WorkspacePage(Schema):
+class WorkspacePage(StrictSchema):
     items: list[WorkspaceBinding] = Field(description="Workspace bindings in this bounded page.")
     has_more: bool = Field(description="Whether another page of workspaces remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class GuidanceScopePage(Schema):
+class GuidanceScopePage(StrictSchema):
     items: list[GuidanceScope] = Field(description="Guidance scopes in this bounded page.")
     has_more: bool = Field(description="Whether another page of guidance scopes remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class GuidanceRelationshipPage(Schema):
+class GuidanceRelationshipPage(StrictSchema):
     items: list[GuidanceRelationship] = Field(description="Guidance relationships in this bounded page.")
     has_more: bool = Field(description="Whether another page of guidance relationships remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class ReadArchitectureConfigurationContent(Schema):
+class ReadArchitectureConfigurationContent(StrictSchema):
     document: Literal["boundaries_yaml", "shape_yaml"] = Field(
         description="Architecture configuration document to read."
     )
@@ -470,7 +471,7 @@ class ReadArchitectureConfigurationContent(Schema):
     limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
-class ArchitectureConfigurationContent(Schema):
+class ArchitectureConfigurationContent(StrictSchema):
     project_id: ProjectId
     configuration_id: str = Field(description="Architecture configuration identifier within the project.")
     revision: str = Field(description="Deterministic revision of the architecture configuration.")
@@ -485,7 +486,7 @@ class ArchitectureConfigurationContent(Schema):
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
-class HealthFinding(Schema):
+class HealthFinding(StrictSchema):
     rule: str = Field(description="Rule that produced the finding.")
     target: str = Field(description="Precise finding location used in report summaries.")
     message: str = Field(description="Actionable explanation of the finding.")
@@ -517,18 +518,18 @@ class GuidanceHealthFinding(HealthFinding):
     remediation: str = Field(description="Remediation category supplied by the owning guidance rule.")
 
 
-class ArchitectureDiagramEvidence(Schema):
+class ArchitectureDiagramEvidence(StrictSchema):
     diagram_id: str = Field(description="Accepted diagram identifier supporting the assertion.")
     diagram_revision: int = Field(description="Exact accepted diagram revision.", ge=1)
     element_id: str = Field(description="Stable diagram element identity supporting the assertion.")
 
 
-class ArchitectureDiagramRevision(Schema):
+class ArchitectureDiagramRevision(StrictSchema):
     diagram_id: str = Field(description="Accepted diagram identifier governing the contract unit.")
     diagram_revision: int = Field(description="Exact accepted diagram revision.", ge=1)
 
 
-class ArchitectureAssertionEvidence(Schema):
+class ArchitectureAssertionEvidence(StrictSchema):
     kind: Literal["assertion"] = Field(description="Contract-assertion evidence discriminator.")
     diagram_evidence: tuple[ArchitectureDiagramEvidence, ...] = Field(
         description="Exact diagram elements and revisions supporting the assertion."
@@ -538,14 +539,14 @@ class ArchitectureAssertionEvidence(Schema):
     )
 
 
-class ArchitectureUnexpectedEvidence(Schema):
+class ArchitectureUnexpectedEvidence(StrictSchema):
     kind: Literal["unexpected"] = Field(description="Unexpected-implementation evidence discriminator.")
     implementation_evidence_ids: tuple[str, ...] = Field(
         description="Canonical unexpected implementation evidence identities."
     )
 
 
-class ArchitectureCoverageEvidence(Schema):
+class ArchitectureCoverageEvidence(StrictSchema):
     kind: Literal["coverage"] = Field(description="Closed-coverage evidence discriminator.")
     diagram_revisions: tuple[ArchitectureDiagramRevision, ...] = Field(
         description="Accepted diagrams establishing closed coverage for the contract unit."
@@ -560,7 +561,7 @@ class ArchitectureCoverageEvidence(Schema):
     ] = Field(description="Language-neutral assertion kind whose closed coverage could not be verified.")
 
 
-class ArchitectureSemanticValue(Schema):
+class ArchitectureSemanticValue(StrictSchema):
     kind: Literal[
         "artifact",
         "classifier",
@@ -591,7 +592,7 @@ class ConformanceHealthFinding(HealthFinding):
     )
 
 
-class ArchitectureConformanceCoverage(Schema):
+class ArchitectureConformanceCoverage(StrictSchema):
     assertion_kind: Literal[
         "artifact",
         "classifier",
@@ -605,7 +606,7 @@ class ArchitectureConformanceCoverage(Schema):
     unverified: int = Field(description="Mandatory assertions lacking complete evidence.", ge=0)
 
 
-class ArchitectureAttestationComponent(Schema):
+class ArchitectureAttestationComponent(StrictSchema):
     kind: Literal[
         "contract",
         "implementation_evidence",
@@ -620,7 +621,7 @@ class ArchitectureAttestationComponent(Schema):
     digest: str = Field(description="SHA-256 digest of the canonical evidence component.")
 
 
-class ArchitectureConformanceAttestation(Schema):
+class ArchitectureConformanceAttestation(StrictSchema):
     schema_version: int = Field(description="Architecture-attestation schema version.", ge=1)
     digest_algorithm: Literal["sha256"] = Field(description="Attestation digest algorithm.")
     components: tuple[ArchitectureAttestationComponent, ...] = Field(
@@ -641,7 +642,7 @@ class ArchitectureConformanceAttestation(Schema):
     digest: str = Field(description="SHA-256 digest of the complete canonical attestation.")
 
 
-class HealthReportSummary(Schema):
+class HealthReportSummary(StrictSchema):
     id: str = Field(description="Stable health-report identifier.")
     title: str = Field(description="Human-readable health-report title.")
     failure_count: int = Field(description="Number of gating failures.", ge=0)
@@ -651,7 +652,7 @@ class HealthReportSummary(Schema):
     )
 
 
-class HealthReport(Schema):
+class HealthReport(StrictSchema):
     revision: str = Field(description="SHA-256 revision of the complete canonical health report.")
     outcome: Literal["healthy", "advisory", "gating-failure"] = Field(description="Overall health outcome.")
     healthy: bool = Field(description="Whether all gating architecture and guidance rules pass.")
@@ -681,14 +682,14 @@ class HealthReport(Schema):
     ] = Field(description="Typed advisory findings.")
 
 
-class ReadHealthFindings(Schema):
+class ReadHealthFindings(StrictSchema):
     kind: Literal["failure", "advisory"] = Field(description="Finding collection to read.")
     expected_revision: str = Field(description="Health revision on which the read is based.")
     offset: int = Field(default=0, description="Finding offset at which the page starts.", ge=0)
     limit: int = Field(default=0, description="Maximum findings returned; zero selects the remainder.", ge=0)
 
 
-class HealthFindingPage(Schema):
+class HealthFindingPage(StrictSchema):
     revision: str = Field(description="SHA-256 revision of the complete canonical health report.")
     kind: Literal["failure", "advisory"] = Field(description="Finding collection read by this page.")
     offset: int = Field(description="Finding offset at which this page starts.", ge=0)
@@ -705,12 +706,12 @@ class HealthFindingPage(Schema):
     next_offset: int = Field(description="Finding offset for the next read.", ge=0)
 
 
-class InsightSection(Schema):
+class InsightSection(StrictSchema):
     path: str = Field(description="Absolute JSON pointer for a bounded page operation.")
     total: int = Field(description="Number of items available at this path.", ge=0)
 
 
-class InsightFinding(Schema):
+class InsightFinding(StrictSchema):
     kind: Literal["hotspot", "cluster"] = Field(description="Kind of high-pressure architecture finding.")
     area: str = Field(description="Source file or cluster affected by the finding.")
     pressure_score: float = Field(description="Relative architecture pressure score.")
@@ -718,7 +719,7 @@ class InsightFinding(Schema):
     outgoing_count: int = Field(description="Outgoing dependency count.", ge=0)
 
 
-class InsightsReport(Schema):
+class InsightsReport(StrictSchema):
     project_id: ProjectId
     workspace_id: WorkspaceId
     revision: str = Field(description="Deterministic revision of the complete insights report.")
@@ -729,14 +730,14 @@ class InsightsReport(Schema):
     top_findings: tuple[InsightFinding, ...] = Field(description="Highest-priority architecture findings.")
 
 
-class ReadInsightPage(Schema):
+class ReadInsightPage(StrictSchema):
     path: str = Field(description="Absolute JSON pointer identifying an insight collection.", pattern=r"/")
     expected_revision: str = Field(description="Insights revision on which this read is based.")
     offset: int = Field(description="Item offset at which the bounded page starts.", ge=0)
     limit: int = Field(description="Maximum items returned by the bounded page.", ge=1, le=25)
 
 
-class InsightPage(Schema):
+class InsightPage(StrictSchema):
     project_id: ProjectId
     workspace_id: WorkspaceId
     revision: str = Field(description="Deterministic revision of the complete insights report.")
@@ -749,14 +750,14 @@ class InsightPage(Schema):
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
 
 
-class ReadInsightContent(Schema):
+class ReadInsightContent(StrictSchema):
     expected_revision: str = Field(description="Insights revision on which the read is based.")
     section_offset: int = Field(default=0, description="Sequential section offset.", ge=0)
     item_offset: int = Field(default=0, description="Item offset within the selected section.", ge=0)
     limit: int = Field(default=0, description="Maximum items returned; zero selects the section remainder.", ge=0)
 
 
-class InsightContentPage(Schema):
+class InsightContentPage(StrictSchema):
     revision: str = Field(description="Deterministic revision of the complete insights report.")
     section_offset: int = Field(description="Sequential section offset read by this page.", ge=0)
     path: str = Field(description="Absolute JSON pointer for the selected insight section.")

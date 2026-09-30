@@ -1,38 +1,40 @@
 from typing import Annotated
 
-from ninja import Schema
-from pydantic import Field, JsonValue
+from django.db.models import Manager
+from pydantic import Field, JsonValue, field_validator
+
+from enclosure.shared.schemas import StrictSchema
 
 CategoryId = Annotated[str, Field(description="Record category identifier.")]
 RecordId = Annotated[str, Field(description="Record identifier.")]
 TagId = Annotated[str, Field(description="Record tag identifier.")]
 
 
-class CreateCategory(Schema):
+class CreateCategory(StrictSchema):
     title: str = Field(description="Unique category title.")
     content_schema: dict[str, JsonValue] = Field(
         description="JSON Schema Draft 2020-12 used to validate record content."
     )
 
 
-class UpdateCategory(Schema):
+class UpdateCategory(StrictSchema):
     title: str = Field(description="Unique category title.")
 
 
-class UpdateCategoryContentSchema(Schema):
+class UpdateCategoryContentSchema(StrictSchema):
     content_schema: dict[str, JsonValue] = Field(
         description="JSON Schema Draft 2020-12 used to validate record content."
     )
 
 
-class CategorySchemaRevision(Schema):
+class CategorySchemaRevision(StrictSchema):
     category_id: CategoryId
     version: int = Field(description="Category-local content schema version.", ge=1)
     revision: str = Field(description="SHA-256 revision of the canonical JSON Schema document.")
     size_bytes: int = Field(description="Canonical JSON Schema size in bytes.", ge=0)
 
 
-class Category(Schema):
+class Category(StrictSchema):
     id: CategoryId
     title: str = Field(description="Unique category title.")
     schema_version: int = Field(description="Current content schema version.", ge=1)
@@ -40,34 +42,34 @@ class Category(Schema):
     content_schema_size_bytes: int = Field(description="Current canonical schema size in bytes.", ge=0)
 
 
-class CategoryReference(Schema):
+class CategoryReference(StrictSchema):
     id: CategoryId
     title: str = Field(description="Unique category title.")
     schema_version: int = Field(description="Current content schema version.", ge=1)
 
 
-class RecordCategory(Schema):
+class RecordCategory(StrictSchema):
     id: CategoryId
     title: str = Field(description="Unique category title.")
     schema_version: int = Field(description="Current content schema version.", ge=1)
 
 
-class WriteTag(Schema):
+class WriteTag(StrictSchema):
     name: str = Field(description="Unique tag name.")
 
 
-class Tag(Schema):
+class Tag(StrictSchema):
     id: TagId
     name: str = Field(description="Unique tag name.")
 
 
-class Resource(Schema):
+class Resource(StrictSchema):
     path: str = Field(description="Relative path identifying the source resource.")
     language: str = Field(description="Language identifier used to interpret the source resource.")
     content: str = Field(description="Complete source text of the resource.")
 
 
-class ResourceManifest(Schema):
+class ResourceManifest(StrictSchema):
     path: str = Field(description="Relative path identifying the source resource.")
     language: str = Field(description="Language identifier used to interpret the source resource.")
     media_type: str = Field(description="Media type inferred from the resource path.")
@@ -75,7 +77,7 @@ class ResourceManifest(Schema):
     revision: str = Field(description="SHA-256 revision of the complete source text.")
 
 
-class WriteRecord(Schema):
+class WriteRecord(StrictSchema):
     title: str = Field(description="Human-readable record title.")
     content: dict[str, JsonValue] = Field(description="Content validated against the selected category's schema.")
     category_id: CategoryId = Field(description="Identifier of the category whose schema validates the content.")
@@ -86,12 +88,18 @@ class WriteRecord(Schema):
     )
 
 
-class RecordSummary(Schema):
+class RecordSummary(StrictSchema):
     id: RecordId
     title: str = Field(description="Human-readable record title.")
     category: RecordCategory = Field(description="Category that defines the record's content schema.")
     schema_version: int = Field(description="Content schema version assigned to the record.", ge=1)
     tags: list[Tag] = Field(description="Tags assigned to the record.")
+
+    @field_validator("tags", mode="before")
+    def project_tags(value: object) -> object:
+        if isinstance(value, Manager):
+            return list(value.all())
+        return value
 
 
 class Record(RecordSummary):
@@ -103,33 +111,33 @@ class Record(RecordSummary):
     resource_count: int = Field(description="Number of source-resource manifests.", ge=0)
 
 
-class FindPage(Schema):
+class FindPage(StrictSchema):
     offset: int = Field(default=0, description="Item offset at which the page starts.", ge=0)
     limit: int = Field(default=50, description="Maximum items returned by the page.", ge=1, le=100)
 
 
-class TagPage(Schema):
+class TagPage(StrictSchema):
     items: list[Tag] = Field(description="Record tags in this bounded page.")
     has_more: bool = Field(description="Whether another page of record tags remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class CategoryPage(Schema):
+class CategoryPage(StrictSchema):
     items: list[CategoryReference] = Field(description="Record category references in this bounded page.")
     has_more: bool = Field(description="Whether another page of record categories remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class RecordPage(Schema):
+class RecordPage(StrictSchema):
     items: list[RecordSummary] = Field(description="Compact record summaries in this bounded page.")
     has_more: bool = Field(description="Whether another page of records remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
 
 
-class ReadRecordContent(Schema):
+class ReadRecordContent(StrictSchema):
     expected_revision: str = Field(
         description="SHA-256 revision on which the read is based.",
         pattern=r"^[0-9a-f]{64}$",
@@ -138,7 +146,7 @@ class ReadRecordContent(Schema):
     limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
-class ReadRecordResourceManifests(Schema):
+class ReadRecordResourceManifests(StrictSchema):
     expected_revision: str = Field(
         description="SHA-256 manifest revision on which the read is based.",
         pattern=r"^[0-9a-f]{64}$",
@@ -155,7 +163,7 @@ class ReadRecordCategoryContentSchema(ReadRecordContent):
     schema_version: int = Field(description="Category-local schema version to read.", ge=1)
 
 
-class RecordResourceContent(Schema):
+class RecordResourceContent(StrictSchema):
     record_id: RecordId
     path: str = Field(description="Exact relative path of the source resource.")
     language: str = Field(description="Language identifier used to interpret the source resource.")
@@ -169,7 +177,7 @@ class RecordResourceContent(Schema):
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
-class RecordJsonContent(Schema):
+class RecordJsonContent(StrictSchema):
     record_id: RecordId
     revision: str = Field(description="SHA-256 revision of the canonical record JSON document.")
     offset: int = Field(description="Character offset at which this page starts.", ge=0)
@@ -180,7 +188,7 @@ class RecordJsonContent(Schema):
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
-class ResourceManifestPage(Schema):
+class ResourceManifestPage(StrictSchema):
     record_id: RecordId
     revision: str = Field(description="SHA-256 revision of the canonical resource-manifest document.")
     offset: int = Field(description="Manifest offset at which this page starts.", ge=0)
@@ -191,7 +199,7 @@ class ResourceManifestPage(Schema):
     next_offset: int = Field(description="Manifest offset for the next read.", ge=0)
 
 
-class RecordCategoryContentSchema(Schema):
+class RecordCategoryContentSchema(StrictSchema):
     category_id: CategoryId
     schema_version: int = Field(description="Category-local schema version used for this read.", ge=1)
     revision: str = Field(description="SHA-256 revision of the canonical JSON Schema document.")
@@ -203,7 +211,7 @@ class RecordCategoryContentSchema(Schema):
     next_offset: int = Field(description="Character offset for the next read.", ge=0)
 
 
-class SearchRecords(Schema):
+class SearchRecords(StrictSchema):
     query: str = Field(
         description="Natural-language query used for semantic similarity search.",
         min_length=1,

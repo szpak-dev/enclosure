@@ -2058,20 +2058,25 @@ def test_generation_respects_create_if_missing(
         },
     )
     assert content.status_code == 200
-    scaffolding["spec"] = {
-        "language": scaffolding["spec"]["language"],
-        "variables": scaffolding["spec"]["variables"],
-        "templates": [
-            {
-                "path": manifest["path"],
-                "content": content.json()["content"],
-                "write_mode": "create_if_missing",
-            }
-        ],
+    update = {
+        "language_id": scaffolding["language_id"],
+        "name": scaffolding["name"],
+        "description": scaffolding["description"],
+        "spec": {
+            "language": scaffolding["spec"]["language"],
+            "variables": scaffolding["spec"]["variables"],
+            "templates": [
+                {
+                    "path": manifest["path"],
+                    "content": content.json()["content"],
+                    "write_mode": "create_if_missing",
+                }
+            ],
+        },
     }
     updated = client.put(
         f"/api/scaffoldings/{dependencies['scaffolding_id']}",
-        data=scaffolding,
+        data=update,
         content_type="application/json",
     )
     assert updated.status_code == 200
