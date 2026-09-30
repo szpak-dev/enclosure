@@ -210,6 +210,7 @@ class DisconnectingHealthRequest:
     application: ASGIApp
     path: str
     source: BlockingArchitectureSource
+    disconnect_sent: asyncio.Event = field(default_factory=asyncio.Event)
     receive_count: int = 0
     writers: list[int] = field(default_factory=list)
     messages: list[Message] = field(default_factory=list)
@@ -232,9 +233,17 @@ class DisconnectingHealthRequest:
                 "server": ("testserver", 80),
             },
         )
+        application = asyncio.create_task(self.application(scope, self.receive, self.send))
         try:
-            await asyncio.wait_for(self.application(scope, self.receive, self.send), timeout=5)
+            await asyncio.wait_for(self.disconnect_sent.wait(), timeout=15)
+            await asyncio.wait_for(application, timeout=5)
         finally:
+            if not application.done():
+                application.cancel()
+                try:
+                    await application
+                except asyncio.CancelledError:
+                    pass
             for writer in self.writers:
                 os.close(writer)
             self.source.replace()
@@ -245,6 +254,7 @@ class DisconnectingHealthRequest:
             return {"type": "http.request", "body": b"", "more_body": False}
         writer = await self.source.connect_writer_when_ready()
         self.writers.append(writer)
+        self.disconnect_sent.set()
         return {"type": "http.disconnect"}
 
     async def send(self, message: Message) -> None:

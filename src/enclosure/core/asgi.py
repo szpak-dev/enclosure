@@ -21,7 +21,11 @@ class DisconnectAwareApplication:
         messages: asyncio.Queue[Message] = asyncio.Queue(maxsize=1)
         receive_task = asyncio.create_task(self._receive(receive, messages, signal))
         try:
-            await self.application(scope, messages.get, send)
+            await self.application(
+                scope,
+                messages.get,
+                lambda message: self._send(send, message, signal),
+            )
         except asyncio.CancelledError:
             signal.cancel()
             raise
@@ -41,12 +45,14 @@ class DisconnectAwareApplication:
     ) -> None:
         while True:
             message = await receive()
-            disconnected = message["type"] == "http.disconnect"
-            if disconnected:
+            if message["type"] == "http.disconnect":
                 signal.cancel()
-            await messages.put(message)
-            if disconnected:
                 return
+            await messages.put(message)
+
+    async def _send(self, send: Send, message: Message, signal: CancellationSignal) -> None:
+        if not signal.cancelled:
+            await send(message)
 
 
 @dataclass(frozen=True)
