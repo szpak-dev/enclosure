@@ -1,13 +1,11 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
 
 from django.db.models import QuerySet
 from wireup import injectable
 
-from ...errors import RecordsError
 from ...models import Record, Resource
 from .embeddings import RecordsEmbeddingsService
+from .model import RecordCandidate, RecordInput, RecordResourceCandidate
 from .repository import RecordRepository
 from .resource_validator import ResourceValidator
 
@@ -19,8 +17,8 @@ class RecordService:
     resources: ResourceValidator
     embeddings: RecordsEmbeddingsService
 
-    def create(self, data: dict) -> Record:
-        return self._save(data)
+    def create(self, data: RecordInput, schema_version: int) -> Record:
+        return self.repository.create(self._candidate(data, schema_version))
 
     def get(self, id: str) -> Record:
         return self.repository.get(id)
@@ -39,58 +37,43 @@ class RecordService:
     ) -> list[Record]:
         return self.repository.search(self.embeddings.embed_query(query), limit, record_ids)
 
-    def update(self, id: str, data: dict) -> Record:
-        return self._save({**self._snapshot(self.get(id)), **data, "id": id})
+    def schema_version(self, id: str, category_id: str, current_schema_version: int) -> int:
+        record = self.repository.get_for_update(id)
+        if record.category_id == category_id:
+            return record.schema_version
+        return current_schema_version
+
+    def update(self, id: str, data: RecordInput, schema_version: int) -> Record:
+        return self.repository.replace(id, self._candidate(data, schema_version))
 
     def delete(self, id: str) -> None:
         self.repository.delete(id)
 
-    def _save(self, data: Mapping[str, Any]) -> Record:
-        record_data, tag_ids, resources = self._prepare(data)
-        for resource in resources:
+    def _candidate(self, data: RecordInput, schema_version: int) -> RecordCandidate:
+        for resource in data.resources:
             self.resources.validate(
-                resource["language"],
-                resource["path"],
-                resource["content"],
+                resource.language,
+                resource.path,
+                resource.content,
             )
-        self._assign_embeddings(record_data, resources)
-        return self.repository.save(record_data, tag_ids, resources)
-
-    def _snapshot(self, record: Record) -> dict:
-        return {
-            "title": record.title,
-            "content": record.content,
-            "category_id": record.category_id,
-            "schema_version": record.schema_version,
-            "tag_ids": [tag.id for tag in record.tags.all()],
-            "resources": [
-                {
-                    "path": resource.path,
-                    "language": resource.language,
-                    "content": resource.content,
-                }
-                for resource in record.resources.all()
-            ],
-        }
-
-    def _prepare(self, data: Mapping[str, Any]) -> tuple[dict, list[str], list[dict]]:
-        record_data = {
-            key: data[key]
-            for key in ("id", "title", "content", "category_id", "schema_version")
-            if key in data
-        }
-        tag_ids = list(data["tag_ids"])
-        resources = [dict(resource) for resource in data.get("resources", ())]
-        resource_paths = [resource["path"] for resource in resources]
-        if len(resource_paths) != len(set(resource_paths)):
-            raise RecordsError("A record cannot contain multiple resources with the same path.")
-        return record_data, tag_ids, resources
-
-    def _assign_embeddings(self, record_data: dict, resources: list[dict]) -> None:
-        record_data["embedding"] = self.embeddings.embed_record(record_data["title"], record_data["content"])
-        for resource in resources:
-            resource["embedding"] = self.embeddings.embed_resource(
-                resource["path"],
-                resource["language"],
-                resource["content"],
-            )
+        return RecordCandidate(
+            title=data.title,
+            content=data.content,
+            category_id=data.category_id,
+            schema_version=schema_version,
+            tag_ids=data.tag_ids,
+            resources=tuple(
+                RecordResourceCandidate(
+                    path=resource.path,
+                    language=resource.language,
+                    content=resource.content,
+                    embedding=self.embeddings.embed_resource(
+                        resource.path,
+                        resource.language,
+                        resource.content,
+                    ),
+                )
+                for resource in data.resources
+            ),
+            embedding=self.embeddings.embed_record(data.title, data.content),
+        )
