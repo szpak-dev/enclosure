@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
+from pydantic import JsonValue
 from wireup import injectable
 
 from ....core.models import DjangoRepository
@@ -15,7 +16,7 @@ class CategoryRepository(DjangoRepository):
     model: type[Category] = field(default=Category, init=False)
 
     @transaction.atomic
-    def save(self, title: str, content_schema: dict) -> Category:
+    def save(self, title: str, content_schema: dict[str, JsonValue]) -> Category:
         try:
             with transaction.atomic():
                 category = super().save(
@@ -42,9 +43,16 @@ class CategoryRepository(DjangoRepository):
             raise RecordsError("A category with this title already exists.") from error
         return category
 
+    def get_for_update(self, id: str) -> Category:
+        return self.model.objects.select_for_update().get(pk=id)
+
     @transaction.atomic
-    def update_content_schema(self, id: str, content_schema: dict) -> CategorySchemaRevision:
-        category = self.model.objects.select_for_update().get(pk=id)
+    def update_content_schema(
+        self,
+        id: str,
+        content_schema: dict[str, JsonValue],
+    ) -> CategorySchemaRevision:
+        category = self.get_for_update(id)
         if category.records.exists():
             category.schema_version += 1
             revision = CategorySchemaRevision.objects.create(

@@ -120,6 +120,9 @@ def test_update_record_validates_against_its_stored_schema_version() -> None:
     assert valid.status_code == 200
     assert valid.json()["schema_version"] == 1
     assert invalid.status_code == 422
+    stored = client.get(f"/api/records/{created['id']}")
+    assert stored.status_code == 200
+    assert stored.json() == valid.json()
 
 
 @pytest.mark.django_db

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Any
 
 from django.db import IntegrityError, transaction
 from wireup import injectable
@@ -14,17 +13,16 @@ from ...models import Tag
 class TagRepository(DjangoRepository):
     model: type[Tag] = field(default=Tag, init=False)
 
-    def save(self, **data: Any) -> Tag:
+    def save(self, name: str) -> Tag:
         try:
             with transaction.atomic():
-                return super().save(**data)
+                return super().save(name=name)
         except IntegrityError as error:
             raise RecordsError("A tag with this name already exists.") from error
 
-    def update(self, id: str, **data: Any) -> Tag:
+    def update(self, id: str, name: str) -> Tag:
         tag = self.get(id)
-        for attribute, value in data.items():
-            setattr(tag, attribute, value)
+        tag.name = name
         try:
             with transaction.atomic():
                 tag.save()

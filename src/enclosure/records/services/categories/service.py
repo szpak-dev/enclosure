@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from django.db.models import QuerySet
+from pydantic import JsonValue
 from wireup import injectable
 
 from enclosure.shared import DomainError, JsonSchemaService
@@ -16,10 +17,10 @@ class CategoryService:
     repository: CategoryRepository
     schemas: JsonSchemaService
 
-    def create(self, data: dict) -> Category:
+    def create(self, title: str, content_schema: dict[str, JsonValue]) -> Category:
         return self.repository.save(
-            title=data["title"],
-            content_schema=self._valid_schema(data["content_schema"]),
+            title=title,
+            content_schema=self._valid_schema(content_schema),
         )
 
     def get(self, id: str) -> Category:
@@ -31,23 +32,35 @@ class CategoryService:
     def find_all(self, offset: int, limit: int) -> QuerySet[Category]:
         return self.repository.find_all().order_by("id")[offset : offset + limit + 1]
 
-    def update(self, id: str, data: dict) -> Category:
-        return self.repository.update(id, title=data["title"])
+    def current_schema_version(self, category_id: str) -> int:
+        return self.repository.get_for_update(category_id).schema_version
 
-    def update_content_schema(self, id: str, content_schema: dict) -> CategorySchemaRevision:
+    def update(self, id: str, title: str) -> Category:
+        return self.repository.update(id, title)
+
+    def update_content_schema(
+        self,
+        id: str,
+        content_schema: dict[str, JsonValue],
+    ) -> CategorySchemaRevision:
         return self.repository.update_content_schema(id, self._valid_schema(content_schema))
 
     def delete(self, id: str) -> None:
         self.repository.delete(id)
 
-    def validate_content(self, category_id: str, version: int, content: object) -> None:
+    def validate_content(
+        self,
+        category_id: str,
+        version: int,
+        content: dict[str, JsonValue],
+    ) -> None:
         revision = self.repository.get_revision(category_id, version)
         try:
             self.schemas.load(revision.content_schema).require_valid(content)
         except DomainError as error:
             raise RecordsError(str(error)) from error
 
-    def _valid_schema(self, content_schema: dict) -> dict:
+    def _valid_schema(self, content_schema: dict[str, JsonValue]) -> dict[str, JsonValue]:
         try:
             schema = self.schemas.load(content_schema)
         except DomainError as error:

@@ -1,7 +1,6 @@
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -12,6 +11,7 @@ from wireup import injectable
 from ....core.models import DjangoRepository
 from ...errors import RecordsError
 from ...models import Record, Resource
+from .model import RecordCandidate, RecordResourceCandidate
 
 
 @injectable
@@ -24,6 +24,9 @@ class RecordRepository(DjangoRepository):
 
     def get_resource(self, record_id: str, path: str) -> Resource:
         return Resource.objects.get(record_id=record_id, path=path)
+
+    def get_for_update(self, id: str) -> Record:
+        return self.details().select_for_update().get(pk=id)
 
     def find(
         self,
@@ -47,24 +50,29 @@ class RecordRepository(DjangoRepository):
         return self.summaries().prefetch_related("resources")
 
     @transaction.atomic
-    def save(
-        self,
-        record_data: Mapping[str, Any],
-        tag_ids: Iterable[str],
-        resources: Iterable[Mapping[str, Any]],
-    ) -> Record:
-        data = dict(record_data)
-        record_id = data.pop("id", None)
-        if record_id is None:
-            record = self.model(**data)
-        else:
-            record = self.get(record_id)
-            for attribute, value in data.items():
-                setattr(record, attribute, value)
+    def create(self, candidate: RecordCandidate) -> Record:
+        record = self.model.objects.create(
+            title=candidate.title,
+            content=candidate.content,
+            category_id=candidate.category_id,
+            schema_version=candidate.schema_version,
+            embedding=candidate.embedding,
+        )
+        record.tags.set(candidate.tag_ids)
+        self._sync_resources(record, candidate.resources)
+        return self.get(record.id)
 
+    @transaction.atomic
+    def replace(self, id: str, candidate: RecordCandidate) -> Record:
+        record = self.get_for_update(id)
+        record.title = candidate.title
+        record.content = candidate.content
+        record.category_id = candidate.category_id
+        record.schema_version = candidate.schema_version
+        record.embedding = candidate.embedding
         record.save()
-        record.tags.set(tag_ids)
-        self._sync_resources(record, resources)
+        record.tags.set(candidate.tag_ids)
+        self._sync_resources(record, candidate.resources)
         return self.get(record.id)
 
     @transaction.atomic
@@ -77,7 +85,7 @@ class RecordRepository(DjangoRepository):
 
     def search(
         self,
-        embedding: list[float],
+        embedding: list[float] | None,
         limit: int,
         record_ids: tuple[str, ...] | None = None,
     ) -> list[Record]:
@@ -113,21 +121,30 @@ class RecordRepository(DjangoRepository):
         records_by_id = {record.id: record for record in records.filter(id__in=ordered_ids)}
         return [records_by_id[record_id] for record_id in ordered_ids]
 
-    def _sync_resources(self, record: Record, resources: Iterable[Mapping[str, Any]]) -> None:
+    def _sync_resources(
+        self,
+        record: Record,
+        resources: tuple[RecordResourceCandidate, ...],
+    ) -> None:
         existing_resources = {resource.path: resource for resource in record.resources.all()}
         resource_paths = set()
 
-        for resource_data in resources:
-            data = dict(resource_data)
-            path = data["path"]
-            resource_paths.add(path)
-            resource = existing_resources.pop(path, None)
+        for candidate in resources:
+            resource_paths.add(candidate.path)
+            resource = existing_resources.pop(candidate.path, None)
             if resource is None:
-                Resource.objects.create(record=record, **data)
+                Resource.objects.create(
+                    record=record,
+                    path=candidate.path,
+                    language=candidate.language,
+                    content=candidate.content,
+                    embedding=candidate.embedding,
+                )
                 continue
 
-            for attribute, value in data.items():
-                setattr(resource, attribute, value)
+            resource.language = candidate.language
+            resource.content = candidate.content
+            resource.embedding = candidate.embedding
             resource.save()
 
         record.resources.exclude(path__in=resource_paths).delete()

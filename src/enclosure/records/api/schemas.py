@@ -1,7 +1,7 @@
-from typing import Annotated
+from typing import Annotated, Self
 
 from django.db.models import Manager
-from pydantic import Field, JsonValue, field_validator
+from pydantic import Field, JsonValue, field_validator, model_validator
 
 from enclosure.shared.schemas import StrictSchema
 
@@ -86,6 +86,15 @@ class WriteRecord(StrictSchema):
         default_factory=list,
         description="Source resources attached to the record.",
     )
+
+    @model_validator(mode="after")
+    def require_unique_assignments(self) -> Self:
+        if len(self.tag_ids) != len(set(self.tag_ids)):
+            raise ValueError("A record cannot contain the same tag more than once.")
+        resource_paths = tuple(resource.path for resource in self.resources)
+        if len(resource_paths) != len(set(resource_paths)):
+            raise ValueError("A record cannot contain multiple resources with the same path.")
+        return self
 
 
 class RecordSummary(StrictSchema):

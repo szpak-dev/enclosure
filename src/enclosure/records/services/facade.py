@@ -4,6 +4,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 from wireup import injectable
 
+from ..api import schemas as api_schemas
 from ..models import Category, CategorySchemaRevision, Record, Tag
 from .categories.service import CategoryService
 from .content import (
@@ -19,6 +20,7 @@ from .content import (
     ResourceManifestPage,
     TagPage,
 )
+from .records.model import RecordInput, RecordResourceInput
 from .records.service import RecordService
 from .tags.service import TagService
 
@@ -31,10 +33,10 @@ class RecordsService:
     records: RecordService
     content: RecordContentService
 
-    def create_category(self, data: dict) -> Category:
-        return self.categories.create(data)
+    def create_category(self, data: api_schemas.CreateCategory) -> Category:
+        return self.categories.create(data.title, data.content_schema)
 
-    def create_category_detail(self, data: dict) -> RecordCategoryDetail:
+    def create_category_detail(self, data: api_schemas.CreateCategory) -> RecordCategoryDetail:
         return self.content.category_detail(self.create_category(data))
 
     def get_category(self, id: str) -> Category:
@@ -56,27 +58,35 @@ class RecordsService:
             limit=limit,
         )
 
-    def update_category(self, id: str, data: dict) -> Category:
-        return self.categories.update(id, data)
+    def update_category(self, id: str, data: api_schemas.UpdateCategory) -> Category:
+        return self.categories.update(id, data.title)
 
-    def update_category_detail(self, id: str, data: dict) -> RecordCategoryDetail:
+    def update_category_detail(
+        self,
+        id: str,
+        data: api_schemas.UpdateCategory,
+    ) -> RecordCategoryDetail:
         return self.content.category_detail(self.update_category(id, data))
 
-    def update_category_content_schema(self, id: str, content_schema: dict) -> CategorySchemaRevision:
-        return self.categories.update_content_schema(id, content_schema)
+    def update_category_content_schema(
+        self,
+        id: str,
+        data: api_schemas.UpdateCategoryContentSchema,
+    ) -> CategorySchemaRevision:
+        return self.categories.update_content_schema(id, data.content_schema)
 
     def update_category_content_schema_receipt(
         self,
         id: str,
-        content_schema: dict,
+        data: api_schemas.UpdateCategoryContentSchema,
     ) -> CategorySchemaRevisionReceipt:
-        return self.content.category_schema_receipt(self.update_category_content_schema(id, content_schema))
+        return self.content.category_schema_receipt(self.update_category_content_schema(id, data))
 
     def delete_category(self, id: str) -> None:
         self.categories.delete(id)
 
-    def create_tag(self, data: dict) -> Tag:
-        return self.tags.create(data)
+    def create_tag(self, data: api_schemas.WriteTag) -> Tag:
+        return self.tags.create(data.name)
 
     def get_tag(self, id: str) -> Tag:
         return self.tags.get(id)
@@ -94,17 +104,21 @@ class RecordsService:
             limit=limit,
         )
 
-    def update_tag(self, id: str, data: dict) -> Tag:
-        return self.tags.update(id, data)
+    def update_tag(self, id: str, data: api_schemas.WriteTag) -> Tag:
+        return self.tags.update(id, data.name)
 
     def delete_tag(self, id: str) -> None:
         self.tags.delete(id)
 
     @transaction.atomic
-    def create_record(self, data: dict) -> Record:
-        return self.records.create(self._validated_record(data))
+    def create_record(self, data: api_schemas.WriteRecord) -> Record:
+        record_input = self._record_input(data)
+        schema_version = self.categories.current_schema_version(record_input.category_id)
+        self.categories.validate_content(record_input.category_id, schema_version, record_input.content)
+        self.tags.require_all(record_input.tag_ids)
+        return self.records.create(record_input, schema_version)
 
-    def create_record_detail(self, data: dict) -> RecordDetail:
+    def create_record_detail(self, data: api_schemas.WriteRecord) -> RecordDetail:
         return self.content.record_detail(self.create_record(data))
 
     def get_record(self, id: str) -> Record:
@@ -135,11 +149,19 @@ class RecordsService:
         return self.records.search(query, limit, record_ids)
 
     @transaction.atomic
-    def update_record(self, id: str, data: dict) -> Record:
-        existing = self.records.get(id)
-        return self.records.update(id, self._validated_record(data, existing))
+    def update_record(self, id: str, data: api_schemas.WriteRecord) -> Record:
+        record_input = self._record_input(data)
+        current_schema_version = self.categories.current_schema_version(record_input.category_id)
+        schema_version = self.records.schema_version(
+            id,
+            record_input.category_id,
+            current_schema_version,
+        )
+        self.categories.validate_content(record_input.category_id, schema_version, record_input.content)
+        self.tags.require_all(record_input.tag_ids)
+        return self.records.update(id, record_input, schema_version)
 
-    def update_record_detail(self, id: str, data: dict) -> RecordDetail:
+    def update_record_detail(self, id: str, data: api_schemas.WriteRecord) -> RecordDetail:
         return self.content.record_detail(self.update_record(id, data))
 
     def delete_record(self, id: str) -> None:
@@ -189,15 +211,18 @@ class RecordsService:
             limit,
         )
 
-    def _validated_record(self, data: dict, existing: Record | None = None) -> dict:
-        category_id = data.get("category_id", existing.category_id if existing else None)
-        content = data.get("content", existing.content if existing else None)
-        tag_ids = data.get("tag_ids", [tag.id for tag in existing.tags.all()] if existing else None)
-        category = Category.objects.select_for_update().get(pk=category_id)
-        if existing is not None and category_id == existing.category_id:
-            schema_version = existing.schema_version
-        else:
-            schema_version = category.schema_version
-        self.categories.validate_content(category_id, schema_version, content)
-        self.tags.require_all(tag_ids)
-        return {**data, "schema_version": schema_version}
+    def _record_input(self, data: api_schemas.WriteRecord) -> RecordInput:
+        return RecordInput(
+            title=data.title,
+            content=data.content,
+            category_id=data.category_id,
+            tag_ids=tuple(data.tag_ids),
+            resources=tuple(
+                RecordResourceInput(
+                    path=resource.path,
+                    language=resource.language,
+                    content=resource.content,
+                )
+                for resource in data.resources
+            ),
+        )
