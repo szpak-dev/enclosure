@@ -833,6 +833,84 @@ def test_rejects_invalid_project_architecture_contract_members(
 
 
 @pytest.mark.django_db
+def test_rejects_conflicting_architecture_assertions_before_publication(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    registered = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    diagram_set = client.post(
+        "/api/diagram-sets",
+        data={"title": "Example candidate", "description": "Example candidate contract diagrams."},
+        content_type="application/json",
+    ).json()
+    fixture = ArchitectureContractFixture(client, registered["project"]["id"], diagram_set["id"])
+    tree = fixture.create_diagram(
+        "Example structure",
+        "treeView-beta",
+        "add_directory",
+        {"id": "source", "label": "example"},
+    )
+    uml = fixture.create_diagram_batch(
+        "Example services",
+        "classDiagram",
+        [
+            {"operation": "add_class", "arguments": {"id": "source", "label": "ExampleSource"}},
+            {"operation": "add_class", "arguments": {"id": "target", "label": "ExampleTarget"}},
+            {
+                "operation": "add_relation",
+                "arguments": {
+                    "id": "r1",
+                    "source_id": "source",
+                    "target_id": "target",
+                    "relation_kind": "dependency",
+                },
+            },
+        ],
+    )
+    entity = fixture.create_diagram_batch(
+        "Example entities",
+        "erDiagram",
+        [
+            {"operation": "add_entity", "arguments": {"id": "source", "label": "EXAMPLE_SOURCE"}},
+            {"operation": "add_entity", "arguments": {"id": "target", "label": "EXAMPLE_TARGET"}},
+            {
+                "operation": "add_relationship",
+                "arguments": {
+                    "id": "r1",
+                    "source_id": "source",
+                    "target_id": "target",
+                    "label": "example relation",
+                },
+            },
+        ],
+    )
+    url = f"/api/projects/{fixture.project_id}/architecture-contract-publications"
+    conflicting = client.post(
+        url,
+        data=fixture.publication_body(tree, uml, entity),
+        content_type="application/json",
+    )
+
+    assert conflicting.status_code == 422
+    assert conflicting.json() == {
+        "detail": "Architecture assertion identity 'relationship:r1' has conflicting declarations."
+    }
+
+    valid_body = fixture.publication_body(tree, uml, entity)
+    valid_body["units"][0]["diagrams"] = valid_body["units"][0]["diagrams"][:2]
+    accepted = client.post(url, data=valid_body, content_type="application/json")
+
+    assert accepted.status_code == 201, accepted.json()
+    assert accepted.json()["version"] == 1
+
+
+@pytest.mark.django_db
 def test_manifest_compilation_keeps_uml_members_separate_from_entity_fields(
     client: Client,
     dependencies: dict[str, str],

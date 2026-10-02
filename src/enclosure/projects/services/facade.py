@@ -7,9 +7,12 @@ from django.db import transaction
 from pydantic import JsonValue
 from wireup import injectable
 
+from ..api import schemas as api_schemas
 from ..errors import ProjectsError
 from .adapters.scaffoldings import ScaffoldingsAdapter
 from .architecture_contracts.model import (
+    ArchitectureContractDiagramInput,
+    ArchitectureContractExclusionInput,
     ArchitectureContractPublication,
     ArchitectureContractUnitInput,
 )
@@ -145,12 +148,33 @@ class ProjectsService:
     def publish_project_architecture_contract(
         self,
         project_id: str,
-        units: tuple[Mapping[str, object], ...],
+        input: api_schemas.PublishArchitectureContract,
     ) -> ArchitectureContractPublication:
         self.registry.get(project_id)
         return self.architecture_contracts.publish(
             project_id,
-            tuple(ArchitectureContractUnitInput.model_validate(unit) for unit in units),
+            tuple(
+                ArchitectureContractUnitInput(
+                    key=unit.key,
+                    diagram_set_id=unit.diagram_set_id,
+                    source_root=unit.source_root,
+                    coverage=unit.coverage,
+                    diagrams=tuple(
+                        ArchitectureContractDiagramInput(
+                            diagram_id=diagram.diagram_id,
+                            expected_revision=diagram.expected_revision,
+                            role=diagram.role,
+                            scope=diagram.scope,
+                        )
+                        for diagram in unit.diagrams
+                    ),
+                    exclusions=tuple(
+                        ArchitectureContractExclusionInput(path=exclusion.path, reason=exclusion.reason)
+                        for exclusion in unit.exclusions
+                    ),
+                )
+                for unit in input.units
+            ),
         )
 
     def get_project_architecture_contract(
@@ -167,8 +191,7 @@ class ProjectsService:
         publication_id: str,
     ) -> ArchitectureContractManifest:
         self.registry.get(project_id)
-        publication = self.architecture_contracts.get(project_id, publication_id)
-        return self.architecture_manifests.compile(publication)
+        return self.architecture_manifests.compile(project_id, publication_id)
 
     def compare_project_architecture_manifest(
         self,
@@ -177,9 +200,9 @@ class ProjectsService:
         implementation_document: Mapping[str, JsonValue],
     ) -> ArchitectureComparison:
         self.registry.get(project_id)
-        publication = self.architecture_contracts.get(project_id, publication_id)
         return self.architecture_manifests.compare(
-            publication,
+            project_id,
+            publication_id,
             ImplementationContext(
                 implementation_document=implementation_document,
                 artifact_paths=(),
@@ -263,12 +286,19 @@ class ProjectsService:
     def replace_guidance_relationships(
         self,
         project_id: str,
-        relationships: tuple[Mapping[str, str], ...],
+        input: api_schemas.ReplaceGuidanceRelationships,
     ) -> tuple[GuidanceRelationship, ...]:
         self.registry.get(project_id)
         return self.graph.replace_relationships(
             project_id,
-            tuple(GuidanceRelationshipInput.model_validate(relationship) for relationship in relationships),
+            tuple(
+                GuidanceRelationshipInput(
+                    source_record_id=relationship.source_record_id,
+                    target_record_id=relationship.target_record_id,
+                    kind=relationship.kind,
+                )
+                for relationship in input.relationships
+            ),
         )
 
     def create_operating_contract(self, title: str, authority: str, provenance: str) -> OperatingContract:
@@ -280,13 +310,20 @@ class ProjectsService:
     def publish_operating_contract_revision(
         self,
         contract_id: str,
-        record_ids: tuple[str, ...],
-        references: tuple[Mapping[str, str], ...],
+        input: api_schemas.PublishOperatingContractRevision,
     ) -> OperatingContractRevision:
         return self.contracts.publish(
             contract_id,
-            record_ids,
-            tuple(OperatingContractReference.model_validate(reference) for reference in references),
+            tuple(input.record_ids),
+            tuple(
+                OperatingContractReference(
+                    kind=reference.kind,
+                    id=reference.id,
+                    authority=reference.authority,
+                    revision=reference.revision,
+                )
+                for reference in input.references
+            ),
         )
 
     def get_operating_contract_revision(self, contract_id: str, version: int) -> OperatingContractRevision:
@@ -353,48 +390,52 @@ class ProjectsService:
     @transaction.atomic
     def register_project(
         self,
-        discovery: Mapping[str, object],
-        architecture_root: str,
-        boundaries_yaml: str,
-        shape_yaml: str,
-        scaffolding_id: str,
-        record_ids: list[str],
+        input: api_schemas.RegisterProject,
     ) -> WorkspaceResolution:
-        discovered_project = DiscoveredProject.model_validate(discovery)
-        self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
+        discovery = DiscoveredProject(
+            root=input.discovery.root,
+            stack=DetectedStack(
+                language=input.discovery.stack.language,
+                language_version=input.discovery.stack.language_version,
+                package_manager=input.discovery.stack.package_manager,
+            ),
+        )
+        self._validate_project(input.boundaries_yaml, input.shape_yaml, input.scaffolding_id)
+        contract_references = self.contracts.prepare_bootstrap(tuple(input.record_ids))
+        workspace_location = self.workspaces.inspection.normalize(discovery.root, input.architecture_root)
         project = self.registry.register(
             self._project_data(
-                self._project_title(discovered_project.root),
-                discovered_project.stack,
-                scaffolding_id,
+                self._project_title(discovery.root),
+                discovery.stack,
+                input.scaffolding_id,
             ),
-            boundaries_yaml,
-            shape_yaml,
+            input.boundaries_yaml,
+            input.shape_yaml,
         )
         workspace = self.workspaces.bind(
             project.id,
-            WorkspaceLocation(root=discovered_project.root, architecture_root=architecture_root),
+            workspace_location,
         )
-        self.contracts.bootstrap(project.id, tuple(record_ids))
+        self.contracts.bootstrap(project.id, contract_references)
         return WorkspaceResolution(project=project, workspace=workspace)
 
     def update_project(
         self,
         project_id: str,
-        title: str,
-        stack: Mapping[str, object],
-        boundaries_yaml: str,
-        shape_yaml: str,
-        scaffolding_id: str,
+        input: api_schemas.UpdateProject,
     ) -> Project:
-        detected_stack = DetectedStack.model_validate(stack)
-        normalized_title = self._validate_title(title)
-        self._validate_project(boundaries_yaml, shape_yaml, scaffolding_id)
+        stack = DetectedStack(
+            language=input.stack.language,
+            language_version=input.stack.language_version,
+            package_manager=input.stack.package_manager,
+        )
+        normalized_title = self._validate_title(input.title)
+        self._validate_project(input.boundaries_yaml, input.shape_yaml, input.scaffolding_id)
         return self.registry.update(
             project_id,
-            self._project_data(normalized_title, detected_stack, scaffolding_id),
-            boundaries_yaml,
-            shape_yaml,
+            self._project_data(normalized_title, stack, input.scaffolding_id),
+            input.boundaries_yaml,
+            input.shape_yaml,
         )
 
     def check_health(self, project_id: str, workspace_id: str) -> HealthReport:

@@ -47,10 +47,9 @@ class ArchitectureContractUnitInput(BaseModel):
     exclusions: tuple[ArchitectureContractExclusionInput, ...]
 
 
-class ArchitectureContractDiagram(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+class ArchitectureContractDiagramContract(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
-    id: str
     diagram_id: str
     diagram_revision: int
     role: ArchitectureDiagramRole
@@ -60,29 +59,50 @@ class ArchitectureContractDiagram(BaseModel):
     registry_fingerprint: str
     snapshot_digest: str
     snapshot: dict[str, JsonValue]
-    position: int
 
 
-class ArchitectureContractExclusion(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
-
+class ArchitectureContractDiagram(ArchitectureContractDiagramContract):
     id: str
-    path: str
-    reason: str
     position: int
 
 
-class ArchitectureContractUnit(BaseModel):
+class ArchitectureContractExclusionContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    path: str
+    reason: str
+
+
+class ArchitectureContractExclusion(ArchitectureContractExclusionContract):
     id: str
+    position: int
+
+
+class ArchitectureContractUnitContract(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     key: str
     diagram_set_id: str
     source_root: str
     coverage: ArchitectureContractCoverage
+    diagrams: tuple[ArchitectureContractDiagramContract, ...]
+    exclusions: tuple[ArchitectureContractExclusionContract, ...]
+
+
+class ArchitectureContractUnit(ArchitectureContractUnitContract):
+    id: str
     position: int
     diagrams: tuple[ArchitectureContractDiagram, ...]
     exclusions: tuple[ArchitectureContractExclusion, ...]
+
+
+class ArchitectureContractCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    project_id: str
+    authority: str
+    revision: str
+    units: tuple[ArchitectureContractUnitContract, ...]
 
 
 class ArchitectureContractPublication(BaseModel):

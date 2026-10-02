@@ -7,9 +7,13 @@ from wireup import injectable
 
 from ...errors import ProjectsError
 from ..adapters.diagrams import DiagramContractsAdapter
-from ..adapters.model import ResolvedArchitectureDiagram
+from ..architecture_manifests.compiler import ArchitectureContractCompiler
 from .model import (
+    ArchitectureContractCandidate,
+    ArchitectureContractDiagramContract,
+    ArchitectureContractExclusionContract,
     ArchitectureContractPublication,
+    ArchitectureContractUnitContract,
     ArchitectureContractUnitInput,
     ArchitectureDiagramRole,
     ArchitectureDiagramScope,
@@ -21,6 +25,7 @@ from .repository import ArchitectureContractRepository
 @dataclass(frozen=True)
 class ArchitectureContractsService:
     diagrams: DiagramContractsAdapter
+    compiler: ArchitectureContractCompiler
     repository: ArchitectureContractRepository
 
     def publish(
@@ -33,7 +38,7 @@ class ArchitectureContractsService:
 
         unit_keys: set[str] = set()
         diagram_ids: set[str] = set()
-        resolved_units: list[tuple[ArchitectureContractUnitInput, tuple[ResolvedArchitectureDiagram, ...]]] = []
+        resolved_units: list[ArchitectureContractUnitContract] = []
         for unit in units:
             if not unit.key or unit.key != unit.key.strip():
                 raise ProjectsError("Architecture contract unit keys must be non-empty and normalized.")
@@ -111,11 +116,36 @@ class ArchitectureContractsService:
                         f"role {member.role.value!r} requires {expected_kind!r}."
                     )
                 resolved_diagrams.append(resolved)
-            resolved_units.append((unit, tuple(resolved_diagrams)))
+            resolved_units.append(
+                ArchitectureContractUnitContract(
+                    key=unit.key,
+                    diagram_set_id=unit.diagram_set_id,
+                    source_root=unit.source_root,
+                    coverage=unit.coverage,
+                    diagrams=tuple(
+                        ArchitectureContractDiagramContract(
+                            diagram_id=resolved.diagram_id,
+                            diagram_revision=resolved.revision,
+                            role=member.role,
+                            scope=member.scope,
+                            kind=resolved.kind,
+                            snapshot_version=resolved.snapshot_version,
+                            registry_fingerprint=resolved.registry_fingerprint,
+                            snapshot_digest=resolved.snapshot_digest,
+                            snapshot=resolved.snapshot,
+                        )
+                        for member, resolved in zip(unit.diagrams, resolved_diagrams, strict=True)
+                    ),
+                    exclusions=tuple(
+                        ArchitectureContractExclusionContract(path=exclusion.path, reason=exclusion.reason)
+                        for exclusion in unit.exclusions
+                    ),
+                )
+            )
 
         authority = f"project:{project_id}:architecture-contract"
         canonical_units = []
-        for unit, resolved_diagrams in resolved_units:
+        for unit in resolved_units:
             canonical_units.append(
                 {
                     "key": unit.key,
@@ -124,17 +154,17 @@ class ArchitectureContractsService:
                     "coverage": unit.coverage.value,
                     "diagrams": [
                         {
-                            "diagram_id": resolved.diagram_id,
-                            "diagram_revision": resolved.revision,
-                            "role": member.role.value,
-                            "scope": member.scope.value,
-                            "kind": resolved.kind,
-                            "snapshot_version": resolved.snapshot_version,
-                            "registry_fingerprint": resolved.registry_fingerprint,
-                            "snapshot_digest": resolved.snapshot_digest,
-                            "snapshot": resolved.snapshot,
+                            "diagram_id": diagram.diagram_id,
+                            "diagram_revision": diagram.diagram_revision,
+                            "role": diagram.role.value,
+                            "scope": diagram.scope.value,
+                            "kind": diagram.kind,
+                            "snapshot_version": diagram.snapshot_version,
+                            "registry_fingerprint": diagram.registry_fingerprint,
+                            "snapshot_digest": diagram.snapshot_digest,
+                            "snapshot": diagram.snapshot,
                         }
-                        for member, resolved in zip(unit.diagrams, resolved_diagrams, strict=True)
+                        for diagram in unit.diagrams
                     ],
                     "exclusions": [exclusion.model_dump(mode="json") for exclusion in unit.exclusions],
                 }
@@ -150,7 +180,14 @@ class ArchitectureContractsService:
             sort_keys=True,
         )
         revision = sha256(canonical.encode("utf-8")).hexdigest()
-        return self.repository.publish(project_id, authority, revision, tuple(resolved_units))
+        candidate = ArchitectureContractCandidate(
+            project_id=project_id,
+            authority=authority,
+            revision=revision,
+            units=tuple(resolved_units),
+        )
+        self.compiler.compile(candidate.units)
+        return self.repository.publish(candidate)
 
     def get(self, project_id: str, publication_id: str) -> ArchitectureContractPublication:
         return self.repository.get(project_id, publication_id)

@@ -9,8 +9,8 @@ from enclosure.diagrams.services.contracts.semantics.model import (
 
 from ....errors import ProjectsError
 from ...architecture_contracts.model import (
-    ArchitectureContractDiagram,
-    ArchitectureContractUnit,
+    ArchitectureContractDiagramContract,
+    ArchitectureContractUnitContract,
     ArchitectureDiagramRole,
     ArchitectureDiagramScope,
 )
@@ -71,8 +71,8 @@ class UmlArchitectureCompiler(ArchitectureDiagramCompiler):
 
     def compile(
         self,
-        unit: ArchitectureContractUnit,
-        diagram: ArchitectureContractDiagram,
+        unit: ArchitectureContractUnitContract,
+        diagram: ArchitectureContractDiagramContract,
         semantics: DiagramContractSemantics,
     ) -> tuple[ArchitectureAssertion, ...]:
         assertions: list[ArchitectureAssertion] = []

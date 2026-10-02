@@ -3,7 +3,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, JsonValue, SerializeAsAny
 
-from ..architecture_contracts.model import ArchitectureContractCoverage, ArchitectureContractExclusion
+from ..architecture_contracts.model import ArchitectureContractCoverage, ArchitectureContractExclusionContract
 from .assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, ArchitectureDiagramEvidence
 from .bindings.model import ArchitectureRealizationMap
 from .evidence.model import ImplementationEvidenceManifest
@@ -55,7 +55,7 @@ class ArchitectureContractManifestUnit(BaseModel):
     source_root: str
     coverage: ArchitectureContractCoverage
     diagram_revisions: tuple[ArchitectureDiagramRevision, ...]
-    exclusions: tuple[ArchitectureContractExclusion, ...]
+    exclusions: tuple[ArchitectureContractExclusionContract, ...]
     assertions: tuple[SerializeAsAny[ArchitectureAssertion], ...]
 
 

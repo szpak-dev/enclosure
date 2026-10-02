@@ -1,7 +1,5 @@
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
-from hashlib import sha256
 from operator import attrgetter
 from typing import cast
 
@@ -9,7 +7,7 @@ from wireup import injectable
 
 from ...errors import ProjectsError
 from ..adapters.diagrams import DiagramContractsAdapter
-from ..architecture_contracts.model import ArchitectureContractPublication
+from ..architecture_contracts.model import ArchitectureContractUnitContract
 from .assertions.model import (
     ArchitectureAssertion,
     ArchitectureAssertionKind,
@@ -18,7 +16,7 @@ from .assertions.model import (
     RelationshipAssertion,
 )
 from .compilers.base import ArchitectureDiagramCompiler
-from .model import ArchitectureContractManifest, ArchitectureContractManifestUnit, ArchitectureDiagramRevision
+from .model import ArchitectureContractManifestUnit, ArchitectureDiagramRevision
 
 
 @injectable
@@ -27,13 +25,16 @@ class ArchitectureContractCompiler:
     diagrams: DiagramContractsAdapter
     compilers: Sequence[ArchitectureDiagramCompiler]
 
-    def compile(self, publication: ArchitectureContractPublication) -> ArchitectureContractManifest:
+    def compile(
+        self,
+        contract_units: tuple[ArchitectureContractUnitContract, ...],
+    ) -> tuple[ArchitectureContractManifestUnit, ...]:
         units: list[ArchitectureContractManifestUnit] = []
         ordered_compilers = tuple(sorted(self.compilers, key=attrgetter("order", "role")))
         roles = tuple(compiler.role for compiler in ordered_compilers)
         if len(roles) != len(set(roles)):
             raise ProjectsError("Architecture diagram roles must have exactly one compiler.")
-        for unit in publication.units:
+        for unit in contract_units:
             assertions: list[ArchitectureAssertion] = []
             for diagram in unit.diagrams:
                 candidates = tuple(compiler for compiler in ordered_compilers if compiler.role == diagram.role)
@@ -104,24 +105,4 @@ class ArchitectureContractCompiler:
                     assertions=ordered,
                 )
             )
-        ordered_units = tuple(sorted(units, key=attrgetter("key")))
-        payload = {
-            "schema_version": 3,
-            "project_id": publication.project_id,
-            "publication_id": publication.id,
-            "publication_version": publication.version,
-            "publication_revision": publication.revision,
-            "units": [unit.model_dump(mode="json") for unit in ordered_units],
-            "digest_algorithm": "sha256",
-        }
-        canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        return ArchitectureContractManifest(
-            schema_version=3,
-            project_id=publication.project_id,
-            publication_id=publication.id,
-            publication_version=publication.version,
-            publication_revision=publication.revision,
-            units=ordered_units,
-            digest_algorithm="sha256",
-            digest=sha256(canonical.encode("utf-8")).hexdigest(),
-        )
+        return tuple(sorted(units, key=attrgetter("key")))

@@ -35,7 +35,7 @@ class ProjectsController(ControllerBase):
     ):
         publication = DjangoRequest.resolve(request, ProjectsService).publish_project_architecture_contract(
             project_id,
-            tuple(unit.model_dump(mode="python") for unit in body.units),
+            body,
         )
         return Status(201, publication)
 
@@ -139,11 +139,9 @@ class ProjectsController(ControllerBase):
         contract_id: Annotated[str, Path(description="Operating-contract identifier.")],
         body: schemas.PublishOperatingContractRevision,
     ):
-        references = tuple(reference.model_dump(mode="python") for reference in body.references)
         revision = DjangoRequest.resolve(request, ProjectsService).publish_operating_contract_revision(
             contract_id,
-            tuple(body.record_ids),
-            references,
+            body,
         )
         return Status(201, revision)
 
@@ -280,7 +278,7 @@ class ProjectsController(ControllerBase):
         return list(
             DjangoRequest.resolve(request, ProjectsService).replace_guidance_relationships(
                 project_id,
-                tuple(relationship.model_dump(mode="python") for relationship in body.relationships),
+                body,
             )
         )
 
@@ -348,14 +346,7 @@ class ProjectsController(ControllerBase):
         description="Register a discovered project with its architecture configuration and supporting records.",
     )
     def register(self, request, body: schemas.RegisterProject):
-        resolution = DjangoRequest.resolve(request, ProjectsService).register_project(
-            body.discovery.model_dump(mode="python"),
-            body.architecture_root,
-            body.boundaries_yaml,
-            body.shape_yaml,
-            body.scaffolding_id,
-            body.record_ids,
-        )
+        resolution = DjangoRequest.resolve(request, ProjectsService).register_project(body)
         return Status(201, resolution)
 
     @route.post(
@@ -717,11 +708,7 @@ class ProjectsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, ProjectsService).update_project(
             project_id,
-            body.title,
-            body.stack.model_dump(mode="python"),
-            body.boundaries_yaml,
-            body.shape_yaml,
-            body.scaffolding_id,
+            body,
         )
 
     @siren_follow_ups(
