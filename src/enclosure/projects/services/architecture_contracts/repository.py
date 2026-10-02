@@ -6,13 +6,12 @@ from wireup import injectable
 
 from ... import models
 from ...errors import ProjectsError
-from ..adapters.model import ResolvedArchitectureDiagram
 from .model import (
+    ArchitectureContractCandidate,
     ArchitectureContractDiagram,
     ArchitectureContractExclusion,
     ArchitectureContractPublication,
     ArchitectureContractUnit,
-    ArchitectureContractUnitInput,
 )
 
 
@@ -26,48 +25,42 @@ class ArchitectureContractRepository:
 
     def publish(
         self,
-        project_id: str,
-        authority: str,
-        revision: str,
-        units: tuple[tuple[ArchitectureContractUnitInput, tuple[ResolvedArchitectureDiagram, ...]], ...],
+        candidate: ArchitectureContractCandidate,
     ) -> ArchitectureContractPublication:
         try:
             with transaction.atomic():
-                project = models.Project.objects.select_for_update().get(pk=project_id)
+                project = models.Project.objects.select_for_update().get(pk=candidate.project_id)
                 version = project.architecture_contract_publications.count() + 1
                 publication = self.model.objects.create(
                     project=project,
                     version=version,
-                    authority=authority,
-                    revision=revision,
+                    authority=candidate.authority,
+                    revision=candidate.revision,
                 )
-                for unit_position, resolved_unit in enumerate(units):
-                    unit_input, resolved_diagrams = resolved_unit
+                for unit_position, unit_contract in enumerate(candidate.units):
                     unit = models.ArchitectureContractUnit.objects.create(
                         publication=publication,
-                        key=unit_input.key,
-                        diagram_set_id=unit_input.diagram_set_id,
-                        source_root=unit_input.source_root,
-                        coverage=unit_input.coverage.value,
+                        key=unit_contract.key,
+                        diagram_set_id=unit_contract.diagram_set_id,
+                        source_root=unit_contract.source_root,
+                        coverage=unit_contract.coverage.value,
                         position=unit_position,
                     )
                     models.ArchitectureContractDiagram.objects.bulk_create(
                         models.ArchitectureContractDiagram(
                             unit=unit,
-                            diagram_id=resolved.diagram_id,
-                            diagram_revision=resolved.revision,
-                            role=diagram_input.role.value,
-                            scope=diagram_input.scope.value,
-                            kind=resolved.kind,
-                            snapshot_version=resolved.snapshot_version,
-                            registry_fingerprint=resolved.registry_fingerprint,
-                            snapshot_digest=resolved.snapshot_digest,
-                            snapshot=resolved.snapshot,
+                            diagram_id=diagram.diagram_id,
+                            diagram_revision=diagram.diagram_revision,
+                            role=diagram.role.value,
+                            scope=diagram.scope.value,
+                            kind=diagram.kind,
+                            snapshot_version=diagram.snapshot_version,
+                            registry_fingerprint=diagram.registry_fingerprint,
+                            snapshot_digest=diagram.snapshot_digest,
+                            snapshot=diagram.snapshot,
                             position=diagram_position,
                         )
-                        for diagram_position, (diagram_input, resolved) in enumerate(
-                            zip(unit_input.diagrams, resolved_diagrams, strict=True)
-                        )
+                        for diagram_position, diagram in enumerate(unit_contract.diagrams)
                     )
                     models.ArchitectureContractExclusion.objects.bulk_create(
                         models.ArchitectureContractExclusion(
@@ -76,9 +69,9 @@ class ArchitectureContractRepository:
                             reason=exclusion.reason,
                             position=exclusion_position,
                         )
-                        for exclusion_position, exclusion in enumerate(unit_input.exclusions)
+                        for exclusion_position, exclusion in enumerate(unit_contract.exclusions)
                     )
-                return self.get(project_id, str(publication.id))
+                return self.get(candidate.project_id, str(publication.id))
         except IntegrityError as error:
             raise ProjectsError("This architecture contract has already been published.") from error
 

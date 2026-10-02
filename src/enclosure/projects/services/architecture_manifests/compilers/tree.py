@@ -7,8 +7,8 @@ from enclosure.diagrams.services.contracts.semantics.model import DiagramContrac
 
 from ....errors import ProjectsError
 from ...architecture_contracts.model import (
-    ArchitectureContractDiagram,
-    ArchitectureContractUnit,
+    ArchitectureContractDiagramContract,
+    ArchitectureContractUnitContract,
     ArchitectureDiagramRole,
     ArchitectureDiagramScope,
 )
@@ -30,8 +30,8 @@ class TreeArchitectureCompiler(ArchitectureDiagramCompiler):
 
     def compile(
         self,
-        unit: ArchitectureContractUnit,
-        diagram: ArchitectureContractDiagram,
+        unit: ArchitectureContractUnitContract,
+        diagram: ArchitectureContractDiagramContract,
         semantics: DiagramContractSemantics,
     ) -> tuple[ArchitectureAssertion, ...]:
         assertions: list[ArchitectureAssertion] = []

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from wireup import injectable
 
+from ... import models
 from ..registry.service import RegistryService
 from .inspection import WorkspaceInspectionService
 from .model import WorkspaceBinding, WorkspaceLocation, WorkspacePage, WorkspaceResolution, WorkspaceStatus
@@ -67,5 +68,11 @@ class WorkspaceService:
         self.registry.get(project_id)
         self.repository.delete(project_id, workspace_id, expected_revision)
 
-    def _workspace(self, workspace: object) -> WorkspaceBinding:
-        return WorkspaceBinding.model_validate(workspace, from_attributes=True)
+    def _workspace(self, workspace: models.WorkspaceBinding) -> WorkspaceBinding:
+        return WorkspaceBinding(
+            id=str(workspace.id),
+            project_id=str(workspace.project_id),
+            root=workspace.root,
+            architecture_root=workspace.architecture_root,
+            revision=workspace.revision,
+        )

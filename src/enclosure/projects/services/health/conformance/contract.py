@@ -32,7 +32,7 @@ class ArchitectureHealthContractService:
             raise ProjectsError("Project health requires exactly one accepted project architecture contract.")
         reference = references[0]
         publication = self.contracts.get(project_id, reference.id)
-        manifest = self.manifests.compile(publication)
+        manifest = self.manifests.compile(project_id, publication.id)
         if manifest.publication_revision != reference.revision:
             raise ProjectsError("The accepted project architecture contract revision has drifted.")
         return ArchitectureHealthContract(

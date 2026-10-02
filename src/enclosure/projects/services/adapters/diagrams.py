@@ -8,7 +8,7 @@ from enclosure.diagrams.services.contracts.semantics.model import DiagramContrac
 from enclosure.diagrams.services.facade import DiagramsService
 
 from ...errors import ProjectsError
-from ..architecture_contracts.model import ArchitectureContractDiagram
+from ..architecture_contracts.model import ArchitectureContractDiagramContract
 from .model import ResolvedArchitectureDiagram
 
 
@@ -33,11 +33,21 @@ class DiagramContractsAdapter:
             raise ProjectsError(
                 f"Architecture diagram {diagram_id!r} could not be resolved at revision {expected_revision}."
             ) from error
-        return ResolvedArchitectureDiagram.model_validate(resolved.model_dump(mode="python"))
+        return ResolvedArchitectureDiagram(
+            diagram_id=resolved.diagram_id,
+            diagram_set_id=resolved.diagram_set_id,
+            revision=resolved.revision,
+            kind=resolved.kind,
+            draft=resolved.draft,
+            snapshot=resolved.snapshot,
+            snapshot_digest=resolved.snapshot_digest,
+            snapshot_version=resolved.snapshot_version,
+            registry_fingerprint=resolved.registry_fingerprint,
+        )
 
     def interpret(
         self,
-        diagram: ArchitectureContractDiagram,
+        diagram: ArchitectureContractDiagramContract,
     ) -> DiagramContractSemantics:
         try:
             return self.diagrams.interpret_contract_snapshot(

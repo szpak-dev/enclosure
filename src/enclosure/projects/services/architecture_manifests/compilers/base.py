@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from enclosure.diagrams.services.contracts.semantics.model import DiagramContractSemantics
 
 from ...architecture_contracts.model import (
-    ArchitectureContractDiagram,
-    ArchitectureContractUnit,
+    ArchitectureContractDiagramContract,
+    ArchitectureContractUnitContract,
     ArchitectureDiagramRole,
 )
 from ..assertions.model import ArchitectureAssertion
@@ -17,8 +17,8 @@ class ArchitectureDiagramCompiler(ABC):
     @abstractmethod
     def compile(
         self,
-        unit: ArchitectureContractUnit,
-        diagram: ArchitectureContractDiagram,
+        unit: ArchitectureContractUnitContract,
+        diagram: ArchitectureContractDiagramContract,
         semantics: DiagramContractSemantics,
     ) -> tuple[ArchitectureAssertion, ...]:
         raise NotImplementedError

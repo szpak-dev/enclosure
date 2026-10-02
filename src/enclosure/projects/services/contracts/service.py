@@ -112,19 +112,42 @@ class OperatingContractsService:
             return UnconfiguredOperatingContractBinding(project_id=project_id)
         return self._configured_binding(project_id)
 
+    def prepare_bootstrap(self, record_ids: tuple[str, ...]) -> tuple[OperatingContractReference, ...]:
+        if not record_ids:
+            return ()
+        if len(record_ids) != len(set(record_ids)):
+            raise ProjectsError("An operating contract revision cannot reference guidance more than once.")
+        resolution = self.records.resolve_guidance(record_ids)
+        if resolution.missing_ids:
+            raise ProjectsError("Operating contract guidance must reference existing records.")
+        return tuple(
+            OperatingContractReference(
+                kind="guidance",
+                id=item.id,
+                authority=item.authority,
+                revision=item.revision,
+            )
+            for item in resolution.guidance
+        )
+
     def bootstrap(
         self,
         project_id: str,
-        record_ids: tuple[str, ...],
+        references: tuple[OperatingContractReference, ...],
     ) -> ConfiguredOperatingContractBinding | UnconfiguredOperatingContractBinding:
-        if not record_ids:
+        if not references:
             return UnconfiguredOperatingContractBinding(project_id=project_id)
         contract = self.create(
             title="Project operating contract",
             authority=f"project:{project_id}:operating-contract",
             provenance="project-registration",
         )
-        revision = self.publish(contract.id, record_ids, ())
+        revision = self._revision(
+            self.repository.create_revision(
+                self.repository.get_contract(contract.id),
+                references,
+            )
+        )
         return self.bind(project_id, contract.id, revision.version, OperatingContractUpdatePolicy.FOLLOW_LATEST)
 
     def _configured_binding(self, project_id: str) -> ConfiguredOperatingContractBinding:
