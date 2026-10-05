@@ -2,6 +2,29 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
+from ..stack import DetectedStack, DiscoveredProject
+
+
+class RegisterProject(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    discovery: DiscoveredProject
+    architecture_root: str
+    boundaries_yaml: str
+    shape_yaml: str
+    scaffolding_id: str
+    record_ids: tuple[str, ...]
+
+
+class UpdateProject(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    title: str
+    stack: DetectedStack
+    boundaries_yaml: str
+    shape_yaml: str
+    scaffolding_id: str
+
 
 class Project(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

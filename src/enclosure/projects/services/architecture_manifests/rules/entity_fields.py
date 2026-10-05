@@ -27,7 +27,7 @@ class EntityFieldComparisonRule(ArchitectureComparisonRule):
             assertion,
             evidence,
             expected.name == observed.name
-            and expected.type == observed.type
+            and self.type_matches(expected.type, observed.type)
             and expected.keys == observed.keys
             and expected.cardinality == observed.cardinality,
         )

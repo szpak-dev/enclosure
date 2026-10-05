@@ -11,7 +11,7 @@ from wireup import injectable
 from ....core.models import DjangoRepository
 from ...errors import RecordsError
 from ...models import Record, Resource
-from .model import RecordCandidate, RecordResourceCandidate
+from .model import Embedding, RecordCandidate, RecordResourceCandidate
 
 
 @injectable
@@ -56,7 +56,7 @@ class RecordRepository(DjangoRepository):
             content=candidate.content,
             category_id=candidate.category_id,
             schema_version=candidate.schema_version,
-            embedding=candidate.embedding,
+            embedding=candidate.embedding.vector(),
         )
         record.tags.set(candidate.tag_ids)
         self._sync_resources(record, candidate.resources)
@@ -69,7 +69,7 @@ class RecordRepository(DjangoRepository):
         record.content = candidate.content
         record.category_id = candidate.category_id
         record.schema_version = candidate.schema_version
-        record.embedding = candidate.embedding
+        record.embedding = candidate.embedding.vector()
         record.save()
         record.tags.set(candidate.tag_ids)
         self._sync_resources(record, candidate.resources)
@@ -85,11 +85,12 @@ class RecordRepository(DjangoRepository):
 
     def search(
         self,
-        embedding: list[float] | None,
+        embedding: Embedding,
         limit: int,
         record_ids: tuple[str, ...] | None = None,
     ) -> list[Record]:
-        if embedding is None:
+        vector = embedding.vector()
+        if vector is None:
             return []
         records = self.summaries()
         if record_ids is not None:
@@ -98,7 +99,7 @@ class RecordRepository(DjangoRepository):
         distances: dict[str, float] = {}
         for record_id, distance in (
             records.exclude(embedding__isnull=True)
-            .annotate(distance=CosineDistance("embedding", embedding))
+            .annotate(distance=CosineDistance("embedding", vector))
             .values_list("id", "distance")
         ):
             if distance is not None and math.isfinite(distance):
@@ -107,7 +108,7 @@ class RecordRepository(DjangoRepository):
         resources = Resource.objects.exclude(embedding__isnull=True)
         if record_ids is not None:
             resources = resources.filter(record_id__in=record_ids)
-        for record_id, distance in resources.annotate(distance=CosineDistance("embedding", embedding)).values_list(
+        for record_id, distance in resources.annotate(distance=CosineDistance("embedding", vector)).values_list(
             "record_id", "distance"
         ):
             if distance is None or not math.isfinite(distance):
@@ -138,13 +139,13 @@ class RecordRepository(DjangoRepository):
                     path=candidate.path,
                     language=candidate.language,
                     content=candidate.content,
-                    embedding=candidate.embedding,
+                    embedding=candidate.embedding.vector(),
                 )
                 continue
 
             resource.language = candidate.language
             resource.content = candidate.content
-            resource.embedding = candidate.embedding
+            resource.embedding = candidate.embedding.vector()
             resource.save()
 
         record.resources.exclude(path__in=resource_paths).delete()

@@ -25,6 +25,13 @@ class ArchitectureSupportState(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class EvidenceSupport(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    support: ArchitectureSupportState
+    explanation: str
+
+
 class ImplementationContext(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", frozen=True)
 
@@ -46,8 +53,8 @@ class EvidenceCapability(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: ArchitectureAssertionKind
-    support: ArchitectureSupportState
-    explanation: str
+    semantics: EvidenceSupport
+    inventory: EvidenceSupport
 
 
 class EvidenceProviderReceipt(BaseModel):
@@ -136,9 +143,15 @@ class ImplementationEvidenceManifest(BaseModel):
     source_digest: str
     digest: str
 
-    def support(self, kind: ArchitectureAssertionKind) -> EvidenceCapability:
+    def support(self, kind: ArchitectureAssertionKind) -> EvidenceSupport:
+        return self._support(kind, "semantics")
+
+    def inventory_support(self, kind: ArchitectureAssertionKind) -> EvidenceSupport:
+        return self._support(kind, "inventory")
+
+    def _support(self, kind: ArchitectureAssertionKind, dimension: str) -> EvidenceSupport:
         declarations = tuple(
-            capability
+            getattr(capability, dimension)
             for receipt in self.provider_receipts
             for capability in receipt.capabilities
             if capability.kind == kind
@@ -150,15 +163,13 @@ class ImplementationEvidenceManifest(BaseModel):
             declaration for declaration in declarations if declaration.support == ArchitectureSupportState.PARTIAL
         )
         if supported:
-            return EvidenceCapability(kind=kind, support=ArchitectureSupportState.SUPPORTED, explanation="")
+            return EvidenceSupport(support=ArchitectureSupportState.SUPPORTED, explanation="")
         if partial:
-            return EvidenceCapability(
-                kind=kind,
+            return EvidenceSupport(
                 support=ArchitectureSupportState.PARTIAL,
                 explanation="; ".join(item.explanation for item in partial if item.explanation),
             )
-        return EvidenceCapability(
-            kind=kind,
+        return EvidenceSupport(
             support=ArchitectureSupportState.UNSUPPORTED,
             explanation="; ".join(item.explanation for item in declarations if item.explanation),
         )
