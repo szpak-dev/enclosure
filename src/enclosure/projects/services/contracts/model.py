@@ -27,6 +27,13 @@ class OperatingContractReference(BaseModel):
     revision: str
 
 
+class PublishOperatingContractRevision(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    record_ids: tuple[str, ...]
+    references: tuple[OperatingContractReference, ...]
+
+
 class OperatingContractRevision(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

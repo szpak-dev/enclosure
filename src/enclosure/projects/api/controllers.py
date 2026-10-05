@@ -14,7 +14,14 @@ from sirenity import (
 )
 
 from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
-from ..services.facade import ProjectsService
+from ..services.facade import (
+    ProjectsService,
+    PublishArchitectureContract,
+    PublishOperatingContractRevision,
+    RegisterProject,
+    ReplaceGuidanceRelationships,
+    UpdateProject,
+)
 from . import schemas
 
 
@@ -35,7 +42,7 @@ class ProjectsController(ControllerBase):
     ):
         publication = DjangoRequest.resolve(request, ProjectsService).publish_project_architecture_contract(
             project_id,
-            body,
+            PublishArchitectureContract.model_validate(body.model_dump(mode="python")),
         )
         return Status(201, publication)
 
@@ -141,7 +148,7 @@ class ProjectsController(ControllerBase):
     ):
         revision = DjangoRequest.resolve(request, ProjectsService).publish_operating_contract_revision(
             contract_id,
-            body,
+            PublishOperatingContractRevision.model_validate(body.model_dump(mode="python")),
         )
         return Status(201, revision)
 
@@ -278,7 +285,7 @@ class ProjectsController(ControllerBase):
         return list(
             DjangoRequest.resolve(request, ProjectsService).replace_guidance_relationships(
                 project_id,
-                body,
+                ReplaceGuidanceRelationships.model_validate(body.model_dump(mode="python")),
             )
         )
 
@@ -346,7 +353,9 @@ class ProjectsController(ControllerBase):
         description="Register a discovered project with its architecture configuration and supporting records.",
     )
     def register(self, request, body: schemas.RegisterProject):
-        resolution = DjangoRequest.resolve(request, ProjectsService).register_project(body)
+        resolution = DjangoRequest.resolve(request, ProjectsService).register_project(
+            RegisterProject.model_validate(body.model_dump(mode="python")),
+        )
         return Status(201, resolution)
 
     @route.post(
@@ -708,7 +717,7 @@ class ProjectsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, ProjectsService).update_project(
             project_id,
-            body,
+            UpdateProject.model_validate(body.model_dump(mode="python")),
         )
 
     @siren_follow_ups(

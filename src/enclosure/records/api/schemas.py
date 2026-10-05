@@ -1,9 +1,13 @@
 from typing import Annotated, Self
 
 from django.db.models import Manager
-from pydantic import Field, JsonValue, field_validator, model_validator
+from ninja import Schema
+from pydantic import ConfigDict, Field, JsonValue, field_validator, model_validator
 
-from enclosure.shared.schemas import StrictSchema
+
+class StrictSchema(Schema):
+    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+
 
 CategoryId = Annotated[str, Field(description="Record category identifier.")]
 RecordId = Annotated[str, Field(description="Record identifier.")]

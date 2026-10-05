@@ -52,14 +52,14 @@ class ArchitectureEvidenceCollector:
             else sha256("\n".join(source_digests).encode("utf-8")).hexdigest()
         )
         payload = {
-            "schema_version": 1,
+            "schema_version": 2,
             "provider_receipts": [receipt.model_dump(mode="json") for receipt in receipts],
             "evidence": [item.model_dump(mode="json") for item in evidence],
             "source_digest": source_digest,
         }
         canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
         return ImplementationEvidenceManifest(
-            schema_version=1,
+            schema_version=2,
             provider_receipts=receipts,
             evidence=evidence,
             source_digest=source_digest,
