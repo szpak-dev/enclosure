@@ -26,7 +26,7 @@ class Embedding(BaseModel, ABC):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     @abstractmethod
-    def vector(self) -> tuple[float, ...] | None:
+    def vector(self) -> list[float] | None:
         raise NotImplementedError
 
 
@@ -41,8 +41,8 @@ class VectorEmbedding(Embedding):
     kind: Literal["vector"] = "vector"
     values: tuple[float, ...]
 
-    def vector(self) -> tuple[float, ...]:
-        return self.values
+    def vector(self) -> list[float]:
+        return list(self.values)
 
 
 class RecordResourceCandidate(BaseModel):
