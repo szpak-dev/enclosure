@@ -21,7 +21,7 @@ dependencies = [
     "markdown-it-py",
     "modwire==11.0.0",
     "modwire-hex",
-    "mermaiden==10.1.0",
+    "mermaiden==11.0.0",
     "sirenity==8.0.2",
     "pgvector",
     "psycopg[binary]",

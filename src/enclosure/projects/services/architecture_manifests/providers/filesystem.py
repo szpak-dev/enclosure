@@ -9,6 +9,7 @@ from ..evidence.model import (
     ArtifactEvidence,
     EvidenceCapability,
     EvidenceProviderReceipt,
+    EvidenceSupport,
     ImplementationContext,
     ImplementationEvidence,
     ImplementationEvidenceSet,
@@ -54,15 +55,29 @@ class FilesystemArtifactEvidenceProvider(ArchitectureEvidenceProvider):
         capabilities = tuple(
             EvidenceCapability(
                 kind=kind,
-                support=(
-                    ArchitectureSupportState.SUPPORTED
-                    if kind == ArchitectureAssertionKind.ARTIFACT and paths
-                    else ArchitectureSupportState.UNSUPPORTED
+                semantics=EvidenceSupport(
+                    support=(
+                        ArchitectureSupportState.SUPPORTED
+                        if kind == ArchitectureAssertionKind.ARTIFACT and paths
+                        else ArchitectureSupportState.UNSUPPORTED
+                    ),
+                    explanation=(
+                        ""
+                        if kind == ArchitectureAssertionKind.ARTIFACT and paths
+                        else "The filesystem provider only observes supplied artifact paths."
+                    ),
                 ),
-                explanation=(
-                    ""
-                    if kind == ArchitectureAssertionKind.ARTIFACT and paths
-                    else "The filesystem provider only observes supplied artifact paths."
+                inventory=EvidenceSupport(
+                    support=(
+                        ArchitectureSupportState.SUPPORTED
+                        if kind == ArchitectureAssertionKind.ARTIFACT and paths
+                        else ArchitectureSupportState.UNSUPPORTED
+                    ),
+                    explanation=(
+                        ""
+                        if kind == ArchitectureAssertionKind.ARTIFACT and paths
+                        else "The filesystem provider only inventories supplied artifact paths."
+                    ),
                 ),
             )
             for kind in ArchitectureAssertionKind

@@ -22,10 +22,14 @@ class ClassifierBindingRule(ArchitectureBindingRule):
         context: ArchitectureBindingContext,
     ) -> ArchitectureBindingOutcome:
         expected = cast(ClassifierAssertion, assertion)
-        candidates = tuple(
+        evidence = tuple(
             cast(ClassifierEvidence, item)
             for item in context.observed.evidence
             if item.kind == ArchitectureAssertionKind.CLASSIFIER
-            and cast(ClassifierEvidence, item).name == expected.name
         )
+        references = {item.element_id for item in expected.evidence}
+        exact = tuple(item for item in evidence if item.reference in references)
+        if exact:
+            return self.outcome(assertion, context, exact)
+        candidates = tuple(item for item in evidence if item.name == expected.name)
         return self.outcome(assertion, context, candidates)

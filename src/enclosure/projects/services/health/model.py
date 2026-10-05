@@ -41,6 +41,12 @@ class GuidanceRelationshipInput(BaseModel):
     kind: GuidanceRelationshipKind
 
 
+class ReplaceGuidanceRelationships(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    relationships: tuple[GuidanceRelationshipInput, ...]
+
+
 class GuidanceRelationship(GuidanceRelationshipInput):
     id: str
     project_id: str

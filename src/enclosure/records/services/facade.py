@@ -2,9 +2,9 @@ from dataclasses import dataclass
 
 from django.db import transaction
 from django.db.models import QuerySet
+from pydantic import JsonValue
 from wireup import injectable
 
-from ..api import schemas as api_schemas
 from ..models import Category, CategorySchemaRevision, Record, Tag
 from .categories.service import CategoryService
 from .content import (
@@ -20,7 +20,7 @@ from .content import (
     ResourceManifestPage,
     TagPage,
 )
-from .records.model import RecordInput, RecordResourceInput
+from .records.model import RecordInput
 from .records.service import RecordService
 from .tags.service import TagService
 
@@ -33,11 +33,11 @@ class RecordsService:
     records: RecordService
     content: RecordContentService
 
-    def create_category(self, data: api_schemas.CreateCategory) -> Category:
-        return self.categories.create(data.title, data.content_schema)
+    def create_category(self, title: str, content_schema: dict[str, JsonValue]) -> Category:
+        return self.categories.create(title, content_schema)
 
-    def create_category_detail(self, data: api_schemas.CreateCategory) -> RecordCategoryDetail:
-        return self.content.category_detail(self.create_category(data))
+    def create_category_detail(self, title: str, content_schema: dict[str, JsonValue]) -> RecordCategoryDetail:
+        return self.content.category_detail(self.create_category(title, content_schema))
 
     def get_category(self, id: str) -> Category:
         return self.categories.get(id)
@@ -58,35 +58,35 @@ class RecordsService:
             limit=limit,
         )
 
-    def update_category(self, id: str, data: api_schemas.UpdateCategory) -> Category:
-        return self.categories.update(id, data.title)
+    def update_category(self, id: str, title: str) -> Category:
+        return self.categories.update(id, title)
 
     def update_category_detail(
         self,
         id: str,
-        data: api_schemas.UpdateCategory,
+        title: str,
     ) -> RecordCategoryDetail:
-        return self.content.category_detail(self.update_category(id, data))
+        return self.content.category_detail(self.update_category(id, title))
 
     def update_category_content_schema(
         self,
         id: str,
-        data: api_schemas.UpdateCategoryContentSchema,
+        content_schema: dict[str, JsonValue],
     ) -> CategorySchemaRevision:
-        return self.categories.update_content_schema(id, data.content_schema)
+        return self.categories.update_content_schema(id, content_schema)
 
     def update_category_content_schema_receipt(
         self,
         id: str,
-        data: api_schemas.UpdateCategoryContentSchema,
+        content_schema: dict[str, JsonValue],
     ) -> CategorySchemaRevisionReceipt:
-        return self.content.category_schema_receipt(self.update_category_content_schema(id, data))
+        return self.content.category_schema_receipt(self.update_category_content_schema(id, content_schema))
 
     def delete_category(self, id: str) -> None:
         self.categories.delete(id)
 
-    def create_tag(self, data: api_schemas.WriteTag) -> Tag:
-        return self.tags.create(data.name)
+    def create_tag(self, name: str) -> Tag:
+        return self.tags.create(name)
 
     def get_tag(self, id: str) -> Tag:
         return self.tags.get(id)
@@ -104,21 +104,20 @@ class RecordsService:
             limit=limit,
         )
 
-    def update_tag(self, id: str, data: api_schemas.WriteTag) -> Tag:
-        return self.tags.update(id, data.name)
+    def update_tag(self, id: str, name: str) -> Tag:
+        return self.tags.update(id, name)
 
     def delete_tag(self, id: str) -> None:
         self.tags.delete(id)
 
     @transaction.atomic
-    def create_record(self, data: api_schemas.WriteRecord) -> Record:
-        record_input = self._record_input(data)
-        schema_version = self.categories.current_schema_version(record_input.category_id)
-        self.categories.validate_content(record_input.category_id, schema_version, record_input.content)
-        self.tags.require_all(record_input.tag_ids)
-        return self.records.create(record_input, schema_version)
+    def create_record(self, data: RecordInput) -> Record:
+        schema_version = self.categories.current_schema_version(data.category_id)
+        self.categories.validate_content(data.category_id, schema_version, data.content)
+        self.tags.require_all(data.tag_ids)
+        return self.records.create(data, schema_version)
 
-    def create_record_detail(self, data: api_schemas.WriteRecord) -> RecordDetail:
+    def create_record_detail(self, data: RecordInput) -> RecordDetail:
         return self.content.record_detail(self.create_record(data))
 
     def get_record(self, id: str) -> Record:
@@ -149,19 +148,18 @@ class RecordsService:
         return self.records.search(query, limit, record_ids)
 
     @transaction.atomic
-    def update_record(self, id: str, data: api_schemas.WriteRecord) -> Record:
-        record_input = self._record_input(data)
-        current_schema_version = self.categories.current_schema_version(record_input.category_id)
+    def update_record(self, id: str, data: RecordInput) -> Record:
+        current_schema_version = self.categories.current_schema_version(data.category_id)
         schema_version = self.records.schema_version(
             id,
-            record_input.category_id,
+            data.category_id,
             current_schema_version,
         )
-        self.categories.validate_content(record_input.category_id, schema_version, record_input.content)
-        self.tags.require_all(record_input.tag_ids)
-        return self.records.update(id, record_input, schema_version)
+        self.categories.validate_content(data.category_id, schema_version, data.content)
+        self.tags.require_all(data.tag_ids)
+        return self.records.update(id, data, schema_version)
 
-    def update_record_detail(self, id: str, data: api_schemas.WriteRecord) -> RecordDetail:
+    def update_record_detail(self, id: str, data: RecordInput) -> RecordDetail:
         return self.content.record_detail(self.update_record(id, data))
 
     def delete_record(self, id: str) -> None:
@@ -209,20 +207,4 @@ class RecordsService:
             expected_revision,
             offset,
             limit,
-        )
-
-    def _record_input(self, data: api_schemas.WriteRecord) -> RecordInput:
-        return RecordInput(
-            title=data.title,
-            content=data.content,
-            category_id=data.category_id,
-            tag_ids=tuple(data.tag_ids),
-            resources=tuple(
-                RecordResourceInput(
-                    path=resource.path,
-                    language=resource.language,
-                    content=resource.content,
-                )
-                for resource in data.resources
-            ),
         )

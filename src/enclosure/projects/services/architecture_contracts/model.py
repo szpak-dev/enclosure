@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
 class ArchitectureDiagramRole(StrEnum):
@@ -43,8 +43,14 @@ class ArchitectureContractUnitInput(BaseModel):
     diagram_set_id: str
     source_root: str
     coverage: ArchitectureContractCoverage
-    diagrams: tuple[ArchitectureContractDiagramInput, ...]
+    diagrams: tuple[ArchitectureContractDiagramInput, ...] = Field(min_length=1)
     exclusions: tuple[ArchitectureContractExclusionInput, ...]
+
+
+class PublishArchitectureContract(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    units: tuple[ArchitectureContractUnitInput, ...] = Field(min_length=1)
 
 
 class ArchitectureContractDiagramContract(BaseModel):
@@ -85,14 +91,14 @@ class ArchitectureContractUnitContract(BaseModel):
     diagram_set_id: str
     source_root: str
     coverage: ArchitectureContractCoverage
-    diagrams: tuple[ArchitectureContractDiagramContract, ...]
+    diagrams: tuple[ArchitectureContractDiagramContract, ...] = Field(min_length=1)
     exclusions: tuple[ArchitectureContractExclusionContract, ...]
 
 
 class ArchitectureContractUnit(ArchitectureContractUnitContract):
     id: str
     position: int
-    diagrams: tuple[ArchitectureContractDiagram, ...]
+    diagrams: tuple[ArchitectureContractDiagram, ...] = Field(min_length=1)
     exclusions: tuple[ArchitectureContractExclusion, ...]
 
 
@@ -102,7 +108,7 @@ class ArchitectureContractCandidate(BaseModel):
     project_id: str
     authority: str
     revision: str
-    units: tuple[ArchitectureContractUnitContract, ...]
+    units: tuple[ArchitectureContractUnitContract, ...] = Field(min_length=1)
 
 
 class ArchitectureContractPublication(BaseModel):
@@ -113,4 +119,4 @@ class ArchitectureContractPublication(BaseModel):
     version: int
     authority: str
     revision: str
-    units: tuple[ArchitectureContractUnit, ...]
+    units: tuple[ArchitectureContractUnit, ...] = Field(min_length=1)

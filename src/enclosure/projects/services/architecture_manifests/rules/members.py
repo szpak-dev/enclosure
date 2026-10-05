@@ -28,9 +28,9 @@ class MemberComparisonRule(ArchitectureComparisonRule):
             evidence,
             expected.name == observed.name
             and expected.member_kind == observed.member_kind
-            and expected.type == observed.type
+            and self.type_matches(expected.type, observed.type)
             and expected.visibility == observed.visibility
             and expected.ownership == observed.ownership
             and expected.abstract == observed.abstract
-            and expected.parameters == observed.parameters,
+            and self.parameters_match(expected.parameters, observed.parameters),
         )

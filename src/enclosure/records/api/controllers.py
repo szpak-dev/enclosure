@@ -14,7 +14,7 @@ from sirenity import (
 )
 
 from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
-from ..services.facade import RecordsService
+from ..services.facade import RecordInput, RecordsService
 from . import schemas
 
 
@@ -28,7 +28,7 @@ class TagsController(ControllerBase):
         description="Create a tag for classifying records.",
     )
     def create(self, request, body: schemas.WriteTag):
-        tag = DjangoRequest.resolve(request, RecordsService).create_tag(body)
+        tag = DjangoRequest.resolve(request, RecordsService).create_tag(body.name)
         return Status(201, tag)
 
     @siren_pagination(
@@ -77,7 +77,7 @@ class TagsController(ControllerBase):
         tag_id: Annotated[str, Path(description="Record tag identifier.")],
         body: schemas.WriteTag,
     ):
-        return DjangoRequest.resolve(request, RecordsService).update_tag(tag_id, body)
+        return DjangoRequest.resolve(request, RecordsService).update_tag(tag_id, body.name)
 
     @route.delete(
         "/{tag_id}",
@@ -101,7 +101,9 @@ class RecordsController(ControllerBase):
         description="Store a categorized, tagged record and its source resources.",
     )
     def create(self, request, body: schemas.WriteRecord):
-        record = DjangoRequest.resolve(request, RecordsService).create_record_detail(body)
+        record = DjangoRequest.resolve(request, RecordsService).create_record_detail(
+            RecordInput.model_validate(body.model_dump(mode="python"))
+        )
         return Status(201, record)
 
     @siren_pagination(
@@ -146,7 +148,10 @@ class RecordsController(ControllerBase):
         description="Create a category whose JSON Schema validates record content.",
     )
     def create_category(self, request, body: schemas.CreateCategory):
-        category = DjangoRequest.resolve(request, RecordsService).create_category_detail(body)
+        category = DjangoRequest.resolve(request, RecordsService).create_category_detail(
+            body.title,
+            body.content_schema,
+        )
         return Status(201, category)
 
     @siren_pagination(
@@ -215,7 +220,7 @@ class RecordsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, RecordsService).update_category_detail(
             category_id,
-            body,
+            body.title,
         )
 
     @siren_follow_ups(
@@ -247,7 +252,7 @@ class RecordsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, RecordsService).update_category_content_schema_receipt(
             category_id,
-            body,
+            body.content_schema,
         )
 
     @SirenContinuation(
@@ -436,7 +441,7 @@ class RecordsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, RecordsService).update_record_detail(
             record_id,
-            body,
+            RecordInput.model_validate(body.model_dump(mode="python")),
         )
 
     @route.delete(

@@ -45,4 +45,35 @@ class RelationshipBindingRule(ArchitectureBindingRule):
             and cast(RelationshipEvidence, item).source_id == source_id
             and cast(RelationshipEvidence, item).target_reference == target_reference
         )
+        semantic = tuple(
+            item
+            for item in candidates
+            if item.relationship_kind == expected.relationship_kind
+            and item.source_cardinality == expected.source_cardinality
+            and item.target_cardinality == expected.target_cardinality
+        )
+        if semantic:
+            ordered = tuple(sorted(semantic, key=lambda item: item.id))
+            return ArchitectureBoundBinding(
+                unit_key=assertion.unit_key,
+                assertion_id=assertion.id,
+                state=ArchitectureBindingState.BOUND,
+                candidate_ids=tuple(item.id for item in ordered),
+                evidence_id=ordered[0].id,
+            )
+        exact = tuple(item for item in candidates if item.relationship_kind == expected.relationship_kind)
+        if exact:
+            semantic_values = {
+                (item.relationship_kind, item.source_cardinality, item.target_cardinality) for item in exact
+            }
+            if len(semantic_values) == 1:
+                ordered = tuple(sorted(exact, key=lambda item: item.id))
+                return ArchitectureBoundBinding(
+                    unit_key=assertion.unit_key,
+                    assertion_id=assertion.id,
+                    state=ArchitectureBindingState.BOUND,
+                    candidate_ids=tuple(item.id for item in ordered),
+                    evidence_id=ordered[0].id,
+                )
+            return self.outcome(assertion, context, exact)
         return self.outcome(assertion, context, candidates)

@@ -51,7 +51,7 @@ class ArchitectureBindingRule(ABC):
                 state=ArchitectureBindingState.AMBIGUOUS,
                 candidate_ids=candidate_ids,
             )
-        support = context.observed.support(assertion.kind)
+        support = context.observed.inventory_support(assertion.kind)
         if support.support != ArchitectureSupportState.SUPPORTED:
             return ArchitectureUnsupportedBinding(
                 unit_key=assertion.unit_key,
