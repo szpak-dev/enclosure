@@ -4,7 +4,6 @@ from typing import cast
 from wireup import injectable
 
 from ..assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, ArtifactAssertion
-from ..evidence.model import ArtifactEvidence
 from .base import ArchitectureBindingRule
 from .model import ArchitectureBindingContext, ArchitectureBindingOutcome
 
@@ -22,11 +21,5 @@ class ArtifactBindingRule(ArchitectureBindingRule):
         context: ArchitectureBindingContext,
     ) -> ArchitectureBindingOutcome:
         expected = cast(ArtifactAssertion, assertion)
-        candidates = tuple(
-            cast(ArtifactEvidence, item)
-            for item in context.observed.evidence
-            if item.kind == ArchitectureAssertionKind.ARTIFACT
-            and cast(ArtifactEvidence, item).path == expected.path
-            and cast(ArtifactEvidence, item).artifact_kind == expected.artifact_kind
-        )
+        candidates = context.index.artifacts(expected.path, expected.artifact_kind)
         return self.outcome(assertion, context, candidates)

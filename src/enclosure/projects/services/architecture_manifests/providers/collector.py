@@ -11,6 +11,7 @@ from ....errors import ProjectsError
 from ..assertions.model import ArchitectureAssertionKind
 from ..evidence.model import (
     ArtifactEvidence,
+    EvidenceProviderReceipt,
     ImplementationContext,
     ImplementationEvidence,
     ImplementationEvidenceManifest,
@@ -22,6 +23,26 @@ from .base import ArchitectureEvidenceProvider
 @dataclass(frozen=True)
 class ArchitectureEvidenceCollector:
     providers: Sequence[ArchitectureEvidenceProvider]
+
+    def source_digest(self, receipts: tuple[EvidenceProviderReceipt, ...]) -> str:
+        source_components = tuple(
+            sorted(
+                (
+                    receipt.provider,
+                    receipt.language,
+                    receipt.version,
+                    receipt.source_digest,
+                )
+                for receipt in receipts
+                if receipt.source_digest
+            )
+        )
+        source_canonical = json.dumps(
+            source_components,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        return sha256(source_canonical.encode("utf-8")).hexdigest()
 
     def collect(self, context: ImplementationContext) -> ImplementationEvidenceManifest:
         providers = tuple(sorted(self.providers, key=attrgetter("order", "name")))
@@ -45,12 +66,7 @@ class ArchitectureEvidenceCollector:
         if len(evidence_ids) != len(set(evidence_ids)):
             raise ProjectsError("Canonical implementation evidence identities must be unique.")
         receipts = tuple(result.receipt for result in collected)
-        source_digests = tuple(sorted({receipt.source_digest for receipt in receipts if receipt.source_digest}))
-        source_digest = (
-            source_digests[0]
-            if len(source_digests) == 1
-            else sha256("\n".join(source_digests).encode("utf-8")).hexdigest()
-        )
+        source_digest = self.source_digest(receipts)
         payload = {
             "schema_version": 2,
             "provider_receipts": [receipt.model_dump(mode="json") for receipt in receipts],

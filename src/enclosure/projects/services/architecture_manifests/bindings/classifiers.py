@@ -4,7 +4,6 @@ from typing import cast
 from wireup import injectable
 
 from ..assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, ClassifierAssertion
-from ..evidence.model import ClassifierEvidence
 from .base import ArchitectureBindingRule
 from .model import ArchitectureBindingContext, ArchitectureBindingOutcome
 
@@ -22,14 +21,6 @@ class ClassifierBindingRule(ArchitectureBindingRule):
         context: ArchitectureBindingContext,
     ) -> ArchitectureBindingOutcome:
         expected = cast(ClassifierAssertion, assertion)
-        evidence = tuple(
-            cast(ClassifierEvidence, item)
-            for item in context.observed.evidence
-            if item.kind == ArchitectureAssertionKind.CLASSIFIER
-        )
-        references = {item.element_id for item in expected.evidence}
-        exact = tuple(item for item in evidence if item.reference in references)
-        if exact:
-            return self.outcome(assertion, context, exact)
-        candidates = tuple(item for item in evidence if item.name == expected.name)
+        references = tuple(item.element_id for item in expected.evidence)
+        candidates = context.index.classifiers(references, expected.name)
         return self.outcome(assertion, context, candidates)

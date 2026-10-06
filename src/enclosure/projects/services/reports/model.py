@@ -218,9 +218,14 @@ class ArchitectureSource(ReportValue):
 
 
 class ArchitectureObservation(ReportValue):
-    reports: tuple[dict[str, JsonValue], ...]
     implementation_document: dict[str, JsonValue]
-    artifact_paths: tuple[str, ...]
+    source_digest: str
+    document_digest: str
+
+
+class ArchitectureReportObservation(ReportValue):
+    reports: tuple[dict[str, JsonValue], ...]
+    source_digest: str
 
 
 class HealthReport(ReportValue):

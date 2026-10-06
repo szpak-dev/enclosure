@@ -7,6 +7,7 @@ from ...architecture_manifests.assertions.model import (
     ArchitectureAssertionKind,
     ArchitectureDiagramEvidence,
 )
+from ...architecture_manifests.evidence.model import EvidenceProviderReceipt
 from ...architecture_manifests.model import (
     ArchitectureComparisonConclusion,
     ArchitectureComparisonState,
@@ -18,6 +19,15 @@ from ...architecture_manifests.model import (
 )
 from ...contracts.model import OperatingContractRevision, OperatingContractUpdatePolicy
 from ..attestations.model import ArchitectureConformanceAttestation
+
+
+class ArchitectureHealthInputIdentity(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    modwire_source_digest: str
+    artifact_inventory_digest: str
+    provider_receipts: tuple[EvidenceProviderReceipt, ...]
+    digest: str
 
 
 class ArchitectureHealthContract(BaseModel):
@@ -97,3 +107,4 @@ class ArchitectureHealthResult(BaseModel):
     reports: tuple[dict[str, JsonValue], ...]
     conformance: ArchitectureConformanceReport
     attestation: ArchitectureConformanceAttestation
+    input_identity: ArchitectureHealthInputIdentity

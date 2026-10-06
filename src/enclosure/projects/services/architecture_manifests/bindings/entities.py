@@ -8,7 +8,6 @@ from ..assertions.model import (
     ArchitectureAssertionKind,
     EntityAssertion,
 )
-from ..evidence.model import EntityEvidence
 from .base import ArchitectureBindingRule
 from .model import ArchitectureBindingContext, ArchitectureBindingOutcome
 
@@ -26,11 +25,5 @@ class EntityBindingRule(ArchitectureBindingRule):
         context: ArchitectureBindingContext,
     ) -> ArchitectureBindingOutcome:
         expected_entity = cast(EntityAssertion, assertion)
-        candidates = tuple(
-            cast(EntityEvidence, item)
-            for item in context.observed.evidence
-            if item.kind == ArchitectureAssertionKind.ENTITY
-            and cast(EntityEvidence, item).name.replace("_", "").casefold()
-            == expected_entity.name.replace("_", "").casefold()
-        )
+        candidates = context.index.entities(expected_entity.name)
         return self.outcome(assertion, context, candidates)

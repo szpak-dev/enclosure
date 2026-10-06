@@ -1,5 +1,6 @@
 from abc import ABC
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue, SerializeAsAny
 
@@ -94,16 +95,19 @@ class ArchitectureAssertionResult(BaseModel, ABC):
 
 
 class ArchitectureAssertionPass(ArchitectureAssertionResult):
+    state: Literal[ArchitectureComparisonState.PASS] = ArchitectureComparisonState.PASS
     evidence_id: str
 
 
 class ArchitectureAssertionFailure(ArchitectureAssertionResult):
+    state: Literal[ArchitectureComparisonState.FAIL] = ArchitectureComparisonState.FAIL
     kind: ArchitectureFindingKind
     expected: ArchitectureSemanticValue
     observed: tuple[ArchitectureSemanticValue, ...]
 
 
 class ArchitectureAssertionUnverified(ArchitectureAssertionResult):
+    state: Literal[ArchitectureComparisonState.UNVERIFIED] = ArchitectureComparisonState.UNVERIFIED
     kind: ArchitectureFindingKind
     expected: ArchitectureSemanticValue
     diagram_revisions: tuple[ArchitectureDiagramRevision, ...]
@@ -119,7 +123,10 @@ class ArchitectureComparison(BaseModel):
     realization_digest: str
     source_digest: str
     conclusion: ArchitectureComparisonConclusion
-    results: tuple[SerializeAsAny[ArchitectureAssertionResult], ...]
+    results: tuple[
+        SerializeAsAny[ArchitectureAssertionPass | ArchitectureAssertionFailure | ArchitectureAssertionUnverified],
+        ...,
+    ]
     passed: int
     failed: int
     unverified: int

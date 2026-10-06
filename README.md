@@ -62,6 +62,11 @@ server running as `enclosure-mcp`. Configure `.env` as needed:
   all web workers. Excess requests fail immediately instead of queueing.
 - `PROJECT_HEALTH_TIMEOUT_SECONDS` bounds each architecture-health process;
   the default is 60 seconds. Client disconnects cancel it sooner.
+- `PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS` bounds worker bootstrap before
+  a request is accepted; the default is 15 seconds.
+- `PROJECT_HEALTH_CACHE_MAX_BYTES` caps validated project-health stage results
+  in the dedicated `health-cache` volume. Failed, canceled, and timed-out runs
+  are never stored.
 
 Start or update the runtime:
 

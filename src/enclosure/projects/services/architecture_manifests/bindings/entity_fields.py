@@ -4,7 +4,6 @@ from typing import cast
 from wireup import injectable
 
 from ..assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, EntityFieldAssertion
-from ..evidence.model import EntityFieldEvidence
 from .base import ArchitectureBindingRule
 from .model import (
     ArchitectureBindingContext,
@@ -32,11 +31,5 @@ class EntityFieldBindingRule(ArchitectureBindingRule):
         if owner_binding.state != ArchitectureBindingState.BOUND:
             return self.blocked(assertion, "The architectural entity owner is not uniquely bound.")
         owner_id = cast(ArchitectureBoundBinding, owner_binding).evidence_id
-        candidates = tuple(
-            cast(EntityFieldEvidence, item)
-            for item in context.observed.evidence
-            if item.kind == ArchitectureAssertionKind.ENTITY_FIELD
-            and cast(EntityFieldEvidence, item).owner_id == owner_id
-            and cast(EntityFieldEvidence, item).name == expected.name
-        )
+        candidates = context.index.entity_fields(owner_id, expected.name)
         return self.outcome(assertion, context, candidates)
