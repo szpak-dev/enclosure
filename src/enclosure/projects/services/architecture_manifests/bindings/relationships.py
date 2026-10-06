@@ -4,7 +4,6 @@ from typing import cast
 from wireup import injectable
 
 from ..assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, RelationshipAssertion
-from ..evidence.model import RelationshipEvidence
 from .base import ArchitectureBindingRule
 from .model import (
     ArchitectureBindingContext,
@@ -38,13 +37,7 @@ class RelationshipBindingRule(ArchitectureBindingRule):
             return self.blocked(assertion, "The architectural relationship endpoints are not uniquely bound.")
         source_id = cast(ArchitectureBoundBinding, source_binding).evidence_id
         target_reference = context.evidence(cast(ArchitectureBoundBinding, target_binding).evidence_id).reference
-        candidates = tuple(
-            cast(RelationshipEvidence, item)
-            for item in context.observed.evidence
-            if item.kind == ArchitectureAssertionKind.RELATIONSHIP
-            and cast(RelationshipEvidence, item).source_id == source_id
-            and cast(RelationshipEvidence, item).target_reference == target_reference
-        )
+        candidates = context.index.relationships(source_id, target_reference)
         semantic = tuple(
             item
             for item in candidates

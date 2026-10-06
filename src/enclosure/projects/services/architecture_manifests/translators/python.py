@@ -1,6 +1,7 @@
 import ast
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from itertools import groupby
 from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import Never, cast
@@ -348,7 +349,7 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             if len(values) != 1 or type(values[0]) not in {ast.List, ast.Tuple}:
                 continue
             for item in values[0].elts:
-                if type(item) is ast.Constant and isinstance(item.value, str):
+                if type(item) is ast.Constant and type(item.value) is str:
                     fields.add(item.value)
         return fields
 
@@ -489,6 +490,11 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
     def translate(self, provider_manifest: ProviderManifest) -> ImplementationEvidenceSet:
         manifest = cast(ImplementationManifest, provider_manifest.payload)
         source_paths = {str(source.source_id): source.relative_path for source in manifest.source_manifest.sources}
+        source_paths_by_suffix: dict[str, list[str]] = {}
+        for path in source_paths.values():
+            parts = PurePosixPath(path).parts
+            for position in range(len(parts)):
+                source_paths_by_suffix.setdefault("/".join(parts[position:]), []).append(path)
         dependency_targets_by_path = {path: set() for path in source_paths.values()}
         for dependency in manifest.dependencies:
             source_path = source_paths[str(dependency.source_id)]
@@ -498,9 +504,7 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             if dependency.resolution != "unresolved" or dependency.specifier.startswith("."):
                 continue
             module_suffix = f"{dependency.specifier.replace('.', '/')}.py"
-            inferred = tuple(
-                path for path in source_paths.values() if path == module_suffix or path.endswith(f"/{module_suffix}")
-            )
+            inferred = tuple(source_paths_by_suffix.get(module_suffix, ()))
             if len(inferred) == 1:
                 dependency_targets_by_path[source_path].add(inferred[0])
         symbol_by_id = {symbol.id.canonical(): symbol for symbol in manifest.symbols}
@@ -518,18 +522,39 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             for symbol in classifier_symbols
         }
         classifiers_by_name = {
-            name: tuple(
-                symbol for symbol in classifier_symbols if symbol.qualified_name.rsplit(".", maxsplit=1)[-1] == name
+            name: tuple(values)
+            for name, values in groupby(
+                sorted(classifier_symbols, key=lambda item: item.qualified_name.rsplit(".", maxsplit=1)[-1]),
+                key=lambda item: item.qualified_name.rsplit(".", maxsplit=1)[-1],
             )
-            for name in {symbol.qualified_name.rsplit(".", maxsplit=1)[-1] for symbol in classifier_symbols}
+        }
+        classifiers_by_qualified_name = {
+            name: tuple(values)
+            for name, values in groupby(
+                sorted(classifier_symbols, key=lambda item: item.qualified_name),
+                key=lambda item: item.qualified_name,
+            )
+        }
+        inheritance_by_source = {
+            source: tuple(values)
+            for source, values in groupby(
+                sorted(manifest.inheritance, key=lambda item: item.source_symbol_id.canonical()),
+                key=lambda item: item.source_symbol_id.canonical(),
+            )
         }
         bases_by_classifier = {
             symbol.id.canonical(): tuple(
                 relation.target_reference.rsplit(".", maxsplit=1)[-1]
-                for relation in manifest.inheritance
-                if relation.source_symbol_id.canonical() == symbol.id.canonical()
+                for relation in inheritance_by_source.get(symbol.id.canonical(), ())
             )
             for symbol in classifier_symbols
+        }
+        attributes_by_owner = {
+            owner: tuple(values)
+            for owner, values in groupby(
+                sorted(manifest.attributes, key=lambda item: item.owner_symbol_id.canonical()),
+                key=lambda item: item.owner_symbol_id.canonical(),
+            )
         }
         model_classifier_ids = {
             symbol.id.canonical()
@@ -601,9 +626,8 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             symbol.qualified_name.rsplit(".", maxsplit=1)[0]
             for symbol in classifier_symbols
             if symbol.qualified_name.endswith(".Meta")
-            for attribute in manifest.attributes
-            if attribute.owner_symbol_id.canonical() == symbol.id.canonical()
-            and attribute.name == "abstract"
+            for attribute in attributes_by_owner.get(symbol.id.canonical(), ())
+            if attribute.name == "abstract"
             and any(
                 value.kind == SourceAssignedValueKind.LITERAL and value.expression == "True"
                 for value in attribute.assigned_values
@@ -626,8 +650,11 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             for symbol in classifier_symbols
         }
         annotations_by_target = {
-            target: tuple(annotation for annotation in manifest.annotations if annotation.target_id == target)
-            for target in {annotation.target_id for annotation in manifest.annotations}
+            target: tuple(values)
+            for target, values in groupby(
+                sorted(manifest.annotations, key=lambda item: item.target_id),
+                key=lambda item: item.target_id,
+            )
         }
         public_http_responses = {
             callable_value.symbol_id.canonical(): response
@@ -721,18 +748,19 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             )
             for parameter in manifest.parameters
         }
+        parameter_values_by_callable = {
+            callable_id: tuple(values)
+            for callable_id, values in groupby(
+                sorted(
+                    manifest.parameters,
+                    key=lambda item: (item.callable_id.canonical(), item.position, item.name),
+                ),
+                key=lambda item: item.callable_id.canonical(),
+            )
+        }
         parameters_by_callable = {}
         for callable_id in {item.symbol_id.canonical() for item in manifest.callables}:
-            parameters = tuple(
-                sorted(
-                    (
-                        parameter
-                        for parameter in manifest.parameters
-                        if parameter.callable_id.canonical() == callable_id
-                    ),
-                    key=lambda parameter: (parameter.position, parameter.name),
-                )
-            )
+            parameters = parameter_values_by_callable.get(callable_id, ())
             if (
                 callable_id in public_http_responses
                 and parameters
@@ -785,14 +813,6 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
                     parameters=(),
                 )
             )
-        attributes_by_owner = {
-            symbol.id.canonical(): tuple(
-                attribute
-                for attribute in manifest.attributes
-                if attribute.owner_symbol_id.canonical() == symbol.id.canonical()
-            )
-            for symbol in classifier_symbols
-        }
         meta_by_classifier: dict[str, str] = {}
         for source_id in {str(symbol.id.source_id) for symbol in classifier_symbols}:
             owner_id = ""
@@ -831,7 +851,7 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             field_attributes = {
                 attribute.name: attribute
                 for owner_id in (*reversed(inherited_ids), entity_symbol.id.canonical())
-                for attribute in attributes_by_owner[owner_id]
+                for attribute in attributes_by_owner.get(owner_id, ())
                 if any(
                     value.kind == SourceAssignedValueKind.CALL and self.is_entity_field_reference(value)
                     for value in attribute.assigned_values
@@ -996,7 +1016,9 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
                     parameters=parameters_by_callable[callable_value.symbol_id.canonical()],
                 )
             )
-        declared_members = tuple(item for item in evidence if isinstance(item, MemberEvidence))
+        declared_members = tuple(
+            cast(MemberEvidence, item) for item in evidence if item.kind == ArchitectureAssertionKind.MEMBER
+        )
         classifier_symbol_by_evidence_id = {evidence_id: symbol_id for symbol_id, evidence_id in classifier_ids.items()}
         owned_member_ids = {
             f"modwire:member:attribute:{attribute.id}"
@@ -1086,8 +1108,11 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
                     )
                 )
         members_by_owner = {
-            owner_id: tuple(item for item in declared_members if item.owner_id == owner_id)
-            for owner_id in {item.owner_id for item in declared_members}
+            owner_id: tuple(values)
+            for owner_id, values in groupby(
+                sorted(declared_members, key=lambda item: item.owner_id),
+                key=lambda item: item.owner_id,
+            )
         }
         inherited_member_evidence: list[MemberEvidence] = []
         for symbol in classifier_symbols:
@@ -1182,16 +1207,10 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
                 continue
             source_id = classifier_ids[relation.source_symbol_id.canonical()]
             coordinate = f"{relation.source_symbol_id.canonical()}:{relation.kind.value}:{relation.target_reference}"
-            target_candidates = tuple(
-                symbol
-                for symbol in classifier_symbols
-                if symbol.qualified_name == relation.target_reference
-                or (
-                    symbol.qualified_name.rsplit(".", maxsplit=1)[-1]
-                    == relation.target_reference.rsplit(".", maxsplit=1)[-1]
-                    and len(classifiers_by_name[relation.target_reference.rsplit(".", maxsplit=1)[-1]]) == 1
-                )
-            )
+            target_candidates = classifiers_by_qualified_name.get(relation.target_reference, ())
+            target_leaf = relation.target_reference.rsplit(".", maxsplit=1)[-1]
+            if not target_candidates and len(classifiers_by_name.get(target_leaf, ())) == 1:
+                target_candidates = classifiers_by_name[target_leaf]
             target_reference = (
                 classifier_references[target_candidates[0].id.canonical()]
                 if len(target_candidates) == 1

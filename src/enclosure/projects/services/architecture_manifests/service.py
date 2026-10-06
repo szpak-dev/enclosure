@@ -5,10 +5,11 @@ from hashlib import sha256
 from wireup import injectable
 
 from ..architecture_contracts.service import ArchitectureContractsService
+from .bindings.model import ArchitectureRealizationMap
 from .bindings.resolver import ArchitectureBindingResolver
 from .comparator import ArchitectureContractComparator
 from .compiler import ArchitectureContractCompiler
-from .evidence.model import ImplementationContext
+from .evidence.model import ImplementationContext, ImplementationEvidenceManifest
 from .model import ArchitectureComparison, ArchitectureComparisonBundle, ArchitectureContractManifest
 from .providers.collector import ArchitectureEvidenceCollector
 
@@ -54,14 +55,32 @@ class ArchitectureManifestService:
     ) -> ArchitectureComparison:
         return self.evaluate(self.compile(project_id, publication_id), context).comparison
 
+    def collect_evidence(self, context: ImplementationContext) -> ImplementationEvidenceManifest:
+        return self.evidence_collector.collect(context)
+
+    def realize(
+        self,
+        contract: ArchitectureContractManifest,
+        implementation: ImplementationEvidenceManifest,
+    ) -> ArchitectureRealizationMap:
+        return self.binding_resolver.resolve(contract, implementation)
+
+    def compare_evidence(
+        self,
+        contract: ArchitectureContractManifest,
+        implementation: ImplementationEvidenceManifest,
+        realization: ArchitectureRealizationMap,
+    ) -> ArchitectureComparison:
+        return self.comparator.compare(contract, implementation, realization)
+
     def evaluate(
         self,
         contract: ArchitectureContractManifest,
         context: ImplementationContext,
     ) -> ArchitectureComparisonBundle:
-        implementation = self.evidence_collector.collect(context)
-        realization = self.binding_resolver.resolve(contract, implementation)
-        comparison = self.comparator.compare(contract, implementation, realization)
+        implementation = self.collect_evidence(context)
+        realization = self.realize(contract, implementation)
+        comparison = self.compare_evidence(contract, implementation, realization)
         return ArchitectureComparisonBundle(
             contract=contract,
             implementation=implementation,

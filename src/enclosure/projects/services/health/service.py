@@ -6,7 +6,7 @@ from uuid import uuid4
 import structlog
 from wireup import injectable
 
-from ...errors import ProjectHealthCanceled, ProjectHealthTimedOut
+from ...errors import ProjectHealthCanceled, ProjectHealthTimedOut, ProjectsError
 from ..contracts.model import ConfiguredOperatingContractBinding
 from ..registry.model import ArchitectureConfiguration, Project
 from ..reports.model import ArchitectureSource, HealthReport, HealthReportSet
@@ -111,14 +111,33 @@ class ProjectHealthService:
                     project_id=project.id,
                     workspace_id=workspace.id,
                 )
-            self.input_identity.verify(
-                project,
-                workspace,
-                configuration,
-                binding,
-                source,
-                architecture.attestation.source_digest,
-            )
+            verification_started_ns = perf_counter_ns()
+            verification_outcome = "failed"
+            try:
+                self.input_identity.verify(
+                    project,
+                    workspace,
+                    configuration,
+                    binding,
+                    source,
+                    contract.manifest,
+                    architecture.input_identity,
+                    architecture.attestation.source_digest,
+                )
+                verification_outcome = "completed"
+            finally:
+                verification_finished_ns = perf_counter_ns()
+                self.logger.info(
+                    "project_health_phase_terminal",
+                    run_id=run_id,
+                    phase="final-input-verification",
+                    outcome=verification_outcome,
+                    started_ns=verification_started_ns,
+                    finished_ns=verification_finished_ns,
+                    duration_ns=verification_finished_ns - verification_started_ns,
+                    project_id=project.id,
+                    workspace_id=workspace.id,
+                )
             outcome = HealthRunOutcome.COMPLETED
             return report
         except ProjectHealthCanceled:
@@ -126,6 +145,9 @@ class ProjectHealthService:
             raise
         except ProjectHealthTimedOut:
             outcome = HealthRunOutcome.TIMED_OUT
+            raise
+        except ProjectsError:
+            outcome = HealthRunOutcome.REJECTED
             raise
         finally:
             finished_ns = perf_counter_ns()

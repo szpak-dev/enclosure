@@ -4,7 +4,6 @@ from typing import cast
 from wireup import injectable
 
 from ..assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, MemberAssertion
-from ..evidence.model import MemberEvidence
 from .base import ArchitectureBindingRule
 from .model import (
     ArchitectureBindingContext,
@@ -32,12 +31,5 @@ class MemberBindingRule(ArchitectureBindingRule):
         if owner_binding.state != ArchitectureBindingState.BOUND:
             return self.blocked(assertion, "The architectural member owner is not uniquely bound.")
         owner_id = cast(ArchitectureBoundBinding, owner_binding).evidence_id
-        candidates = tuple(
-            cast(MemberEvidence, item)
-            for item in context.observed.evidence
-            if item.kind == ArchitectureAssertionKind.MEMBER
-            and cast(MemberEvidence, item).owner_id == owner_id
-            and cast(MemberEvidence, item).name == expected.name
-            and cast(MemberEvidence, item).member_kind == expected.member_kind
-        )
+        candidates = context.index.members(owner_id, expected.name, expected.member_kind)
         return self.outcome(assertion, context, candidates)

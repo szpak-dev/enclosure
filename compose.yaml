@@ -13,6 +13,9 @@ x-runtime: &runtime
     MODWIRE_CACHE_MAX_BYTES: ${MODWIRE_CACHE_MAX_BYTES:-1073741824}
     PROJECT_HEALTH_MAX_CONCURRENCY: ${PROJECT_HEALTH_MAX_CONCURRENCY:-1}
     PROJECT_HEALTH_TIMEOUT_SECONDS: ${PROJECT_HEALTH_TIMEOUT_SECONDS:-60}
+    PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS: ${PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS:-15}
+    PROJECT_HEALTH_CACHE_DIRECTORY: /var/cache/enclosure/health
+    PROJECT_HEALTH_CACHE_MAX_BYTES: ${PROJECT_HEALTH_CACHE_MAX_BYTES:-1073741824}
     RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
     RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
     SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
@@ -20,6 +23,9 @@ x-runtime: &runtime
     - type: volume
       source: modwire-cache
       target: /var/cache/enclosure/modwire
+    - type: volume
+      source: health-cache
+      target: /var/cache/enclosure/health
     - type: bind
       source: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
       target: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
@@ -48,4 +54,5 @@ networks:
     name: resumed-api_default
 
 volumes:
+  health-cache:
   modwire-cache:

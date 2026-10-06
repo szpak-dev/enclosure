@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from errno import ENXIO
@@ -10,6 +11,7 @@ from time import monotonic, sleep
 from typing import cast
 
 import pytest
+from django.conf import settings
 from django.test import Client
 from django.test.utils import override_settings
 from modwire.application import ModwireApplication, ScanPolicy
@@ -172,6 +174,11 @@ def registration(
 def python_project(root: Path) -> None:
     (root / "uv.lock").write_text("", encoding="utf-8")
     (root / "app.py").write_text("class Application:\n    pass\n", encoding="utf-8")
+
+
+def distinguish_project_source(root: Path, name: str) -> None:
+    identity = sha256(root.as_posix().encode("utf-8")).hexdigest()[:16]
+    (root / "identity.py").write_text(f"class {name}{identity}:\n    pass\n", encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -2660,11 +2667,10 @@ def test_health_blocks_closed_coverage_when_observer_support_is_incomplete(
 
 
 @pytest.mark.django_db
-def test_health_rejects_source_drift_before_returning_a_completed_report(
+def test_health_reports_a_missing_declared_artifact(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     python_project(tmp_path)
     resolution = client.post(
@@ -2673,22 +2679,151 @@ def test_health_rejects_source_drift_before_returning_a_completed_report(
         content_type="application/json",
     ).json()
     accept_health_architecture(client, tmp_path, resolution)
-    source_manifest_identity = ModwireApplication.source_manifest_identity
-
-    def change_source_before_identity_check(
-        application: ModwireApplication,
-        language: str,
-        root: str,
-        policy: ScanPolicy,
-    ) -> object:
-        (Path(root) / "app.py").write_text("class ChangedApplication:\n    pass\n", encoding="utf-8")
-        return source_manifest_identity(application, language, root, policy)
-
-    monkeypatch.setattr(ModwireApplication, "source_manifest_identity", change_source_before_identity_check)
+    (tmp_path / "src" / "example" / "models.py").unlink()
 
     response = client.get(
         f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
     )
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["healthy"] is False
+    finding = next(
+        finding
+        for finding in response.json()["failures"]
+        if finding["rule"] == "architecture.conformance.artifact" and finding["target"] == "artifact:models"
+    )
+    assert finding["finding_kind"] == "missing"
+    assert finding["owner"] == "implementation"
+    assert finding["expected"]["fields"] == {
+        "path": "src/example/models.py",
+        "artifact_kind": "file",
+    }
+    assert finding["observed"] == []
+
+
+@pytest.mark.django_db
+def test_health_closed_coverage_reports_an_unexpected_empty_directory(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution, coverage="closed")
+    (tmp_path / "src" / "example" / "empty").mkdir()
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["healthy"] is False
+    finding = next(
+        finding
+        for finding in response.json()["failures"]
+        if finding["rule"] == "architecture.conformance.artifact"
+        and finding["finding_kind"] == "unexpected"
+        and finding["observed"][0]["fields"]["path"] == "src/example/empty"
+    )
+    assert finding["owner"] == "implementation"
+    assert finding["observed"][0]["fields"]["artifact_kind"] == "directory"
+
+
+@pytest.mark.django_db
+def test_health_closed_coverage_preserves_an_internal_symlink_path(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution, coverage="closed")
+    (tmp_path / "src" / "example" / "alias.py").symlink_to("service.py")
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 200, response.json()
+    assert response.json()["healthy"] is False
+    finding = next(
+        finding
+        for finding in response.json()["failures"]
+        if finding["rule"] == "architecture.conformance.artifact"
+        and finding["finding_kind"] == "unexpected"
+        and finding["observed"][0]["fields"]["path"] == "src/example/alias.py"
+    )
+    assert finding["observed"][0]["fields"]["artifact_kind"] == "file"
+
+
+@pytest.mark.django_db
+def test_health_rejects_an_artifact_symlink_that_escapes_the_workspace(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution, coverage="closed")
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.py"
+    outside.write_text("class OutsideWorkspace:\n    pass\n", encoding="utf-8")
+    (tmp_path / "src" / "example" / "escape.py").symlink_to(outside)
+
+    response = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Architecture artifact path escapes the workspace: 'src/example/escape.py'."}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_health_rejects_source_drift_before_returning_a_completed_report(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "DriftApplication")
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    caplog.clear()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        active_request = executor.submit(Client().get, path)
+        guidance_deadline = monotonic() + 15
+        while not any(
+            cast(dict[str, object], record.msg).get("event") == "project_health_guidance_started"
+            for record in caplog.records
+            if record.name.startswith("enclosure.projects.services.health")
+        ):
+            if active_request.done():
+                pytest.fail("Health evaluation completed before source mutation could start.")
+            if monotonic() >= guidance_deadline:
+                pytest.fail("Health evaluation did not reach guidance verification.")
+            sleep(0.001)
+        replacement = tmp_path / ".app.py.replacement"
+        replacement.write_text("class ChangedApplication:\n    pass\n", encoding="utf-8")
+        os.replace(replacement, tmp_path / "app.py")
+        response = active_request.result(timeout=5)
 
     assert response.status_code == 422
     assert response.json() == {"detail": "Project source changed during health evaluation."}
@@ -3165,7 +3300,7 @@ def test_health_times_out_blocked_work_and_recovers_capacity(
     replacement = next(
         event
         for event in events
-        if event.get("event") == "project_health_worker_started" and event["run_id"] == completed_run_id
+        if event.get("event") == "project_health_worker_bootstrap_terminal" and event["run_id"] == completed_run_id
     )
 
     assert timed_out.status_code == 504
@@ -3215,6 +3350,261 @@ def test_health_disconnect_cancels_work_and_recovers(
     assert len(canceled_events) == 2
 
 
+@pytest.mark.django_db(transaction=True)
+def test_health_recovers_from_corrupted_persistent_cache(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cache_directory = Path(settings.PROJECT_HEALTH_CACHE_DIRECTORY)
+    existing_entries = {entry: entry.read_bytes() for entry in cache_directory.rglob("*.json")}
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "CorruptCacheApplication")
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    baseline = client.get(path)
+    entries = tuple(
+        entry for entry in cache_directory.rglob("*.json") if existing_entries.get(entry) != entry.read_bytes()
+    )
+    completed_entry = next(entry for entry in entries if entry.parent.name == "completed-result")
+    completed_entry.write_bytes(b"{")
+
+    caplog.clear()
+    recovered = client.get(path)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+
+    assert baseline.status_code == 200, baseline.json()
+    assert recovered.status_code == 200, recovered.json()
+    assert recovered.json() == baseline.json()
+    assert any(
+        event.get("event") == "project_health_phase_terminal" and event.get("cache_outcome") == "corrupt"
+        for event in events
+    )
+    assert any(
+        event.get("event") == "project_health_phase_terminal"
+        and event.get("phase") == "final-input-verification"
+        and event.get("outcome") == "completed"
+        for event in events
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_health_recovers_from_stale_persistent_cache(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cache_directory = Path(settings.PROJECT_HEALTH_CACHE_DIRECTORY)
+    existing_entries = {entry: entry.read_bytes() for entry in cache_directory.rglob("*.json")}
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "StaleCacheApplication")
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    baseline = client.get(path)
+    entries = tuple(
+        entry for entry in cache_directory.rglob("*.json") if existing_entries.get(entry) != entry.read_bytes()
+    )
+    completed_entry = next(entry for entry in entries if entry.parent.name == "completed-result")
+    other_entry = next(entry for entry in entries if entry.parent.name != "completed-result")
+    completed_payload = completed_entry.read_bytes()
+    completed_entry.write_bytes(other_entry.read_bytes())
+    other_entry.write_bytes(completed_payload)
+
+    caplog.clear()
+    recovered = client.get(path)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+
+    assert baseline.status_code == 200, baseline.json()
+    assert recovered.status_code == 200, recovered.json()
+    assert recovered.json() == baseline.json()
+    assert any(
+        event.get("event") == "project_health_phase_terminal" and event.get("cache_outcome") == "stale"
+        for event in events
+    )
+    assert any(
+        event.get("event") == "project_health_phase_terminal"
+        and event.get("phase") == "final-input-verification"
+        and event.get("outcome") == "completed"
+        for event in events
+    )
+
+
+@pytest.mark.django_db
+def test_health_reuses_exact_stage_caches_after_configuration_change(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "StageCacheApplication")
+    payload = registration(discover(client, tmp_path), dependencies)
+    resolution = client.post(
+        "/api/projects",
+        data=payload,
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    caplog.clear()
+    cold = client.get(path)
+    warm = client.get(path)
+    updated = client.put(
+        f"/api/projects/{resolution['project']['id']}",
+        data={
+            "title": resolution["project"]["title"],
+            "stack": payload["discovery"]["stack"],
+            "boundaries_yaml": payload["boundaries_yaml"],
+            "shape_yaml": """shape:
+  realms:
+    - name: project
+      match: "*"
+      shape:
+        max_classes_per_file: 2
+""",
+            "scaffolding_id": payload["scaffolding_id"],
+        },
+        content_type="application/json",
+    )
+    changed = client.get(path)
+
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+    terminal_events = [event for event in events if event.get("event") == "project_health_terminal"]
+    cold_run_id, warm_run_id, changed_run_id = (event["run_id"] for event in terminal_events)
+    cold_phases = [
+        event
+        for event in events
+        if event.get("event") == "project_health_phase_terminal" and event.get("run_id") == cold_run_id
+    ]
+    warm_phases = [
+        event
+        for event in events
+        if event.get("event") == "project_health_phase_terminal" and event.get("run_id") == warm_run_id
+    ]
+    changed_phases = [
+        event
+        for event in events
+        if event.get("event") == "project_health_phase_terminal" and event.get("run_id") == changed_run_id
+    ]
+
+    assert cold.status_code == 200, cold.json()
+    assert warm.status_code == 200, warm.json()
+    assert updated.status_code == 200, updated.json()
+    assert changed.status_code == 200, changed.json()
+    assert cold.json()["healthy"] is True
+    assert warm.json() == cold.json()
+    assert changed.json()["healthy"] is True
+    assert sum(event["phase"] == "modwire-code-map" for event in cold_phases) == 1
+    assert any(event["phase"] == "completed-result-cache" and event["cache_outcome"] == "hit" for event in warm_phases)
+    assert all(event["phase"] != "modwire-code-map" for event in warm_phases)
+    assert any(
+        event["phase"] == "implementation-manifest"
+        and event["outcome"] == "cache-lookup"
+        and event["cache_outcome"] == "hit"
+        for event in changed_phases
+    )
+    assert any(
+        event["phase"] == "modwire-reports" and event["outcome"] == "cache-lookup" and event["cache_outcome"] == "miss"
+        for event in changed_phases
+    )
+    assert all(
+        any(
+            event["phase"] == phase and event["outcome"] == "cache-lookup" and event["cache_outcome"] == "hit"
+            for event in changed_phases
+        )
+        for phase in ("evidence", "realization", "comparison")
+    )
+    assert any(
+        event["phase"] == "attestation" and event["outcome"] == "cache-lookup" and event["cache_outcome"] == "miss"
+        for event in changed_phases
+    )
+
+
+@pytest.mark.django_db
+def test_health_is_insensitive_to_one_hundred_thousand_excluded_files(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    record_property: Callable[[str, object], None],
+) -> None:
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "ScaleApplication")
+    payload = registration(discover(client, tmp_path), dependencies, shape_yaml=COMPLETE_SHAPE_YAML)
+    payload["boundaries_yaml"] = COMPLETE_BOUNDARIES_YAML
+    resolution = client.post(
+        "/api/projects",
+        data=payload,
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    baseline = client.get(path)
+    noise = tmp_path / ".dev" / "noise"
+    creation_started = monotonic()
+    for directory_index in range(100):
+        directory = noise / str(directory_index)
+        directory.mkdir(parents=True)
+        for file_index in range(1000):
+            (directory / str(file_index)).touch()
+    creation_duration = monotonic() - creation_started
+
+    caplog.clear()
+    started = monotonic()
+    repeated = client.get(path)
+    duration = monotonic() - started
+    record_property("file_creation_seconds", creation_duration)
+    record_property("health_seconds", duration)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+
+    assert baseline.status_code == 200, baseline.json()
+    assert repeated.status_code == 200, repeated.json()
+    assert repeated.json() == baseline.json()
+    assert duration < 5
+    assert any(
+        event.get("event") == "project_health_phase_terminal"
+        and event.get("phase") == "completed-result-cache"
+        and event.get("cache_outcome") == "hit"
+        for event in events
+    )
+    assert all(
+        event.get("phase") != "modwire-code-map"
+        for event in events
+        if event.get("event") == "project_health_phase_terminal"
+    )
+
+
 @pytest.mark.django_db
 def test_repeated_health_reuses_warm_execution_and_observes_source_changes(
     client: Client,
@@ -3258,6 +3648,210 @@ def test_repeated_health_reuses_warm_execution_and_observes_source_changes(
     assert changed.json()["healthy"] is False
     assert "max_classes_per_file" in {finding["rule"] for finding in changed.json()["failures"]}
     assert changed_worker_events == ["project_health_worker_reused"]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_health_remains_truthful_when_persistent_cache_is_unavailable(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    cache_directory = Path(settings.PROJECT_HEALTH_CACHE_DIRECTORY)
+    existing_entries = {entry: entry.read_bytes() for entry in cache_directory.rglob("*.json")}
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "UnavailableCacheApplication")
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    baseline = client.get(path)
+    entries = tuple(
+        entry for entry in cache_directory.rglob("*.json") if existing_entries.get(entry) != entry.read_bytes()
+    )
+    completed_entry = next(entry for entry in entries if entry.parent.name == "completed-result")
+    completed_payload = completed_entry.read_bytes()
+    completed_entry.unlink()
+    completed_entry.mkdir()
+    caplog.clear()
+    try:
+        first = client.get(path)
+        second = client.get(path)
+    finally:
+        completed_entry.rmdir()
+        completed_entry.write_bytes(completed_payload)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+    completed_run_ids = {
+        event["run_id"]
+        for event in events
+        if event.get("event") == "project_health_terminal" and event.get("outcome") == "completed"
+    }
+
+    assert baseline.status_code == 200, baseline.json()
+    assert first.status_code == 200, first.json()
+    assert second.status_code == 200, second.json()
+    assert first.json() == baseline.json()
+    assert second.json() == baseline.json()
+    assert len(completed_run_ids) == 2
+    assert all(
+        any(
+            event.get("run_id") == run_id
+            and event.get("event") == "project_health_phase_terminal"
+            and event.get("phase") == "cache-persistence"
+            and event.get("cache_outcome") == "unavailable"
+            for event in events
+        )
+        for run_id in completed_run_ids
+    )
+    assert all(
+        all(
+            event.get("phase") != "modwire-code-map"
+            for event in events
+            if event.get("run_id") == run_id and event.get("event") == "project_health_phase_terminal"
+        )
+        for run_id in completed_run_ids
+    )
+
+
+@pytest.mark.django_db
+def test_health_cold_execution_is_stable_across_five_independent_projects(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    record_property: Callable[[str, object], None],
+) -> None:
+    responses = []
+    durations = []
+    caplog.clear()
+    for index in range(5):
+        root = tmp_path / str(index)
+        root.mkdir()
+        python_project(root)
+        distinguish_project_source(root, "ColdApplication")
+        resolution = client.post(
+            "/api/projects",
+            data=registration(discover(client, root), dependencies),
+            content_type="application/json",
+        ).json()
+        accept_health_architecture(client, root, resolution)
+        path = (
+            f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+        )
+        started = monotonic()
+        responses.append(client.get(path))
+        durations.append(monotonic() - started)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+    completed_run_ids = {
+        event["run_id"]
+        for event in events
+        if event.get("event") == "project_health_terminal" and event.get("outcome") == "completed"
+    }
+    record_property("cold_durations_seconds", ",".join(str(duration) for duration in durations))
+    record_property("cold_max_seconds", max(durations))
+
+    assert all(response.status_code == 200 for response in responses)
+    assert all(response.json()["healthy"] is True for response in responses)
+    assert all(response.json()["failures"] == [] for response in responses)
+    assert len({tuple(report["id"] for report in response.json()["reports"]) for response in responses}) == 1
+    assert max(durations) < 5
+    assert len(completed_run_ids) == 5
+    assert all(
+        any(
+            event.get("run_id") == run_id
+            and event.get("event") == "project_health_phase_terminal"
+            and event.get("phase") == "completed-result-cache"
+            and event.get("cache_outcome") == "miss"
+            for event in events
+        )
+        for run_id in completed_run_ids
+    )
+    assert all(
+        sum(
+            event.get("run_id") == run_id
+            and event.get("event") == "project_health_phase_terminal"
+            and event.get("phase") == "modwire-code-map"
+            for event in events
+        )
+        == 1
+        for run_id in completed_run_ids
+    )
+
+
+@pytest.mark.django_db
+def test_health_warm_execution_is_stable_across_twenty_requests(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    record_property: Callable[[str, object], None],
+) -> None:
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "WarmApplication")
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+    baseline = client.get(path)
+
+    caplog.clear()
+    responses = []
+    durations = []
+    for _ in range(20):
+        started = monotonic()
+        responses.append(client.get(path))
+        durations.append(monotonic() - started)
+    ordered_durations = sorted(durations)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name.startswith("enclosure.projects.services.health")
+    ]
+    completed_run_ids = {
+        event["run_id"]
+        for event in events
+        if event.get("event") == "project_health_terminal" and event.get("outcome") == "completed"
+    }
+    record_property("warm_durations_seconds", ",".join(str(duration) for duration in ordered_durations))
+    record_property("warm_p95_seconds", ordered_durations[18])
+    record_property("warm_max_seconds", max(ordered_durations))
+
+    assert baseline.status_code == 200, baseline.json()
+    assert all(response.status_code == 200 for response in responses)
+    assert all(response.json() == baseline.json() for response in responses)
+    assert ordered_durations[18] < 1
+    assert max(ordered_durations) < 5
+    assert len(completed_run_ids) == 20
+    assert all(
+        any(
+            event.get("run_id") == run_id
+            and event.get("event") == "project_health_phase_terminal"
+            and event.get("phase") == "completed-result-cache"
+            and event.get("cache_outcome") == "hit"
+            for event in events
+        )
+        for run_id in completed_run_ids
+    )
+    assert all(
+        event.get("phase") != "modwire-code-map"
+        for event in events
+        if event.get("event") == "project_health_phase_terminal"
+    )
 
 
 @pytest.mark.django_db

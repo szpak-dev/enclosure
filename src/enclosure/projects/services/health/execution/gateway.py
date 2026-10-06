@@ -2,7 +2,24 @@ from abc import ABC, abstractmethod
 
 from enclosure.shared.execution import CancellationSignal
 
-from .model import CompletedHealthExecutionResult, HealthExecutionRequest, IncompleteHealthExecutionResult
+from .model import (
+    CacheOutcomeState,
+    CompletedHealthExecutionResult,
+    HealthCacheIdentity,
+    HealthCacheLookup,
+    HealthExecutionRequest,
+    IncompleteHealthExecutionResult,
+)
+
+
+class ArchitectureHealthCache(ABC):
+    @abstractmethod
+    def load(self, identity: HealthCacheIdentity) -> HealthCacheLookup:
+        raise NotImplementedError
+
+    @abstractmethod
+    def store(self, identity: HealthCacheIdentity, payload: bytes) -> CacheOutcomeState:
+        raise NotImplementedError
 
 
 class HealthWorkerGateway(ABC):

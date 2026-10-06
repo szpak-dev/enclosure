@@ -1,10 +1,11 @@
+import json
 from dataclasses import dataclass
-from pathlib import Path
+from hashlib import sha256
 from typing import cast
 
 import yaml
 from django.conf import settings
-from modwire.application import CacheOptions, ModwireApplication, ScanPolicy
+from modwire.application import CacheOptions, ModwireApplication, QueryableCodeMap, ScanPolicy
 from modwire.architecture.config.models.architecture_config import ArchitectureConfig
 from pydantic import JsonValue
 from wireup import injectable
@@ -13,7 +14,13 @@ from yaml import YAMLError
 from enclosure.diagnostics.services import CacheDiagnosticsContext
 
 from ....errors import ProjectsError
-from ..model import ArchitectureObservation, ArchitectureSource
+from ..model import ArchitectureObservation, ArchitectureReportObservation, ArchitectureSource
+
+
+@dataclass(frozen=True)
+class ArchitectureCodeMapObservation:
+    code_map: QueryableCodeMap
+    source_digest: str
 
 
 @injectable
@@ -28,58 +35,60 @@ class ArchitectureAdapter:
         self,
         source: ArchitectureSource,
     ) -> tuple[dict[str, JsonValue], ...]:
-        application = ModwireApplication.create()
-        config = self.build_configuration(application, source.boundaries_yaml, source.shape_yaml)
-        cache = self.cache_options(source.workspace_id)
-        code_map = application.generate_queryable_map_cached_with_diagnostics(
-            source.language,
-            source.architecture_root,
-            ScanPolicy(excluded_patterns=config.excluded_patterns),
-            cache,
-        )
-        self.cache_diagnostics.record(code_map.outcomes)
-        reports = application.analyze_cached_with_diagnostics(code_map.value, config, cache)
-        self.cache_diagnostics.record(reports.outcomes)
-        return tuple(cast(dict[str, JsonValue], report.to_dict(mode="json")) for report in reports.value)
+        observation = self.code_map(source)
+        return self.observe_reports(source, observation).reports
 
-    def observe(self, source: ArchitectureSource) -> ArchitectureObservation:
+    def code_map(self, source: ArchitectureSource) -> ArchitectureCodeMapObservation:
         application = ModwireApplication.create()
         config = self.build_configuration(application, source.boundaries_yaml, source.shape_yaml)
         cache = self.cache_options(source.workspace_id)
-        code_map = application.generate_queryable_map_cached_with_diagnostics(
+        result = application.generate_queryable_map_cached_with_diagnostics(
             source.language,
             source.architecture_root,
             ScanPolicy(excluded_patterns=config.excluded_patterns),
             cache,
         )
-        self.cache_diagnostics.record(code_map.outcomes)
-        reports = application.analyze_cached_with_diagnostics(code_map.value, config, cache)
+        self.cache_diagnostics.record(result.outcomes)
+        return ArchitectureCodeMapObservation(
+            code_map=result.value,
+            source_digest=result.value.code_map.extraction.manifest.digest,
+        )
+
+    def observe_reports(
+        self,
+        source: ArchitectureSource,
+        observation: ArchitectureCodeMapObservation,
+    ) -> ArchitectureReportObservation:
+        application = ModwireApplication.create()
+        config = self.build_configuration(application, source.boundaries_yaml, source.shape_yaml)
+        cache = self.cache_options(source.workspace_id)
+        reports = application.analyze_cached_with_diagnostics(observation.code_map, config, cache)
         self.cache_diagnostics.record(reports.outcomes)
+        return ArchitectureReportObservation(
+            reports=tuple(cast(dict[str, JsonValue], report.to_dict(mode="json")) for report in reports.value),
+            source_digest=observation.source_digest,
+        )
+
+    def observe(self, observation: ArchitectureCodeMapObservation) -> ArchitectureObservation:
+        application = ModwireApplication.create()
         formats = tuple(item for item in application.implementation_manifest_formats() if item.id == "canonical-json")
         if len(formats) != 1:
             raise ProjectsError("Modwire must provide exactly one canonical implementation-manifest format.")
-        document = application.implementation_manifest(code_map.value.code_map, formats[0])
+        document = application.implementation_manifest(observation.code_map.code_map, formats[0])
+        implementation_document = cast(dict[str, JsonValue], document.model_dump(mode="json"))
+        canonical_document = json.dumps(
+            implementation_document,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
         return ArchitectureObservation(
-            reports=tuple(cast(dict[str, JsonValue], report.to_dict(mode="json")) for report in reports.value),
-            implementation_document=cast(dict[str, JsonValue], document.model_dump(mode="json")),
-            artifact_paths=self.artifact_paths(source.architecture_root),
+            implementation_document=implementation_document,
+            source_digest=observation.source_digest,
+            document_digest=sha256(canonical_document.encode("utf-8")).hexdigest(),
         )
 
-    def artifact_paths(self, root: str) -> tuple[str, ...]:
-        architecture_root = Path(root)
-        return tuple(
-            sorted(
-                path.relative_to(architecture_root).as_posix()
-                for path in architecture_root.rglob("*")
-                if path.is_file() and self.includes_artifact(path, architecture_root)
-            )
-        )
-
-    def includes_artifact(self, path: Path, root: Path) -> bool:
-        relative = path.relative_to(root)
-        return "__pycache__" not in relative.parts and path.suffix != ".pyc" and path.name != ".DS_Store"
-
-    def verify_source_identity(self, source: ArchitectureSource, expected_digest: str) -> None:
+    def source_identity(self, source: ArchitectureSource) -> str:
         application = ModwireApplication.create()
         config = self.build_configuration(application, source.boundaries_yaml, source.shape_yaml)
         identity = application.source_manifest_identity(
@@ -87,7 +96,10 @@ class ArchitectureAdapter:
             source.architecture_root,
             ScanPolicy(excluded_patterns=config.excluded_patterns),
         )
-        if identity.digest != expected_digest:
+        return identity.digest
+
+    def verify_source_identity(self, source: ArchitectureSource, expected_digest: str) -> None:
+        if self.source_identity(source) != expected_digest:
             raise ProjectsError("Project source changed during health evaluation.")
 
     def build_configuration(

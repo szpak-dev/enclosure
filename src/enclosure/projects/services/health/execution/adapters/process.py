@@ -1,7 +1,7 @@
 import fcntl
 from dataclasses import dataclass
 from pathlib import Path
-from time import perf_counter_ns
+from time import monotonic, perf_counter_ns
 from typing import ClassVar
 
 import structlog
@@ -43,6 +43,7 @@ class ProcessHealthWorker(HealthWorkerGateway):
         signal: CancellationSignal,
         timeout_seconds: int,
     ) -> CompletedHealthExecutionResult | IncompleteHealthExecutionResult:
+        deadline = monotonic() + timeout_seconds
         acquisition_started_ns = perf_counter_ns()
         try:
             lease = self.acquire()
@@ -68,8 +69,12 @@ class ProcessHealthWorker(HealthWorkerGateway):
             duration_ns=acquisition_finished_ns - acquisition_started_ns,
         )
         try:
-            worker = self.registry.get_or_start(lease.slot_index, request.run_id)
-            result = worker.execute(request, signal, timeout_seconds)
+            worker = self.registry.get_or_start(
+                lease.slot_index,
+                request.run_id,
+                max(0.0, deadline - monotonic()),
+            )
+            result = worker.execute(request, signal, max(0.0, deadline - monotonic()))
             if result.outcome != HealthRunOutcome.COMPLETED:
                 self.registry.discard(lease.slot_index, worker)
                 self.logger.info(
@@ -95,6 +100,6 @@ class ProcessHealthWorker(HealthWorkerGateway):
         raise ProjectHealthCapacityUnavailable("Project health execution capacity is exhausted.")
 
     def capacity_path(self) -> Path:
-        directory = Path(settings.MODWIRE_CACHE_DIRECTORY) / "health-capacity"
+        directory = Path(settings.PROJECT_HEALTH_CACHE_DIRECTORY) / "capacity"
         directory.mkdir(parents=True, exist_ok=True)
         return directory

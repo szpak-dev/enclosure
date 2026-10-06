@@ -1,9 +1,13 @@
+import json
 from abc import ABC
 from collections.abc import Mapping
 from enum import StrEnum
+from hashlib import sha256
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue, SerializeAsAny
 
+from ...architecture_contracts.model import ArchitectureContractCoverage, ArchitectureContractExclusionContract
 from ..assertions.model import (
     ArchitectureArtifactKind,
     ArchitectureAssertionKind,
@@ -16,6 +20,7 @@ from ..assertions.model import (
     ArchitectureRelationshipKind,
     ArchitectureTypeReference,
     ArchitectureVisibility,
+    ArtifactAssertion,
 )
 
 
@@ -36,7 +41,64 @@ class ImplementationContext(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", frozen=True)
 
     implementation_document: Mapping[str, JsonValue]
-    artifact_paths: tuple[str, ...]
+    artifact_inventory: "ArtifactObservationManifest"
+
+
+class ArtifactObservation(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str
+    artifact_kind: ArchitectureArtifactKind
+    exists: bool
+    content_digest: str
+
+
+class ArtifactObservationScope(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    unit_key: str
+    source_root: str
+    coverage: ArchitectureContractCoverage
+    exclusions: tuple[ArchitectureContractExclusionContract, ...]
+    declared_artifacts: tuple[ArtifactAssertion, ...]
+
+
+class ArtifactObservationPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scopes: tuple[ArtifactObservationScope, ...]
+    digest: str
+
+
+class ArtifactObservationManifest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: int
+    support: ArchitectureSupportState
+    plan_digest: str
+    observations: tuple[ArtifactObservation, ...]
+    digest: str
+
+
+def artifact_observation_manifest(
+    support: ArchitectureSupportState,
+    plan_digest: str,
+    observations: tuple[ArtifactObservation, ...],
+) -> ArtifactObservationManifest:
+    payload = {
+        "schema_version": 1,
+        "support": support.value,
+        "plan_digest": plan_digest,
+        "observations": [observation.model_dump(mode="json") for observation in observations],
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return ArtifactObservationManifest(
+        schema_version=1,
+        support=support,
+        plan_digest=plan_digest,
+        observations=observations,
+        digest=sha256(canonical.encode("utf-8")).hexdigest(),
+    )
 
 
 class ProviderManifest(BaseModel):
@@ -85,18 +147,21 @@ class ImplementationEvidence(BaseModel, ABC):
 
 
 class ArtifactEvidence(ImplementationEvidence):
+    kind: Literal[ArchitectureAssertionKind.ARTIFACT] = ArchitectureAssertionKind.ARTIFACT
     path: str
     artifact_kind: ArchitectureArtifactKind
     content_digest: str
 
 
 class ClassifierEvidence(ImplementationEvidence):
+    kind: Literal[ArchitectureAssertionKind.CLASSIFIER] = ArchitectureAssertionKind.CLASSIFIER
     name: str
     classifier_kind: ArchitectureClassifierKind
     abstract: bool
 
 
 class MemberEvidence(ImplementationEvidence):
+    kind: Literal[ArchitectureAssertionKind.MEMBER] = ArchitectureAssertionKind.MEMBER
     owner_id: str
     name: str
     member_kind: ArchitectureMemberKind
@@ -108,6 +173,7 @@ class MemberEvidence(ImplementationEvidence):
 
 
 class RelationshipEvidence(ImplementationEvidence):
+    kind: Literal[ArchitectureAssertionKind.RELATIONSHIP] = ArchitectureAssertionKind.RELATIONSHIP
     source_id: str
     target_reference: str
     relationship_kind: ArchitectureRelationshipKind
@@ -116,10 +182,12 @@ class RelationshipEvidence(ImplementationEvidence):
 
 
 class EntityEvidence(ImplementationEvidence):
+    kind: Literal[ArchitectureAssertionKind.ENTITY] = ArchitectureAssertionKind.ENTITY
     name: str
 
 
 class EntityFieldEvidence(ImplementationEvidence):
+    kind: Literal[ArchitectureAssertionKind.ENTITY_FIELD] = ArchitectureAssertionKind.ENTITY_FIELD
     owner_id: str
     name: str
     type: ArchitectureTypeReference
@@ -131,7 +199,17 @@ class ImplementationEvidenceSet(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     receipt: EvidenceProviderReceipt
-    evidence: tuple[SerializeAsAny[ImplementationEvidence], ...]
+    evidence: tuple[
+        SerializeAsAny[
+            ArtifactEvidence
+            | ClassifierEvidence
+            | MemberEvidence
+            | RelationshipEvidence
+            | EntityEvidence
+            | EntityFieldEvidence
+        ],
+        ...,
+    ]
 
 
 class ImplementationEvidenceManifest(BaseModel):
@@ -139,7 +217,17 @@ class ImplementationEvidenceManifest(BaseModel):
 
     schema_version: int
     provider_receipts: tuple[EvidenceProviderReceipt, ...]
-    evidence: tuple[SerializeAsAny[ImplementationEvidence], ...]
+    evidence: tuple[
+        SerializeAsAny[
+            ArtifactEvidence
+            | ClassifierEvidence
+            | MemberEvidence
+            | RelationshipEvidence
+            | EntityEvidence
+            | EntityFieldEvidence
+        ],
+        ...,
+    ]
     source_digest: str
     digest: str
 
