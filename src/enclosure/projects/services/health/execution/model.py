@@ -32,6 +32,14 @@ class HealthWorkerReadiness(StrEnum):
     FAILED = "failed"
 
 
+class HealthWorkerMessageKind(StrEnum):
+    PHASE_STARTED = "phase-started"
+    PHASE_DIAGNOSTIC = "phase-diagnostic"
+    WORKER_READY = "worker-ready"
+    CACHE_OUTCOMES = "cache-outcomes"
+    RESULT = "result"
+
+
 class CacheOutcomeState(StrEnum):
     NOT_APPLICABLE = "not-applicable"
     HIT = "hit"
@@ -93,13 +101,13 @@ class HealthExecutionPhase(StrEnum):
 
 
 class HealthPhaseToken(HealthExecutionValue):
-    kind: Literal["phase-started"] = "phase-started"
+    kind: Literal[HealthWorkerMessageKind.PHASE_STARTED] = HealthWorkerMessageKind.PHASE_STARTED
     phase: HealthExecutionPhase
     started_ns: int
 
 
 class HealthPhaseDiagnostic(HealthExecutionValue):
-    kind: Literal["phase-diagnostic"] = "phase-diagnostic"
+    kind: Literal[HealthWorkerMessageKind.PHASE_DIAGNOSTIC] = HealthWorkerMessageKind.PHASE_DIAGNOSTIC
     phase: HealthExecutionPhase
     duration_ns: int
     outcome: str
@@ -109,11 +117,11 @@ class HealthPhaseDiagnostic(HealthExecutionValue):
 
 
 class HealthWorkerReady(HealthExecutionValue):
-    kind: Literal["worker-ready"] = "worker-ready"
+    kind: Literal[HealthWorkerMessageKind.WORKER_READY] = HealthWorkerMessageKind.WORKER_READY
 
 
 class HealthCacheOutcomeDiagnostic(HealthExecutionValue):
-    kind: Literal["cache-outcomes"] = "cache-outcomes"
+    kind: Literal[HealthWorkerMessageKind.CACHE_OUTCOMES] = HealthWorkerMessageKind.CACHE_OUTCOMES
     outcomes: tuple[CacheOutcome, ...]
 
 
@@ -148,7 +156,7 @@ class IncompleteHealthExecutionResult(HealthExecutionResult):
 
 
 class HealthExecutionResponse(HealthExecutionValue):
-    kind: Literal["result"] = "result"
+    kind: Literal[HealthWorkerMessageKind.RESULT] = HealthWorkerMessageKind.RESULT
     result: Annotated[
         CompletedHealthExecutionResult | IncompleteHealthExecutionResult,
         Field(discriminator="outcome"),
