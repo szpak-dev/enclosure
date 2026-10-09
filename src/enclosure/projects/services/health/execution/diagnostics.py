@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from time import perf_counter_ns
@@ -6,6 +5,7 @@ from time import perf_counter_ns
 from wireup import injectable
 
 from .model import CacheOutcomeState, HealthCacheStage, HealthExecutionPhase, HealthPhaseDiagnostic, HealthPhaseToken
+from .reporter import HealthPhaseReporter
 
 
 @injectable
@@ -15,7 +15,7 @@ class HealthPhaseDiagnostics:
         default_factory=lambda: ContextVar("health_phase_diagnostics", default=()),
         init=False,
     )
-    reporter: ContextVar[Callable[[HealthPhaseToken | HealthPhaseDiagnostic], None]] = field(
+    reporter: ContextVar[HealthPhaseReporter] = field(
         default_factory=lambda: ContextVar("health_phase_reporter"),
         init=False,
     )
@@ -25,13 +25,13 @@ class HealthPhaseDiagnostics:
 
     def set_reporter(
         self,
-        reporter: Callable[[HealthPhaseToken | HealthPhaseDiagnostic], None],
-    ) -> Token[Callable[[HealthPhaseToken | HealthPhaseDiagnostic], None]]:
+        reporter: HealthPhaseReporter,
+    ) -> Token[HealthPhaseReporter]:
         return self.reporter.set(reporter)
 
     def start(self, phase: HealthExecutionPhase) -> HealthPhaseToken:
         token = HealthPhaseToken(phase=phase, started_ns=perf_counter_ns())
-        self.reporter.get()(token)
+        self.reporter.get().report_phase(token)
         return token
 
     def finish(
@@ -52,7 +52,7 @@ class HealthPhaseDiagnostics:
             cache_stages=cache_stages,
         )
         self.diagnostics.set((*self.diagnostics.get(), diagnostic))
-        self.reporter.get()(diagnostic)
+        self.reporter.get().report_phase(diagnostic)
         return diagnostic
 
     def read(self) -> tuple[HealthPhaseDiagnostic, ...]:
@@ -63,6 +63,6 @@ class HealthPhaseDiagnostics:
 
     def reset_reporter(
         self,
-        token: Token[Callable[[HealthPhaseToken | HealthPhaseDiagnostic], None]],
+        token: Token[HealthPhaseReporter],
     ) -> None:
         self.reporter.reset(token)

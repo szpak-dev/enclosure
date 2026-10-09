@@ -1,8 +1,6 @@
-import json
 from abc import ABC
 from collections.abc import Mapping
 from enum import StrEnum
-from hashlib import sha256
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue, SerializeAsAny
@@ -78,27 +76,6 @@ class ArtifactObservationManifest(BaseModel):
     plan_digest: str
     observations: tuple[ArtifactObservation, ...]
     digest: str
-
-
-def artifact_observation_manifest(
-    support: ArchitectureSupportState,
-    plan_digest: str,
-    observations: tuple[ArtifactObservation, ...],
-) -> ArtifactObservationManifest:
-    payload = {
-        "schema_version": 1,
-        "support": support.value,
-        "plan_digest": plan_digest,
-        "observations": [observation.model_dump(mode="json") for observation in observations],
-    }
-    canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    return ArtifactObservationManifest(
-        schema_version=1,
-        support=support,
-        plan_digest=plan_digest,
-        observations=observations,
-        digest=sha256(canonical.encode("utf-8")).hexdigest(),
-    )
 
 
 class ProviderManifest(BaseModel):

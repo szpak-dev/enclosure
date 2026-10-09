@@ -5,7 +5,7 @@ from typing import cast
 
 import yaml
 from django.conf import settings
-from modwire.application import CacheOptions, ModwireApplication, QueryableCodeMap, ScanPolicy
+from modwire.application import CacheOptions, ModwireApplication, ScanPolicy
 from modwire.architecture.config.models.architecture_config import ArchitectureConfig
 from pydantic import JsonValue
 from wireup import injectable
@@ -14,13 +14,12 @@ from yaml import YAMLError
 from enclosure.diagnostics.services import CacheDiagnosticsContext
 
 from ....errors import ProjectsError
-from ..model import ArchitectureObservation, ArchitectureReportObservation, ArchitectureSource
-
-
-@dataclass(frozen=True)
-class ArchitectureCodeMapObservation:
-    code_map: QueryableCodeMap
-    source_digest: str
+from ..model import (
+    ArchitectureCodeMapObservation,
+    ArchitectureObservation,
+    ArchitectureReportObservation,
+    ArchitectureSource,
+)
 
 
 @injectable

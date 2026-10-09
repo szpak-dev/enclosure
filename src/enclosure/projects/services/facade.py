@@ -17,11 +17,8 @@ from .architecture_contracts.model import (
     PublishArchitectureContract,
 )
 from .architecture_contracts.service import ArchitectureContractsService
-from .architecture_manifests.evidence.model import (
-    ArchitectureSupportState,
-    ImplementationContext,
-    artifact_observation_manifest,
-)
+from .architecture_manifests.evidence.identity import ArtifactObservationManifestIdentity
+from .architecture_manifests.evidence.model import ArchitectureSupportState, ImplementationContext
 from .architecture_manifests.model import ArchitectureComparison, ArchitectureContractManifest
 from .architecture_manifests.service import ArchitectureManifestService
 from .context.model import WorkspaceContext
@@ -86,6 +83,7 @@ class ProjectsService:
     architecture: ArchitectureAdapter
     architecture_contracts: ArchitectureContractsService
     architecture_manifests: ArchitectureManifestService
+    artifact_observation_identity: ArtifactObservationManifestIdentity
     contracts: OperatingContractsService
     context: WorkspaceContextService
     generation: GenerationService
@@ -216,7 +214,7 @@ class ProjectsService:
             publication_id,
             ImplementationContext(
                 implementation_document=implementation_document,
-                artifact_inventory=artifact_observation_manifest(
+                artifact_inventory=self.artifact_observation_identity.manifest(
                     support=ArchitectureSupportState.UNSUPPORTED,
                     plan_digest="",
                     observations=(),

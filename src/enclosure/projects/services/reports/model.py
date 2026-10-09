@@ -1,6 +1,8 @@
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Annotated, Literal, TypedDict
 
+from modwire.application import QueryableCodeMap
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from ..architecture_manifests.model import (
@@ -215,6 +217,12 @@ class ArchitectureSource(ReportValue):
     language: str
     boundaries_yaml: str
     shape_yaml: str
+
+
+@dataclass(frozen=True)
+class ArchitectureCodeMapObservation:
+    code_map: QueryableCodeMap
+    source_digest: str
 
 
 class ArchitectureObservation(ReportValue):
