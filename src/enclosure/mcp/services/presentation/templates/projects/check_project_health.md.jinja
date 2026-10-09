@@ -10,13 +10,6 @@ Architecture attestation: `{{ data.attestation.digest }}` ({{ data.attestation.d
 {% for report in data.reports %}
 - {{ report.title }}: {{ report.failure_count }} failures, {{ report.advisory_count }} advisories
 {% endfor %}
-{% if data.next_actions %}
 
-## Next actions
-{% for action in data.next_actions %}
-- {{ action }}
-{% endfor %}
-{% endif %}
-
-Use the typed follow-ups to read complete gating failures or advisories.
+Use the typed follow-ups to read the complete attestation, gating failures, or advisories.
 {% include "projects/partials/navigation.md.jinja" %}

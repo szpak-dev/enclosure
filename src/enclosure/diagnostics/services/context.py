@@ -1,9 +1,10 @@
-from collections.abc import Callable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 
 from modwire.application import CacheOutcome
 from wireup import injectable
+
+from .reporter import CacheDiagnosticsReporter
 
 
 @injectable
@@ -17,7 +18,7 @@ class CacheDiagnosticsContext:
         default_factory=lambda: ContextVar("cache_diagnostics_outcomes", default=()),
         init=False,
     )
-    reporters: ContextVar[tuple[Callable[[tuple[CacheOutcome, ...]], None], ...]] = field(
+    reporters: ContextVar[tuple[CacheDiagnosticsReporter, ...]] = field(
         default_factory=lambda: ContextVar("cache_diagnostics_reporters", default=()),
         init=False,
     )
@@ -30,17 +31,17 @@ class CacheDiagnosticsContext:
         if self.active.get():
             self.outcomes.set(self.outcomes.get() + outcomes)
             for reporter in self.reporters.get():
-                reporter(outcomes)
+                reporter.report_cache_outcomes(outcomes)
 
     def set_reporter(
         self,
-        reporter: Callable[[tuple[CacheOutcome, ...]], None],
-    ) -> Token[tuple[Callable[[tuple[CacheOutcome, ...]], None], ...]]:
+        reporter: CacheDiagnosticsReporter,
+    ) -> Token[tuple[CacheDiagnosticsReporter, ...]]:
         return self.reporters.set((reporter,))
 
     def reset_reporter(
         self,
-        token: Token[tuple[Callable[[tuple[CacheOutcome, ...]], None], ...]],
+        token: Token[tuple[CacheDiagnosticsReporter, ...]],
     ) -> None:
         self.reporters.reset(token)
 

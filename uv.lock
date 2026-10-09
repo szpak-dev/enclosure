@@ -445,7 +445,7 @@ requires-dist = [
     { name = "markdown-it-py" },
     { name = "mcp", specifier = ">=2,<3" },
     { name = "mermaiden", specifier = "==11.0.0" },
-    { name = "modwire", specifier = "==11.0.0" },
+    { name = "modwire", specifier = "==11.0.2" },
     { name = "modwire-hex" },
     { name = "pgvector" },
     { name = "psycopg", extras = ["binary"] },
@@ -846,7 +846,7 @@ wheels = [
 
 [[package]]
 name = "modwire"
-version = "11.0.0"
+version = "11.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
@@ -854,9 +854,9 @@ dependencies = [
     { name = "rich" },
     { name = "wireup" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f2/59/b9aaa5daee53aaef652de290ffcd82c3648f0afc964f6bd69938b8478376/modwire-11.0.0.tar.gz", hash = "sha256:7f2104cd7ef86fff7f964c671fe6e4dfd2c497d911553c483772ee5e81dea9f1", size = 2454891, upload-time = "2026-09-29T13:16:51.625Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/7f/dd4e41abd85180f8ea3b536760a5fb09ac0959d666765e3165688862f13c/modwire-11.0.2.tar.gz", hash = "sha256:0708c16e6934eb8e677a7db6d5e02704961fc9b921b80a1a0290895c0748927f", size = 2471710, upload-time = "2026-10-08T14:22:22.452Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/03/454e57178fd5ce5c66622985ba3f694e102ac715a226ae82175591b6560e/modwire-11.0.0-py3-none-any.whl", hash = "sha256:4e0da41d41c988e7405c6696c8ff3b1801b65406853d126dcb4b74e45665b6bf", size = 2472491, upload-time = "2026-09-29T13:16:49.721Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/7e/52d17e9a8b599e97d64f4f03dd8341e59bcfb6a3976065b1be6c05b41444/modwire-11.0.2-py3-none-any.whl", hash = "sha256:74df948a3424e1ab1c6e321a7ebf2a8f8f7ec83ba87e04b08606f315ea771df2", size = 2528362, upload-time = "2026-10-08T14:22:20.693Z" },
 ]
 
 [[package]]

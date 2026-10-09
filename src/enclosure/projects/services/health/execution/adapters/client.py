@@ -19,6 +19,7 @@ from ..model import (
     HealthPhaseToken,
     HealthRunOutcome,
     HealthWorkerMessage,
+    HealthWorkerMessageKind,
     HealthWorkerReadiness,
     HealthWorkerReady,
     IncompleteHealthExecutionResult,
@@ -96,15 +97,15 @@ class HealthWorkerClient:
                     message = HealthWorkerMessage.model_validate({"message": payload}).message
                 except ValueError:
                     return self.failed_result(tuple(diagnostics), active_phases, tuple(cache_outcomes))
-                if message.kind == "phase-started":
+                if message.kind == HealthWorkerMessageKind.PHASE_STARTED:
                     active_phases = (cast(HealthPhaseToken, message),)
                     continue
-                if message.kind == "phase-diagnostic":
+                if message.kind == HealthWorkerMessageKind.PHASE_DIAGNOSTIC:
                     diagnostic = cast(HealthPhaseDiagnostic, message)
                     diagnostics.append(diagnostic)
                     active_phases = ()
                     continue
-                if message.kind == "cache-outcomes":
+                if message.kind == HealthWorkerMessageKind.CACHE_OUTCOMES:
                     cache_outcomes.extend(cast(HealthCacheOutcomeDiagnostic, message).outcomes)
                     continue
                 response = cast(HealthExecutionResponse, message)

@@ -17,11 +17,8 @@ from .architecture_contracts.model import (
     PublishArchitectureContract,
 )
 from .architecture_contracts.service import ArchitectureContractsService
-from .architecture_manifests.evidence.model import (
-    ArchitectureSupportState,
-    ImplementationContext,
-    artifact_observation_manifest,
-)
+from .architecture_manifests.evidence.identity import ArtifactObservationManifestIdentity
+from .architecture_manifests.evidence.model import ArchitectureSupportState, ImplementationContext
 from .architecture_manifests.model import ArchitectureComparison, ArchitectureContractManifest
 from .architecture_manifests.service import ArchitectureManifestService
 from .context.model import WorkspaceContext
@@ -36,6 +33,7 @@ from .contracts.model import (
 )
 from .contracts.service import OperatingContractsService
 from .generation import GenerationResult, GenerationService
+from .health.attestations.model import ArchitectureConformanceAttestation
 from .health.graph import GuidanceGraphService
 from .health.model import (
     GuidanceRelationship,
@@ -85,6 +83,7 @@ class ProjectsService:
     architecture: ArchitectureAdapter
     architecture_contracts: ArchitectureContractsService
     architecture_manifests: ArchitectureManifestService
+    artifact_observation_identity: ArtifactObservationManifestIdentity
     contracts: OperatingContractsService
     context: WorkspaceContextService
     generation: GenerationService
@@ -215,7 +214,7 @@ class ProjectsService:
             publication_id,
             ImplementationContext(
                 implementation_document=implementation_document,
-                artifact_inventory=artifact_observation_manifest(
+                artifact_inventory=self.artifact_observation_identity.manifest(
                     support=ArchitectureSupportState.UNSUPPORTED,
                     plan_digest="",
                     observations=(),
@@ -435,6 +434,17 @@ class ProjectsService:
             self.workspaces.get(project_id, workspace_id),
             configuration,
             cast(ConfiguredOperatingContractBinding, binding),
+        )
+
+    def read_health_attestation(
+        self,
+        project_id: str,
+        workspace_id: str,
+        expected_revision: str,
+    ) -> ArchitectureConformanceAttestation:
+        return self.reports.read_health_attestation(
+            self.check_health(project_id, workspace_id),
+            expected_revision,
         )
 
     def read_health_findings(

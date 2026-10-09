@@ -2923,6 +2923,20 @@ def test_health_returns_a_complete_attestation_for_an_aligned_project(
     assert all(len(component["digest"]) == 64 for component in attestation["components"])
     assert len(attestation["digest"]) == 64
     assert len(response.json()["revision"]) == 64
+
+    stale = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-attestation",
+        data={"expected_revision": "stale"},
+    )
+    assert stale.status_code == 422
+    assert stale.json() == {"detail": "Project health changed; check it again before requesting the attestation."}
+
+    exact = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-attestation",
+        data={"expected_revision": response.json()["revision"]},
+    )
+    assert exact.status_code == 200
+    assert exact.json() == attestation
     guidance_report = next(report for report in response.json()["reports"] if report["id"] == "guidance-graph")
     assert guidance_report["advisory_count"] == 0
 
@@ -3215,15 +3229,15 @@ def test_health_preserves_exact_dependency_flow_location(
     }
 
 
-@override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=1, PROJECT_HEALTH_TIMEOUT_SECONDS=2)
+@override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=1)
 @pytest.mark.django_db(transaction=True)
 def test_health_rejects_excess_concurrency_and_recovers_capacity(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
 ) -> None:
     source = BlockingArchitectureSource.create(tmp_path)
+    source.replace()
     resolution = client.post(
         "/api/projects",
         data=registration(discover(client, tmp_path), dependencies),
@@ -3232,22 +3246,19 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
     accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
-    caplog.clear()
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        active_request = executor.submit(Client().get, path)
-        acquisition_deadline = monotonic() + 5
-        while not any(
-            cast(dict[str, object], record.msg).get("event") == "project_health_capacity_acquired"
-            for record in caplog.records
-            if record.name.startswith("enclosure.projects.services.health")
-        ):
-            if monotonic() >= acquisition_deadline:
-                pytest.fail("Active health request did not acquire capacity.")
-            sleep(0.01)
-        started = monotonic()
-        unavailable = client.get(path)
-        unavailable_duration = monotonic() - started
-        bounded = active_request.result(timeout=5)
+    assert client.get(path).status_code == 200
+    source.block()
+    with override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=2):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            active_request = executor.submit(Client().get, path)
+            writer = asyncio.run(asyncio.wait_for(source.connect_writer_when_ready(), timeout=5))
+            try:
+                started = monotonic()
+                unavailable = client.get(path)
+                unavailable_duration = monotonic() - started
+                bounded = active_request.result(timeout=5)
+            finally:
+                os.close(writer)
 
     source.replace()
     recovery_started = monotonic()

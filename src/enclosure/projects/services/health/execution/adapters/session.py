@@ -7,6 +7,8 @@ import structlog
 from django.db import connections
 from modwire.application import CacheOutcome
 
+from enclosure.diagnostics.services.reporter import CacheDiagnosticsReporter
+
 from .....errors import ProjectsError
 from ..evaluation import HealthWorkerEvaluationService
 from ..model import (
@@ -18,10 +20,11 @@ from ..model import (
     HealthRunOutcome,
     IncompleteHealthExecutionResult,
 )
+from ..reporter import HealthPhaseReporter
 
 
 @dataclass(frozen=True)
-class HealthWorkerSession:
+class HealthWorkerSession(CacheDiagnosticsReporter, HealthPhaseReporter):
     connection: Connection
     evaluation: HealthWorkerEvaluationService
 
@@ -46,8 +49,8 @@ class HealthWorkerSession:
             project_id=request.source.project_id,
             workspace_id=request.source.workspace_id,
         )
-        phase_reporter_token = self.evaluation.phases.set_reporter(self.report_phase)
-        cache_reporter_token = self.evaluation.cache.set_reporter(self.report_cache_outcomes)
+        phase_reporter_token = self.evaluation.phases.set_reporter(self)
+        cache_reporter_token = self.evaluation.cache.set_reporter(self)
         try:
             try:
                 result = self.evaluation.evaluate(request)

@@ -625,7 +625,7 @@ class PublicMcpClient:
         self,
         root: Path,
         shape_yaml: str,
-    ) -> tuple[httpx2.Response, CallToolResult, dict[str, CallToolResult]]:
+    ) -> tuple[httpx2.Response, CallToolResult, dict[str, CallToolResult], CallToolResult]:
         async with self.session() as (session, http_client):
             await session.initialize()
             project_id, workspace_id = await self._register_example_project(
@@ -643,15 +643,28 @@ class PublicMcpClient:
                 {"project_id": project_id, "workspace_id": workspace_id},
             )
             findings = {}
-            for follow_up in result.structured_content["follow_ups"]:
+            for follow_up in (
+                follow_up
+                for follow_up in result.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_project_health_findings"
+            ):
                 page = await session.call_tool(follow_up["operation_id"], follow_up["arguments"])
                 findings[page.structured_content["data"]["kind"]] = page
-            return rest_response, result, findings
+            attestation_follow_up = next(
+                follow_up
+                for follow_up in result.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_project_health_attestation"
+            )
+            attestation = await session.call_tool(
+                attestation_follow_up["operation_id"],
+                attestation_follow_up["arguments"],
+            )
+            return rest_response, result, findings, attestation
 
     async def oversized_guidance_health(
         self,
         root: Path,
-    ) -> tuple[httpx2.Response, CallToolResult, dict[str, CallToolResult]]:
+    ) -> tuple[httpx2.Response, CallToolResult, dict[str, CallToolResult], CallToolResult]:
         async with self.session() as (session, http_client):
             await session.initialize()
             project_id, workspace_id = await self._register_example_project(
@@ -669,10 +682,23 @@ class PublicMcpClient:
                 {"project_id": project_id, "workspace_id": workspace_id},
             )
             findings = {}
-            for follow_up in result.structured_content["follow_ups"]:
+            for follow_up in (
+                follow_up
+                for follow_up in result.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_project_health_findings"
+            ):
                 page = await session.call_tool(follow_up["operation_id"], follow_up["arguments"])
                 findings[page.structured_content["data"]["kind"]] = page
-            return rest_response, result, findings
+            attestation_follow_up = next(
+                follow_up
+                for follow_up in result.structured_content["follow_ups"]
+                if follow_up["operation_id"] == "read_project_health_attestation"
+            )
+            attestation = await session.call_tool(
+                attestation_follow_up["operation_id"],
+                attestation_follow_up["arguments"],
+            )
+            return rest_response, result, findings, attestation
 
     async def project_insights(
         self,
@@ -1147,6 +1173,7 @@ def test_lists_the_siren_catalogue() -> None:
     assert "create_operating_contract" in tools
     assert "get_project_operating_contract_binding" in tools
     assert "read_project_architecture_configuration_content" in tools
+    assert "read_project_health_attestation" in tools
     assert "read_project_health_findings" in tools
     assert "read_project_insight_content" in tools
     assert "read_project_insight_page" in tools
@@ -1155,6 +1182,11 @@ def test_lists_the_siren_catalogue() -> None:
     assert tools["get_workspace_context"].input_schema["required"] == ["root", "task"]
     assert tools["find_project_by_root"].input_schema["required"] == ["root"]
     assert tools["check_project_health"].input_schema["required"] == ["project_id", "workspace_id"]
+    assert tools["read_project_health_attestation"].input_schema["required"] == [
+        "expected_revision",
+        "project_id",
+        "workspace_id",
+    ]
     assert tools["install_workspace_agent_instructions"].input_schema["required"] == [
         "project_id",
         "workspace_id",
@@ -1248,13 +1280,13 @@ def test_creates_operating_contract_through_public_mcp() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
-def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path) -> None:
+def test_presents_gating_health_failures_with_exact_follow_ups(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
         "class ExampleApplication:\n    pass\n",
         encoding="utf-8",
     )
-    rest_response, result, findings = asyncio.run(
+    rest_response, result, findings, attestation = asyncio.run(
         PublicMcpClient(ConfiguredApplication()).project_health(
             tmp_path,
             EXAMPLE_UNHEALTHY_SHAPE_YAML,
@@ -1266,8 +1298,10 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
     assert result.structured_content["status"] == "error"
     assert result.structured_content["data"]["outcome"] == "gating-failure"
     assert result.structured_content["data"]["failure_count"] > 0
-    assert "example_app.py" in " ".join(result.structured_content["data"]["targets"])
-    assert result.structured_content["data"]["next_actions"]
+    assert "targets" not in result.structured_content["data"]
+    assert "next_actions" not in result.structured_content["data"]
+    assert "attestation" not in result.structured_content["data"]
+    assert result.structured_content["data"]["attestation_digest"] == rest_response.json()["attestation"]["digest"]
     assert "failures" not in result.structured_content["data"]
     failure_page = findings["failure"]
     assert failure_page.structured_content["data"]["items"] == rest_response.json()["failures"]
@@ -1283,7 +1317,9 @@ def test_presents_gating_health_failures_with_targets_and_actions(tmp_path: Path
     assert finding["symbol_name"] == ""
     assert finding["actual"] == 1
     assert finding["limit"] == 0
-    assert "## Next actions" in result.content[0].text
+    rest_attestation = rest_response.json()["attestation"]
+    assert {key: attestation.structured_content["data"][key] for key in rest_attestation} == rest_attestation
+    assert "## Next actions" not in result.content[0].text
     assert "Use the typed follow-ups" in result.content[0].text
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
@@ -1297,7 +1333,7 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    rest_response, result, findings = asyncio.run(
+    rest_response, result, findings, attestation = asyncio.run(
         PublicMcpClient(ConfiguredApplication()).oversized_guidance_health(tmp_path)
     )
 
@@ -1306,8 +1342,10 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
     assert result.structured_content["status"] == "error"
     assert result.structured_content["data"]["outcome"] == "gating-failure"
     assert result.structured_content["data"]["failure_count"] == 1
-    assert result.structured_content["data"]["next_actions"][0].endswith("against guidance-oversized.")
+    assert "next_actions" not in result.structured_content["data"]
     assert findings["failure"].structured_content["data"]["items"][0]["rule"] == "guidance-oversized"
+    rest_attestation = rest_response.json()["attestation"]
+    assert {key: attestation.structured_content["data"][key] for key in rest_attestation} == rest_attestation
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1399,7 +1437,7 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
         "class ExampleApplication:\n    pass\n",
         encoding="utf-8",
     )
-    rest_response, result, findings = asyncio.run(
+    rest_response, result, findings, attestation = asyncio.run(
         PublicMcpClient(ConfiguredApplication()).project_health(
             tmp_path,
             EXAMPLE_HEALTHY_SHAPE_YAML,
@@ -1412,9 +1450,17 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert result.structured_content["data"]["outcome"] == "healthy"
     assert result.structured_content["data"]["failure_count"] == 0
     assert result.structured_content["data"]["advisory_count"] == 0
+    assert result.structured_content["data"]["attestation_digest"] == rest_response.json()["attestation"]["digest"]
+    assert "attestation" not in result.structured_content["data"]
+    assert "targets" not in result.structured_content["data"]
+    assert "next_actions" not in result.structured_content["data"]
     assert findings["failure"].structured_content["data"]["items"] == []
     assert findings["advisory"].structured_content["data"]["items"] == []
+    rest_attestation = rest_response.json()["attestation"]
+    assert {key: attestation.structured_content["data"][key] for key in rest_attestation} == rest_attestation
     assert "Status: **healthy**" in result.content[0].text
+    assert len(result.content[0].text.encode("utf-8")) <= 16_384
+    assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
 
 @pytest.mark.django_db(transaction=True)
