@@ -8,14 +8,12 @@
     "revision": {{ data.revision | tojson }},
     "outcome": {{ data.outcome | tojson }},
     "healthy": {{ data.healthy | tojson }},
-    "attestation": {{ data.attestation | tojson }},
+    "attestation_digest": {{ data.attestation.digest | tojson }},
     "reports": {{ data.reports | tojson }},
     "failure_count": {{ data.failure_count | tojson }},
     "advisory_count": {{ data.advisory_count | tojson }},
     "failure_kind": {{ data.failure_kind | tojson }},
-    "advisory_kind": {{ data.advisory_kind | tojson }},
-    "targets": {{ data.targets | tojson }},
-    "next_actions": {{ data.next_actions | tojson }}
+    "advisory_kind": {{ data.advisory_kind | tojson }}
   },
   "follow_ups": {{ follow_ups | tojson }}
 }

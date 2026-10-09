@@ -36,6 +36,7 @@ from .contracts.model import (
 )
 from .contracts.service import OperatingContractsService
 from .generation import GenerationResult, GenerationService
+from .health.attestations.model import ArchitectureConformanceAttestation
 from .health.graph import GuidanceGraphService
 from .health.model import (
     GuidanceRelationship,
@@ -435,6 +436,17 @@ class ProjectsService:
             self.workspaces.get(project_id, workspace_id),
             configuration,
             cast(ConfiguredOperatingContractBinding, binding),
+        )
+
+    def read_health_attestation(
+        self,
+        project_id: str,
+        workspace_id: str,
+        expected_revision: str,
+    ) -> ArchitectureConformanceAttestation:
+        return self.reports.read_health_attestation(
+            self.check_health(project_id, workspace_id),
+            expected_revision,
         )
 
     def read_health_findings(

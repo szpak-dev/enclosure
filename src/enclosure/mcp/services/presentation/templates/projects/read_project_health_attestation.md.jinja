@@ -1,0 +1,23 @@
+# Project health attestation
+
+Schema version: `{{ data.schema_version }}`  
+Digest algorithm: `{{ data.digest_algorithm }}`  
+Attestation digest: `{{ data.digest }}`
+
+## Components
+{% for component in data.components %}
+- {{ component.kind }}: `{{ component.digest }}`
+{% endfor %}
+
+## Evidence digests
+
+- Contract: `{{ data.contract_digest }}`
+- Implementation evidence: `{{ data.implementation_evidence_digest }}`
+- Realization: `{{ data.realization_digest }}`
+- Source: `{{ data.source_digest }}`
+- Policy: `{{ data.policy_digest }}`
+- Configuration: `{{ data.configuration_digest }}`
+- Schemas: `{{ data.schema_digest }}`
+- Tools: `{{ data.tools_digest }}`
+- Comparator: `{{ data.comparator_digest }}`
+- Findings: `{{ data.findings_digest }}`

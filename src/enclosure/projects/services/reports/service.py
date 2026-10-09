@@ -8,6 +8,7 @@ from pydantic import JsonValue
 from wireup import injectable
 
 from ...errors import ProjectsError
+from ..health.attestations.model import ArchitectureConformanceAttestation
 from .adapters.architecture import ArchitectureAdapter
 from .model import (
     ArchitectureReportMetadata,
@@ -110,6 +111,15 @@ class ReportsService:
             failures=tuple(failures),
             advisories=tuple(advisories),
         )
+
+    def read_health_attestation(
+        self,
+        report: HealthReport,
+        expected_revision: str,
+    ) -> ArchitectureConformanceAttestation:
+        if report.revision != expected_revision:
+            raise ProjectsError("Project health changed; check it again before requesting the attestation.")
+        return report.attestation
 
     def read_health_findings(
         self,

@@ -752,6 +752,16 @@ class ProjectsController(ControllerBase):
                     "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
                 },
             ),
+            "attestation": SirenFollowUp(
+                operation_id="read_project_health_attestation",
+                parameters={"query.expected_revision": "revision"},
+                rel="item",
+                scope=SirenScope.ENTITY,
+                source_inputs={
+                    "project_id": SirenSourceInput(location="path", name="project_id"),
+                    "workspace_id": SirenSourceInput(location="path", name="workspace_id"),
+                },
+            ),
         },
         status=200,
         summary="Check project health",
@@ -767,6 +777,26 @@ class ProjectsController(ControllerBase):
         workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
     ):
         return DjangoRequest.resolve(request, ProjectsService).check_health(project_id, workspace_id)
+
+    @route.get(
+        "/{project_id}/workspaces/{workspace_id}/health-attestation",
+        response=schemas.ArchitectureConformanceAttestation,
+        operation_id="read_project_health_attestation",
+        summary="Read project health attestation",
+        description="Return the complete architecture-conformance attestation for one exact health revision.",
+    )
+    def read_health_attestation(
+        self,
+        request,
+        project_id: Annotated[str, Path(description="Project identifier.")],
+        workspace_id: Annotated[str, Path(description="Workspace-binding identifier.")],
+        query: Query[schemas.ReadHealthAttestation],
+    ):
+        return DjangoRequest.resolve(request, ProjectsService).read_health_attestation(
+            project_id,
+            workspace_id,
+            query.expected_revision,
+        )
 
     @SirenContinuation(
         http_get,

@@ -2923,6 +2923,20 @@ def test_health_returns_a_complete_attestation_for_an_aligned_project(
     assert all(len(component["digest"]) == 64 for component in attestation["components"])
     assert len(attestation["digest"]) == 64
     assert len(response.json()["revision"]) == 64
+
+    stale = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-attestation",
+        data={"expected_revision": "stale"},
+    )
+    assert stale.status_code == 422
+    assert stale.json() == {"detail": "Project health changed; check it again before requesting the attestation."}
+
+    exact = client.get(
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-attestation",
+        data={"expected_revision": response.json()["revision"]},
+    )
+    assert exact.status_code == 200
+    assert exact.json() == attestation
     guidance_report = next(report for report in response.json()["reports"] if report["id"] == "guidance-graph")
     assert guidance_report["advisory_count"] == 0
 

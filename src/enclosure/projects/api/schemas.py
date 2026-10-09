@@ -693,6 +693,10 @@ class ReadHealthFindings(StrictSchema):
     limit: int = Field(default=0, description="Maximum findings returned; zero selects the remainder.", ge=0)
 
 
+class ReadHealthAttestation(StrictSchema):
+    expected_revision: str = Field(description="Health revision on which the read is based.")
+
+
 class HealthFindingPage(StrictSchema):
     revision: str = Field(description="SHA-256 revision of the complete canonical health report.")
     kind: Literal["failure", "advisory"] = Field(description="Finding collection read by this page.")
