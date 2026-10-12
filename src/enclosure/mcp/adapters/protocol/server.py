@@ -25,6 +25,7 @@ from enclosure.autowiring import application
 from enclosure.mcp.services import McpService
 from enclosure.mcp.services.diagnostics import McpDiagnosticRequest, McpDiagnostics
 from enclosure.mcp.services.operations import ToolCatalogue, ToolInvocation
+from enclosure.projects.services.health.execution.adapters.registry import HealthWorkerRegistry
 from enclosure.security.services.actors import ActorExecutionContext
 
 from .authentication import McpActorAuthenticator, McpTokenVerifierAdapter
@@ -142,24 +143,33 @@ class McpProtocolServer:
         started_ns = perf_counter_ns()
         container = application.create_container()
         try:
-            service = container.get(McpService)
-            server.instructions = service.instructions()
-            finished_ns = perf_counter_ns()
-            structlog.get_logger(__name__).info(
-                "mcp_runtime_started",
-                release=self.release,
-                process_id=os.getpid(),
-                started_ns=started_ns,
-                finished_ns=finished_ns,
-                duration_ns=finished_ns - started_ns,
-                session_mode=self.SESSION_MODE,
-                session_reused=False,
+            worker_registry = container.get(HealthWorkerRegistry)
+            process_id = os.getpid()
+            await asyncio.to_thread(
+                worker_registry.start,
+                f"{self.release}:{process_id}:startup",
             )
-            yield McpProtocolRuntime(
-                service=service,
-                catalogue=service.catalogue(),
-                actors=container.get(ActorExecutionContext),
-            )
+            try:
+                service = container.get(McpService)
+                server.instructions = service.instructions()
+                finished_ns = perf_counter_ns()
+                structlog.get_logger(__name__).info(
+                    "mcp_runtime_started",
+                    release=self.release,
+                    process_id=process_id,
+                    started_ns=started_ns,
+                    finished_ns=finished_ns,
+                    duration_ns=finished_ns - started_ns,
+                    session_mode=self.SESSION_MODE,
+                    session_reused=False,
+                )
+                yield McpProtocolRuntime(
+                    service=service,
+                    catalogue=service.catalogue(),
+                    actors=container.get(ActorExecutionContext),
+                )
+            finally:
+                await asyncio.to_thread(worker_registry.close)
         finally:
             container.close()
 

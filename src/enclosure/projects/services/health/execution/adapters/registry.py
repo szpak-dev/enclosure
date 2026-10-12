@@ -23,6 +23,23 @@ class HealthWorkerRegistry:
     workers: dict[int, HealthWorkerClient] = field(default_factory=dict, init=False)
     replacement_slots: set[int] = field(default_factory=set, init=False)
 
+    def start(self, run_id: str) -> None:
+        try:
+            for slot_index in range(settings.PROJECT_HEALTH_MAX_CONCURRENCY):
+                self.get_or_start(
+                    slot_index,
+                    run_id,
+                    float(settings.PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS),
+                )
+        except Exception:
+            self.close()
+            raise
+        self.logger.info(
+            "project_health_worker_registry_started",
+            run_id=run_id,
+            worker_count=settings.PROJECT_HEALTH_MAX_CONCURRENCY,
+        )
+
     def get_or_start(self, slot_index: int, run_id: str, timeout_seconds: float) -> HealthWorkerClient:
         stale_workers: tuple[HealthWorkerClient, ...] = ()
         with self.guard:
@@ -107,3 +124,15 @@ class HealthWorkerRegistry:
             del self.workers[slot_index]
             self.replacement_slots.add(slot_index)
         worker.terminate()
+
+    def close(self) -> None:
+        with self.guard:
+            workers = tuple(self.workers.values())
+            self.workers.clear()
+            self.replacement_slots.clear()
+        for worker in workers:
+            worker.terminate()
+        self.logger.info(
+            "project_health_worker_registry_closed",
+            worker_count=len(workers),
+        )
