@@ -8,6 +8,7 @@ from typing import Any, cast
 import httpx2
 import pytest
 from django.test import Client
+from django.test.utils import override_settings
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import CallToolResult, InitializeResult, ListToolsResult
@@ -89,9 +90,12 @@ class ApplicationLifespan:
             )
         )
         await incoming.put({"type": "lifespan.startup"})
-        startup = await asyncio.wait_for(outgoing.get(), timeout=5)
+        startup = await asyncio.wait_for(outgoing.get(), timeout=30)
         if startup["type"] != "lifespan.startup.complete":
-            await task
+            try:
+                await task
+            except Exception as error:
+                raise RuntimeError(f"ASGI startup failed: {startup}") from error
             raise RuntimeError(f"ASGI startup failed: {startup}")
         try:
             yield
@@ -109,6 +113,90 @@ class ConfiguredApplication:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await self.application(scope, receive, send)
+
+
+@override_settings(PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS=0)
+def test_lifespan_rejects_an_unready_health_worker_and_recovers(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def run_lifespan(application: ASGIApp) -> None:
+        async with ApplicationLifespan(application).run():
+            pass
+
+    with pytest.raises(RuntimeError, match="ASGI startup failed"):
+        asyncio.run(run_lifespan(ConfiguredApplication()))
+    failure_events = [
+        cast(dict[str, object], json.loads(line))
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("{")
+    ]
+
+    assert any(
+        event.get("event") == "project_health_worker_bootstrap_terminal" and event.get("outcome") == "timed-out"
+        for event in failure_events
+    )
+    assert any(
+        event.get("event") == "project_health_worker_registry_closed" and event.get("worker_count") == 0
+        for event in failure_events
+    )
+
+    with override_settings(PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS=15):
+        asyncio.run(run_lifespan(ConfiguredApplication()))
+    recovery_events = [
+        cast(dict[str, object], json.loads(line))
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("{")
+    ]
+
+    assert any(
+        event.get("event") == "project_health_worker_registry_started" and event.get("worker_count") == 1
+        for event in recovery_events
+    )
+    assert any(
+        event.get("event") == "project_health_worker_registry_closed" and event.get("worker_count") == 1
+        for event in recovery_events
+    )
+
+
+@override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=2)
+def test_lifespan_prepares_every_health_worker_before_serving_and_closes_them(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def observe_lifespan() -> list[dict[str, object]]:
+        async with ApplicationLifespan(ConfiguredApplication()).run():
+            return [
+                cast(dict[str, object], json.loads(line))
+                for line in capsys.readouterr().err.splitlines()
+                if line.startswith("{")
+            ]
+
+    startup_events = asyncio.run(observe_lifespan())
+    all_events = startup_events + [
+        cast(dict[str, object], json.loads(line))
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("{")
+    ]
+    bootstrap_events = [
+        event for event in startup_events if event.get("event") == "project_health_worker_bootstrap_terminal"
+    ]
+
+    assert [(event["slot_index"], event["outcome"]) for event in bootstrap_events] == [
+        (0, "completed"),
+        (1, "completed"),
+    ]
+    assert next(
+        index
+        for index, event in enumerate(startup_events)
+        if event.get("event") == "project_health_worker_registry_started"
+    ) < next(index for index, event in enumerate(startup_events) if event.get("event") == "mcp_runtime_started")
+    assert any(
+        event.get("event") == "project_health_worker_registry_started" and event.get("worker_count") == 2
+        for event in startup_events
+    )
+    assert any(
+        event.get("event") == "project_health_worker_registry_closed" and event.get("worker_count") == 2
+        for event in all_events
+    )
 
 
 class PublicMcpClient:
