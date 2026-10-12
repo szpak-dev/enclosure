@@ -63,6 +63,10 @@ class HealthWorkerEvaluationService:
             artifact_inventory = self.artifacts.observe(request.source.architecture_root, artifact_plan)
             self.phases.finish(artifact_phase, item_count=len(artifact_inventory.observations))
 
+            evidence_engine = HealthCacheComponent(
+                name="evidence-engine",
+                digest="typed-artifact-evidence-v3",
+            )
             completed_identity = self.cache_identities.identity(
                 HealthCacheStage.COMPLETED_RESULT,
                 (
@@ -82,7 +86,7 @@ class HealthWorkerEvaluationService:
                     HealthCacheComponent(name="conformance-engine", digest=self.identity.model_dump_json()),
                     HealthCacheComponent(name="implementation-document-engine", digest="canonical-json-v2"),
                     HealthCacheComponent(name="report-engine", digest="modwire-report-v1"),
-                    HealthCacheComponent(name="evidence-engine", digest="typed-artifact-evidence-v2"),
+                    evidence_engine,
                     HealthCacheComponent(name="binding-engine", digest="indexed-binding-v1"),
                     HealthCacheComponent(name="completed-result-schema", digest="2"),
                 ),
@@ -213,7 +217,7 @@ class HealthWorkerEvaluationService:
                     HealthCacheComponent(name="implementation-document", digest=observation.document_digest),
                     HealthCacheComponent(name="artifact-inventory", digest=artifact_inventory.digest),
                     HealthCacheComponent(name="evidence-schema", digest="2"),
-                    HealthCacheComponent(name="evidence-engine", digest="typed-artifact-evidence-v2"),
+                    evidence_engine,
                 ),
             )
             implementations: tuple[ImplementationEvidenceManifest, ...] = ()
