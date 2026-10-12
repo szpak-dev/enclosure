@@ -1,11 +1,20 @@
 from abc import ABC
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, JsonValue, SerializeAsAny
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, SerializeAsAny
 
 from ..architecture_contracts.model import ArchitectureContractCoverage, ArchitectureContractExclusionContract
-from .assertions.model import ArchitectureAssertion, ArchitectureAssertionKind, ArchitectureDiagramEvidence
+from .assertions.model import (
+    ArchitectureAssertionKind,
+    ArchitectureDiagramEvidence,
+    ArtifactAssertion,
+    ClassifierAssertion,
+    EntityAssertion,
+    EntityFieldAssertion,
+    MemberAssertion,
+    RelationshipAssertion,
+)
 from .bindings.model import ArchitectureRealizationMap
 from .evidence.model import ImplementationEvidenceManifest
 
@@ -57,7 +66,18 @@ class ArchitectureContractManifestUnit(BaseModel):
     coverage: ArchitectureContractCoverage
     diagram_revisions: tuple[ArchitectureDiagramRevision, ...]
     exclusions: tuple[ArchitectureContractExclusionContract, ...]
-    assertions: tuple[SerializeAsAny[ArchitectureAssertion], ...]
+    assertions: tuple[
+        Annotated[
+            ArtifactAssertion
+            | ClassifierAssertion
+            | MemberAssertion
+            | RelationshipAssertion
+            | EntityAssertion
+            | EntityFieldAssertion,
+            Field(discriminator="kind"),
+        ],
+        ...,
+    ]
 
 
 class ArchitectureContractManifest(BaseModel):

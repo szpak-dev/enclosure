@@ -1,5 +1,6 @@
 from abc import ABC
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -101,17 +102,20 @@ class ArchitectureAssertion(BaseModel, ABC):
 
 
 class ArtifactAssertion(ArchitectureAssertion):
+    kind: Literal[ArchitectureAssertionKind.ARTIFACT] = ArchitectureAssertionKind.ARTIFACT
     path: str
     artifact_kind: ArchitectureArtifactKind
 
 
 class ClassifierAssertion(ArchitectureAssertion):
+    kind: Literal[ArchitectureAssertionKind.CLASSIFIER] = ArchitectureAssertionKind.CLASSIFIER
     name: str
     classifier_kind: ArchitectureClassifierKind
     abstract: bool
 
 
 class MemberAssertion(ArchitectureAssertion):
+    kind: Literal[ArchitectureAssertionKind.MEMBER] = ArchitectureAssertionKind.MEMBER
     owner_id: str
     name: str
     member_kind: ArchitectureMemberKind
@@ -123,6 +127,7 @@ class MemberAssertion(ArchitectureAssertion):
 
 
 class RelationshipAssertion(ArchitectureAssertion):
+    kind: Literal[ArchitectureAssertionKind.RELATIONSHIP] = ArchitectureAssertionKind.RELATIONSHIP
     source_id: str
     target_id: str
     relationship_kind: ArchitectureRelationshipKind
@@ -131,10 +136,12 @@ class RelationshipAssertion(ArchitectureAssertion):
 
 
 class EntityAssertion(ArchitectureAssertion):
+    kind: Literal[ArchitectureAssertionKind.ENTITY] = ArchitectureAssertionKind.ENTITY
     name: str
 
 
 class EntityFieldAssertion(ArchitectureAssertion):
+    kind: Literal[ArchitectureAssertionKind.ENTITY_FIELD] = ArchitectureAssertionKind.ENTITY_FIELD
     owner_id: str
     name: str
     type: ArchitectureTypeReference
