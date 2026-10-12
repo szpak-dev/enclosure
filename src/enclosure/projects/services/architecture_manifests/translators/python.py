@@ -156,12 +156,21 @@ class ModwirePythonSemanticTranslator(ImplementationSemanticTranslator, ast.Node
             cast(ArchitectureTypeReference, self.visit(node.left)),
             cast(ArchitectureTypeReference, self.visit(node.right)),
         )
-        concrete = tuple(member for member in members if member.name != "Void")
+        arguments = tuple(
+            argument
+            for member in members
+            for argument in (
+                member.arguments
+                if member.name == "Choice" and member.cardinality == ArchitectureCardinality.ONE
+                else (member,)
+            )
+        )
+        concrete = tuple(argument for argument in arguments if argument.name != "Void")
         if len(concrete) == 1:
             return concrete[0].model_copy(update={"cardinality": ArchitectureCardinality.OPTIONAL})
         return ArchitectureTypeReference(
             name="Choice",
-            arguments=members,
+            arguments=arguments,
             cardinality=ArchitectureCardinality.ONE,
         )
 

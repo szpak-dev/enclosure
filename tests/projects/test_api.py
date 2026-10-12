@@ -3559,6 +3559,65 @@ def test_health_reuses_exact_stage_caches_after_configuration_change(
 
 
 @pytest.mark.django_db
+def test_health_recompiles_only_after_the_accepted_architecture_reference_changes(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    python_project(tmp_path)
+    distinguish_project_source(tmp_path, "AcceptedContractCacheApplication")
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()
+    accept_health_architecture(client, tmp_path, resolution)
+    path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
+
+    caplog.clear()
+    baseline = client.get(path)
+    repeated = client.get(path)
+    diagram_set = client.post(
+        "/api/diagram-sets",
+        data={"title": "Replacement health architecture", "description": "Replacement accepted health contract."},
+        content_type="application/json",
+    )
+    assert diagram_set.status_code == 201, diagram_set.json()
+    fixture = ArchitectureContractFixture(
+        client,
+        resolution["project"]["id"],
+        diagram_set.json()["id"],
+    )
+    publication = fixture.publish_example_architecture()
+    fixture.accept_publication(publication)
+    changed = client.get(path)
+    events = [
+        cast(dict[str, object], record.msg)
+        for record in caplog.records
+        if record.name == "enclosure.projects.services.health.conformance.contract"
+        and cast(dict[str, object], record.msg).get("event") == "project_health_architecture_contract_cache"
+    ]
+
+    assert baseline.status_code == 200, baseline.json()
+    assert repeated.status_code == 200, repeated.json()
+    assert changed.status_code == 200, changed.json()
+    assert repeated.json() == baseline.json()
+    assert changed.json()["healthy"] is True
+    assert changed.json()["attestation"]["contract_digest"] != baseline.json()["attestation"]["contract_digest"]
+    assert [event["resolution_outcome"] for event in events] == ["compiled", "reused", "compiled"]
+    assert [event["lookup_outcome"] for event in events] == ["miss", "hit", "miss"]
+    assert [event["store_outcome"] for event in events] == ["stored", "not-applicable", "stored"]
+    assert events[0]["cache_identity"] == events[1]["cache_identity"]
+    assert events[0]["cache_identity"] != events[2]["cache_identity"]
+    assert events[0]["manifest_digest"] == events[1]["manifest_digest"]
+    assert events[0]["manifest_digest"] != events[2]["manifest_digest"]
+    assert events[0]["compilation_duration_ns"] > 0
+    assert events[1]["compilation_duration_ns"] == 0
+    assert events[2]["compilation_duration_ns"] > 0
+
+
+@pytest.mark.django_db
 def test_health_is_insensitive_to_one_hundred_thousand_excluded_files(
     client: Client,
     dependencies: dict[str, str],
@@ -3705,7 +3764,6 @@ def test_health_remains_truthful_when_persistent_cache_is_unavailable(
         for event in events
         if event.get("event") == "project_health_terminal" and event.get("outcome") == "completed"
     }
-
     assert baseline.status_code == 200, baseline.json()
     assert first.status_code == 200, first.json()
     assert second.status_code == 200, second.json()
@@ -3838,6 +3896,7 @@ def test_health_warm_execution_is_stable_across_twenty_requests(
         for event in events
         if event.get("event") == "project_health_terminal" and event.get("outcome") == "completed"
     }
+    contract_events = [event for event in events if event.get("event") == "project_health_architecture_contract_cache"]
     record_property("warm_durations_seconds", ",".join(str(duration) for duration in ordered_durations))
     record_property("warm_p95_seconds", ordered_durations[18])
     record_property("warm_max_seconds", max(ordered_durations))
@@ -3845,6 +3904,12 @@ def test_health_warm_execution_is_stable_across_twenty_requests(
     assert baseline.status_code == 200, baseline.json()
     assert all(response.status_code == 200 for response in responses)
     assert all(response.json() == baseline.json() for response in responses)
+    assert len(contract_events) == 20
+    assert {event["resolution_outcome"] for event in contract_events} == {"reused"}
+    assert {event["lookup_outcome"] for event in contract_events} == {"hit"}
+    assert {event["compilation_duration_ns"] for event in contract_events} == {0}
+    assert len({event["cache_identity"] for event in contract_events}) == 1
+    assert len({event["manifest_digest"] for event in contract_events}) == 1
     assert ordered_durations[18] < 1
     assert max(ordered_durations) < 5
     assert len(completed_run_ids) == 20

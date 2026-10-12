@@ -51,6 +51,7 @@ class CacheOutcomeState(StrEnum):
 
 
 class HealthCacheStage(StrEnum):
+    ARCHITECTURE_CONTRACT = "architecture-contract"
     IMPLEMENTATION_DOCUMENT = "implementation-document"
     MODWIRE_REPORTS = "modwire-reports"
     IMPLEMENTATION_EVIDENCE = "implementation-evidence"
