@@ -1,12 +1,14 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from mermaiden import Application
 from mermaiden.core.domain import DiagramSnapshotContractIdentity
 from mermaiden.diagrams import domain
+from pydantic import JsonValue
 from wireup import injectable
 
 from ...errors import DiagramsError
+from .model import DiagramCommand, DiagramState
 
 
 @injectable
@@ -35,7 +37,7 @@ class MermaidenService:
         except KeyError as error:
             raise DiagramsError(str(error)) from error
 
-    def restore(self, snapshot: Mapping[str, object]) -> domain.DiagramModel:
+    def restore(self, snapshot: Mapping[str, JsonValue]) -> domain.DiagramModel:
         try:
             return self._application.restore(snapshot)
         except RuntimeError as error:
@@ -44,30 +46,28 @@ class MermaidenService:
     def apply(
         self,
         diagram: domain.DiagramModel,
-        operation: str,
-        arguments: Mapping[str, object],
+        command: DiagramCommand,
     ) -> None:
         try:
-            self._application.execute(diagram, operation, arguments)
+            self._application.execute(diagram, command.operation, command.arguments)
         except RuntimeError as error:
             raise DiagramsError(str(error)) from error
 
     def apply_batch(
         self,
         diagram: domain.DiagramModel,
-        commands: Sequence[tuple[str, Mapping[str, object]]],
+        commands: tuple[DiagramCommand, ...],
     ) -> None:
-        payload = tuple({"operation": operation, "arguments": arguments} for operation, arguments in commands)
+        payload = tuple({"operation": command.operation, "arguments": command.arguments} for command in commands)
         try:
             self._application.apply_batch(diagram, payload)
         except (RuntimeError, ValueError) as error:
             raise DiagramsError(str(error)) from error
 
-    def snapshot(self, diagram: domain.DiagramModel) -> dict[str, object]:
-        return self._application.snapshot(diagram).to_dict()
+    def capture(self, diagram: domain.DiagramModel) -> DiagramState:
+        snapshot = self._application.snapshot(diagram).to_dict()
+        source = "" if snapshot["draft"] is True else self._application.render(diagram)
+        return DiagramState(snapshot=snapshot, source=source)
 
     def snapshot_contract_identity(self, kind: str) -> DiagramSnapshotContractIdentity:
         return self._application.snapshot_contract_identity(kind)
-
-    def render(self, diagram: domain.DiagramModel) -> str:
-        return self._application.render(diagram)

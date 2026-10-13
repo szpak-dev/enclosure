@@ -70,13 +70,15 @@ def test_siren_diagram_set_advertises_its_diagram_collection() -> None:
     assert global_collection.status_code == 200
     assert global_collection.json()["entities"][0]["properties"] == item["properties"]
 
-    updated = client.patch(
+    updated = client.put(
         f"/siren/diagram-sets/{diagram_set_id}",
-        data={"title": "Updated architecture"},
+        data={"title": "Updated architecture", "description": "Updated related diagrams."},
         content_type="application/json",
     )
 
     assert updated.status_code == 200
+    assert updated.json()["properties"]["title"] == "Updated architecture"
+    assert updated.json()["properties"]["description"] == "Updated related diagrams."
     updated_collection_link = next(link for link in updated.json()["links"] if "collection" in link["rel"])
     assert updated_collection_link["href"] == collection_link["href"]
 

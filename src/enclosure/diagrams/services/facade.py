@@ -1,9 +1,18 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from django.db.models import QuerySet
 from wireup import injectable
 
+from ..api.schemas import (
+    ApplyDiagramCommand,
+    ApplyDiagramCommandBatch,
+    CreateDiagram,
+    CreateDiagramBatch,
+    CreateDiagramSet,
+    UpdateDiagram,
+    UpdateDiagramSet,
+)
 from ..models import Diagram, DiagramSet
 from .catalog import DiagramCatalogService, DiagramKindContentPage
 from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
@@ -12,8 +21,9 @@ from .contracts.semantics.model import DiagramContractSemantics
 from .contracts.semantics.service import DiagramContractSemanticsService
 from .diagram_sets.model import DiagramSetPage
 from .diagram_sets.service import DiagramSetService
-from .editing.model import DiagramPage
+from .editing.model import DiagramBatchReceipt, DiagramPage
 from .editing.service import DiagramEditingService
+from .mermaiden.model import DiagramCommand
 
 
 @injectable
@@ -44,8 +54,8 @@ class DiagramsService:
     def get_command_schema(self, kind: str, operation: str) -> dict[str, object]:
         return self.catalog.get_command_schema(kind, operation)
 
-    def create_set(self, data: Mapping[str, str]) -> DiagramSet:
-        return self.diagram_sets.create(data)
+    def create_set(self, input: CreateDiagramSet) -> DiagramSet:
+        return self.diagram_sets.create(input.title, input.description)
 
     def get_set(self, id: str) -> DiagramSet:
         return self.diagram_sets.get(id)
@@ -56,22 +66,24 @@ class DiagramsService:
     def find_set_page(self, offset: int, limit: int) -> DiagramSetPage:
         return self.diagram_sets.find_page(offset, limit)
 
-    def update_set(self, id: str, data: Mapping[str, str]) -> DiagramSet:
-        return self.diagram_sets.update(id, data)
+    def update_set(self, id: str, input: UpdateDiagramSet) -> DiagramSet:
+        return self.diagram_sets.replace(id, input.title, input.description)
 
     def delete_set(self, id: str) -> None:
         self.diagram_sets.delete(id)
 
-    def create_diagram(self, diagram_set_id: str, data: Mapping[str, str]) -> Diagram:
-        return self.editing.create(diagram_set_id, data)
+    def create_diagram(self, diagram_set_id: str, input: CreateDiagram) -> Diagram:
+        return self.editing.create(diagram_set_id, input.title, input.kind)
 
     def create_diagram_batch(
         self,
         diagram_set_id: str,
-        data: Mapping[str, str],
-        commands: Sequence[tuple[str, Mapping[str, object]]],
-    ) -> dict[str, object]:
-        return self.editing.create_batch(diagram_set_id, data, commands)
+        input: CreateDiagramBatch,
+    ) -> DiagramBatchReceipt:
+        commands = tuple(
+            DiagramCommand(operation=command.operation, arguments=command.arguments) for command in input.commands
+        )
+        return self.editing.create_batch(diagram_set_id, input.title, input.kind, commands)
 
     def get_diagram(self, id: str) -> Diagram:
         return self.editing.get(id)
@@ -109,8 +121,8 @@ class DiagramsService:
             limit,
         )
 
-    def update_diagram(self, id: str, expected_revision: int, title: str) -> Diagram:
-        return self.editing.rename(id, expected_revision, title)
+    def update_diagram(self, id: str, input: UpdateDiagram) -> Diagram:
+        return self.editing.rename(id, input.expected_revision, input.title)
 
     def get_diagram_in_set(self, diagram_set_id: str, id: str) -> Diagram:
         return self.editing.get_in_set(diagram_set_id, id)
@@ -130,19 +142,20 @@ class DiagramsService:
     def apply_command(
         self,
         id: str,
-        expected_revision: int,
-        operation: str,
-        arguments: Mapping[str, object],
+        input: ApplyDiagramCommand,
     ) -> Diagram:
-        return self.editing.apply(id, expected_revision, operation, arguments)
+        command = DiagramCommand(operation=input.operation, arguments=input.arguments)
+        return self.editing.apply(id, input.expected_revision, command)
 
     def apply_command_batch(
         self,
         id: str,
-        expected_revision: int,
-        commands: Sequence[tuple[str, Mapping[str, object]]],
-    ) -> dict[str, object]:
-        return self.editing.apply_batch(id, expected_revision, commands)
+        input: ApplyDiagramCommandBatch,
+    ) -> DiagramBatchReceipt:
+        commands = tuple(
+            DiagramCommand(operation=command.operation, arguments=command.arguments) for command in input.commands
+        )
+        return self.editing.apply_batch(id, input.expected_revision, commands)
 
     def delete_diagram(self, id: str) -> None:
         self.editing.delete(id)

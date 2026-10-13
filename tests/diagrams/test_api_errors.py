@@ -62,7 +62,7 @@ def test_invalid_command_arguments_return_domain_error() -> None:
 
 
 @pytest.mark.django_db
-def test_stale_revision_returns_domain_error() -> None:
+def test_stale_revision_is_rejected_before_command_semantics_and_preserves_the_latest_diagram() -> None:
     client = Client()
     diagram = create_diagram(client)
     diagram_url = f"/api/diagrams/{diagram['id']}"
@@ -83,8 +83,8 @@ def test_stale_revision_returns_domain_error() -> None:
         f"{diagram_url}/commands",
         data={
             "expected_revision": 1,
-            "operation": "add_end",
-            "arguments": {"id": "end", "label": "End"},
+            "operation": "missing",
+            "arguments": {},
         },
         content_type="application/json",
     )
@@ -93,10 +93,11 @@ def test_stale_revision_returns_domain_error() -> None:
     assert response.json() == {
         "detail": (f"Diagram {diagram['id']!r} revision conflict: expected 1, current revision is 2.")
     }
+    assert client.get(diagram_url).json() == applied.json()
 
 
 @pytest.mark.django_db
-def test_stale_batch_revision_preserves_the_latest_diagram() -> None:
+def test_stale_batch_revision_is_rejected_before_command_semantics_and_preserves_the_latest_diagram() -> None:
     client = Client()
     diagram = create_diagram(client)
     diagram_url = f"/api/diagrams/{diagram['id']}"
@@ -115,7 +116,7 @@ def test_stale_batch_revision_preserves_the_latest_diagram() -> None:
         f"{diagram_url}/command-batches",
         data={
             "expected_revision": 1,
-            "commands": [{"operation": "add_end", "arguments": {"id": "end", "label": "End"}}],
+            "commands": [{"operation": "missing", "arguments": {}}],
         },
         content_type="application/json",
     )

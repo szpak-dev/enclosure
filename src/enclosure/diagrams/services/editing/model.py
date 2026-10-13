@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from pydantic import BaseModel, ConfigDict
 
 from ...models import Diagram
@@ -10,3 +12,10 @@ class DiagramPage(BaseModel):
     has_more: bool
     next_offset: int
     limit: int
+
+
+@dataclass(frozen=True)
+class DiagramBatchReceipt:
+    diagram_id: str
+    revision: int
+    applied_count: int
