@@ -18,6 +18,7 @@ from mcp.types import (
     TextContent,
     Tool,
 )
+from modwire_hex.django import DjangoRequest
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from structlog.contextvars import bind_contextvars, reset_contextvars
 
@@ -143,7 +144,8 @@ class McpProtocolServer:
         started_ns = perf_counter_ns()
         container = application.create_container()
         try:
-            worker_registry = container.get(HealthWorkerRegistry)
+            with DjangoRequest.enter_scope() as process_scope:
+                worker_registry = process_scope.get(HealthWorkerRegistry)
             process_id = os.getpid()
             await asyncio.to_thread(
                 worker_registry.start,

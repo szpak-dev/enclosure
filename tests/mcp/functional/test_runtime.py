@@ -749,6 +749,21 @@ class PublicMcpClient:
             )
             return rest_response, result, findings, attestation
 
+    async def mcp_project_health(self, root: Path, shape_yaml: str) -> CallToolResult:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            project_id, workspace_id = await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                shape_yaml,
+            )
+            await self._accept_example_architecture(http_client, root, project_id)
+            return await session.call_tool(
+                "check_project_health",
+                {"project_id": project_id, "workspace_id": workspace_id},
+            )
+
     async def oversized_guidance_health(
         self,
         root: Path,
@@ -1549,6 +1564,40 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert "Status: **healthy**" in result.content[0].text
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
+
+
+@pytest.mark.django_db(transaction=True)
+def test_public_mcp_health_reuses_the_process_start_worker(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text(
+        "class ExampleApplication:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    result = asyncio.run(
+        PublicMcpClient(ConfiguredApplication()).mcp_project_health(
+            tmp_path,
+            EXAMPLE_HEALTHY_SHAPE_YAML,
+        )
+    )
+    events = [
+        cast(dict[str, object], json.loads(line))
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("{")
+    ]
+    bootstrap_events = [event for event in events if event.get("event") == "project_health_worker_bootstrap_terminal"]
+    request_reuse_events = [
+        event for event in events if event.get("event") == "project_health_worker_reused" and "correlation_id" in event
+    ]
+
+    assert result.is_error is False
+    assert result.structured_content["data"]["outcome"] == "healthy"
+    assert len(bootstrap_events) == 1
+    assert len(request_reuse_events) == 1
+    assert request_reuse_events[0]["worker_process_id"] == bootstrap_events[0]["worker_process_id"]
 
 
 @pytest.mark.django_db(transaction=True)
