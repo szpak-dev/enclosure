@@ -55,7 +55,8 @@ class HealthWorkerEvaluationService:
         phase_tokens = self.phases.begin()
         try:
             source_phase = self.phases.start(HealthExecutionPhase.SOURCE_INVENTORY)
-            source_digest = self.architecture.source_identity(request.source)
+            source_observation = self.architecture.observe_source(request.source)
+            source_digest = source_observation.source_digest
             self.phases.finish(source_phase, item_count=1)
 
             artifact_phase = self.phases.start(HealthExecutionPhase.ARTIFACT_INVENTORY)
@@ -183,9 +184,7 @@ class HealthWorkerEvaluationService:
                 raise ProjectsError("Project source changed during health evaluation.")
             if not observations or not report_observations:
                 code_map_phase = self.phases.start(HealthExecutionPhase.MODWIRE_CODE_MAP)
-                code_map_observation = self.architecture.code_map(request.source)
-                if code_map_observation.source_digest != source_digest:
-                    raise ProjectsError("Project source changed during health evaluation.")
+                code_map_observation = self.architecture.code_map(request.source, source_observation)
                 self.phases.finish(code_map_phase, item_count=1)
                 if not observations:
                     implementation_phase = self.phases.start(HealthExecutionPhase.IMPLEMENTATION_MANIFEST)
