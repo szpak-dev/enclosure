@@ -1,13 +1,9 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from ninja import Schema
-from pydantic import ConfigDict, Field, JsonValue
+from pydantic import Field, JsonValue, StringConstraints
 
-
-class StrictSchema(Schema):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
-
+from enclosure.shared.schemas import StrictSchema
 
 DiagramId = Annotated[str, Field(description="Diagram identifier.")]
 DiagramSetId = Annotated[str, Field(description="Diagram set identifier.")]
@@ -59,26 +55,26 @@ class DiagramCommandSchema(StrictSchema):
 
 
 class CreateDiagramSet(StrictSchema):
-    title: str = Field(description="Human-readable diagram-set title.", min_length=1, max_length=255)
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)] = Field(
+        description="Human-readable diagram-set title."
+    )
     description: str = Field(default="", description="Purpose and topic of the diagram set.")
 
 
 class UpdateDiagramSet(StrictSchema):
-    title: str | None = Field(
-        default=None,
-        description="Replacement diagram-set title when supplied.",
-        min_length=1,
-        max_length=255,
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)] = Field(
+        description="Replacement diagram-set title."
     )
-    description: str | None = Field(
-        default=None,
-        description="Replacement diagram-set description when supplied.",
-    )
+    description: str = Field(description="Replacement diagram-set description.")
 
 
 class CreateDiagram(StrictSchema):
-    title: str = Field(description="Human-readable diagram title.", min_length=1, max_length=255)
-    kind: DiagramKindId = Field(description="Mermaiden diagram kind used to create the diagram.", max_length=64)
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)] = Field(
+        description="Human-readable diagram title."
+    )
+    kind: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)] = Field(
+        description="Mermaiden diagram kind used to create the diagram."
+    )
 
 
 class UpdateDiagram(StrictSchema):
@@ -86,7 +82,9 @@ class UpdateDiagram(StrictSchema):
         description="Diagram revision on which the metadata update is based.",
         ge=1,
     )
-    title: str = Field(description="Replacement diagram title.", min_length=1, max_length=255)
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)] = Field(
+        description="Replacement diagram title."
+    )
 
 
 class ApplyDiagramCommand(StrictSchema):
@@ -94,12 +92,16 @@ class ApplyDiagramCommand(StrictSchema):
         description="Diagram revision on which the command is based.",
         ge=1,
     )
-    operation: str = Field(description="Mermaiden command operation name.", min_length=1)
+    operation: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Field(
+        description="Mermaiden command operation name."
+    )
     arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
 
 
 class DiagramCommand(StrictSchema):
-    operation: str = Field(description="Mermaiden command operation name.", min_length=1)
+    operation: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] = Field(
+        description="Mermaiden command operation name."
+    )
     arguments: dict[str, JsonValue] = Field(description="Arguments validated against the command schema.")
 
 

@@ -315,7 +315,11 @@ class PublicMcpClient:
             await call("get_diagram_set", {"diagram_set_id": diagram_set_id})
             await call(
                 "update_diagram_set",
-                {"diagram_set_id": diagram_set_id, "title": "Updated MCP diagrams"},
+                {
+                    "diagram_set_id": diagram_set_id,
+                    "title": "Updated MCP diagrams",
+                    "description": "Updated diagram presentation verification.",
+                },
             )
             created_diagram = await call(
                 "create_diagram",

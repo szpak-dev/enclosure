@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from django.db.models import QuerySet
@@ -6,7 +5,6 @@ from wireup import injectable
 
 from ...models import DiagramSet
 from ..repository import DiagramsRepository
-from ..validation import DiagramValidationService
 from .model import DiagramSetPage
 
 
@@ -14,10 +12,9 @@ from .model import DiagramSetPage
 @dataclass(frozen=True)
 class DiagramSetService:
     repository: DiagramsRepository
-    validation: DiagramValidationService
 
-    def create(self, data: Mapping[str, str]) -> DiagramSet:
-        return self.repository.create_set(self.validation.diagram_set(data, require_title=True))
+    def create(self, title: str, description: str) -> DiagramSet:
+        return self.repository.create_set(title, description)
 
     def get(self, id: str) -> DiagramSet:
         return self.repository.get_set(id)
@@ -35,8 +32,8 @@ class DiagramSetService:
             limit=limit,
         )
 
-    def update(self, id: str, data: Mapping[str, str]) -> DiagramSet:
-        return self.repository.update_set(id, self.validation.diagram_set(data))
+    def replace(self, id: str, title: str, description: str) -> DiagramSet:
+        return self.repository.replace_set(id, title, description)
 
     def delete(self, id: str) -> None:
         self.repository.delete_set(id)

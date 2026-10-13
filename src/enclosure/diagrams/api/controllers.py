@@ -126,7 +126,7 @@ class DiagramSetsController(ControllerBase):
         description="Create a collection in which an agent can build diagrams for one topic.",
     )
     def create(self, request, body: schemas.CreateDiagramSet):
-        diagram_set = DjangoRequest.resolve(request, DiagramsService).create_set(body.model_dump(mode="json"))
+        diagram_set = DjangoRequest.resolve(request, DiagramsService).create_set(body)
         return Status(201, diagram_set)
 
     @siren_pagination(
@@ -166,12 +166,12 @@ class DiagramSetsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, DiagramsService).get_set(diagram_set_id)
 
-    @route.patch(
+    @route.put(
         "/{diagram_set_id}",
         response=schemas.DiagramSet,
         operation_id="update_diagram_set",
-        summary="Update a diagram set",
-        description="Update the supplied diagram-set fields.",
+        summary="Replace diagram-set metadata",
+        description="Replace the complete diagram-set title and description.",
     )
     def update(
         self,
@@ -181,7 +181,7 @@ class DiagramSetsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, DiagramsService).update_set(
             diagram_set_id,
-            body.model_dump(mode="json", exclude_none=True),
+            body,
         )
 
     @route.delete(
@@ -214,7 +214,7 @@ class DiagramSetsController(ControllerBase):
     ):
         diagram = DjangoRequest.resolve(request, DiagramsService).create_diagram(
             diagram_set_id,
-            body.model_dump(mode="json"),
+            body,
         )
         return Status(201, diagram)
 
@@ -233,8 +233,7 @@ class DiagramSetsController(ControllerBase):
     ):
         receipt = DjangoRequest.resolve(request, DiagramsService).create_diagram_batch(
             diagram_set_id,
-            {"title": body.title, "kind": body.kind},
-            tuple((command.operation, command.arguments) for command in body.commands),
+            body,
         )
         return Status(201, receipt)
 
@@ -416,8 +415,7 @@ class DiagramsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, DiagramsService).update_diagram(
             diagram_id,
-            body.expected_revision,
-            body.title,
+            body,
         )
 
     @route.delete(
@@ -446,9 +444,7 @@ class DiagramsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, DiagramsService).apply_command(
             diagram_id,
-            body.expected_revision,
-            body.operation,
-            body.arguments,
+            body,
         )
 
     @route.post(
@@ -466,6 +462,5 @@ class DiagramsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, DiagramsService).apply_command_batch(
             diagram_id,
-            body.expected_revision,
-            tuple((command.operation, command.arguments) for command in body.commands),
+            body,
         )
