@@ -5,7 +5,12 @@ from typing import cast
 
 import yaml
 from django.conf import settings
-from modwire.application import CacheOptions, ModwireApplication, ScanPolicy
+from modwire.application import (
+    CacheOptions,
+    ModwireApplication,
+    ScanPolicy,
+    SourceObservationInvalidatedError,
+)
 from modwire.architecture.config.models.architecture_config import ArchitectureConfig
 from pydantic import JsonValue
 from wireup import injectable
@@ -19,6 +24,7 @@ from ..model import (
     ArchitectureObservation,
     ArchitectureReportObservation,
     ArchitectureSource,
+    ArchitectureSourceObservation,
 )
 
 
@@ -34,23 +40,41 @@ class ArchitectureAdapter:
         self,
         source: ArchitectureSource,
     ) -> tuple[dict[str, JsonValue], ...]:
-        observation = self.code_map(source)
+        source_observation = self.observe_source(source)
+        observation = self.code_map(source, source_observation)
         return self.observe_reports(source, observation).reports
 
-    def code_map(self, source: ArchitectureSource) -> ArchitectureCodeMapObservation:
+    def observe_source(self, source: ArchitectureSource) -> ArchitectureSourceObservation:
         application = ModwireApplication.create()
         config = self.build_configuration(application, source.boundaries_yaml, source.shape_yaml)
-        cache = self.cache_options(source.workspace_id)
-        result = application.generate_queryable_map_cached_with_diagnostics(
+        observation = application.observe_sources(
             source.language,
             source.architecture_root,
             ScanPolicy(excluded_patterns=config.excluded_patterns),
-            cache,
         )
+        return ArchitectureSourceObservation(
+            observation=observation,
+            source_digest=observation.identity().digest,
+        )
+
+    def code_map(
+        self,
+        source: ArchitectureSource,
+        source_observation: ArchitectureSourceObservation,
+    ) -> ArchitectureCodeMapObservation:
+        application = ModwireApplication.create()
+        cache = self.cache_options(source.workspace_id)
+        try:
+            result = application.generate_queryable_map_cached_from_observation_with_diagnostics(
+                source_observation.observation,
+                cache,
+            )
+        except SourceObservationInvalidatedError as error:
+            raise ProjectsError("Project source changed during health evaluation.") from error
         self.cache_diagnostics.record(result.outcomes)
         return ArchitectureCodeMapObservation(
             code_map=result.value,
-            source_digest=result.value.code_map.extraction.manifest.digest,
+            source_digest=source_observation.source_digest,
         )
 
     def observe_reports(
@@ -87,18 +111,8 @@ class ArchitectureAdapter:
             document_digest=sha256(canonical_document.encode("utf-8")).hexdigest(),
         )
 
-    def source_identity(self, source: ArchitectureSource) -> str:
-        application = ModwireApplication.create()
-        config = self.build_configuration(application, source.boundaries_yaml, source.shape_yaml)
-        identity = application.source_manifest_identity(
-            source.language,
-            source.architecture_root,
-            ScanPolicy(excluded_patterns=config.excluded_patterns),
-        )
-        return identity.digest
-
     def verify_source_identity(self, source: ArchitectureSource, expected_digest: str) -> None:
-        if self.source_identity(source) != expected_digest:
+        if self.observe_source(source).source_digest != expected_digest:
             raise ProjectsError("Project source changed during health evaluation.")
 
     def build_configuration(

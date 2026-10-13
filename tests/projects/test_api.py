@@ -7,14 +7,17 @@ from dataclasses import dataclass, field
 from errno import ENXIO
 from hashlib import sha256
 from pathlib import Path
+from threading import Event
 from time import monotonic, sleep
 from typing import cast
 
+import httpx2
 import pytest
 from django.conf import settings
 from django.test import Client
 from django.test.utils import override_settings
 from modwire.application import ModwireApplication, ScanPolicy
+from pytest_django.live_server_helper import LiveServer
 from starlette.types import ASGIApp, Message, Scope
 
 from enclosure.core.asgi import ApplicationFactory
@@ -2794,7 +2797,7 @@ def test_health_rejects_source_drift_before_returning_a_completed_report(
     client: Client,
     dependencies: dict[str, str],
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
+    live_server: LiveServer,
 ) -> None:
     python_project(tmp_path)
     distinguish_project_source(tmp_path, "DriftApplication")
@@ -2806,24 +2809,27 @@ def test_health_rejects_source_drift_before_returning_a_completed_report(
     accept_health_architecture(client, tmp_path, resolution)
     path = f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/health-violations"
 
-    caplog.clear()
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        active_request = executor.submit(Client().get, path)
-        guidance_deadline = monotonic() + 15
-        while not any(
-            cast(dict[str, object], record.msg).get("event") == "project_health_guidance_started"
-            for record in caplog.records
-            if record.name.startswith("enclosure.projects.services.health")
-        ):
-            if active_request.done():
-                pytest.fail("Health evaluation completed before source mutation could start.")
-            if monotonic() >= guidance_deadline:
-                pytest.fail("Health evaluation did not reach guidance verification.")
+    attack_started = Event()
+    attack_stopped = Event()
+
+    def mutate_source() -> None:
+        revision = 0
+        while not attack_stopped.is_set():
+            replacement = tmp_path / ".app.py.replacement"
+            replacement.write_text(f"class ChangedApplication{revision}:\n    pass\n", encoding="utf-8")
+            os.replace(replacement, tmp_path / "app.py")
+            attack_started.set()
+            revision += 1
             sleep(0.001)
-        replacement = tmp_path / ".app.py.replacement"
-        replacement.write_text("class ChangedApplication:\n    pass\n", encoding="utf-8")
-        os.replace(replacement, tmp_path / "app.py")
-        response = active_request.result(timeout=5)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        attack = executor.submit(mutate_source)
+        assert attack_started.wait(timeout=1)
+        try:
+            response = httpx2.get(f"{live_server.url}{path}", timeout=20)
+        finally:
+            attack_stopped.set()
+            attack.result(timeout=5)
 
     assert response.status_code == 422
     assert response.json() == {"detail": "Project source changed during health evaluation."}
