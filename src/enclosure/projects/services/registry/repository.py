@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from django.db import transaction
@@ -7,6 +6,7 @@ from wireup import injectable
 
 from ....core.models import DjangoRepository
 from ... import models
+from .model import ProjectCandidate
 
 
 @injectable
@@ -49,12 +49,18 @@ class ProjectRepository(DjangoRepository):
 
     def register(
         self,
-        data: Mapping[str, str],
+        candidate: ProjectCandidate,
         boundaries_yaml: str,
         shape_yaml: str,
     ) -> models.Project:
         with transaction.atomic():
-            project = self.save(**data)
+            project = self.model.objects.create(
+                title=candidate.title,
+                language_id=candidate.language_id,
+                language_version=candidate.language_version,
+                package_manager_id=candidate.package_manager_id,
+                scaffolding_id=candidate.scaffolding_id,
+            )
             models.ProjectArchitectureConfiguration.objects.create(
                 project=project,
                 boundaries_yaml=boundaries_yaml,
@@ -65,15 +71,26 @@ class ProjectRepository(DjangoRepository):
     def update(
         self,
         project_id: str,
-        data: Mapping[str, str],
+        candidate: ProjectCandidate,
         boundaries_yaml: str,
         shape_yaml: str,
     ) -> models.Project:
         with transaction.atomic():
             project = self.get(project_id)
-            for attribute, value in data.items():
-                setattr(project, attribute, value)
-            project.save()
+            project.title = candidate.title
+            project.language_id = candidate.language_id
+            project.language_version = candidate.language_version
+            project.package_manager_id = candidate.package_manager_id
+            project.scaffolding_id = candidate.scaffolding_id
+            project.save(
+                update_fields=(
+                    "title",
+                    "language_id",
+                    "language_version",
+                    "package_manager_id",
+                    "scaffolding_id",
+                )
+            )
             configuration = self.get_current_architecture_configuration(project.id)
             configuration.boundaries_yaml = boundaries_yaml
             configuration.shape_yaml = shape_yaml

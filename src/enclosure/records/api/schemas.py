@@ -1,12 +1,8 @@
 from typing import Annotated, Self
 
-from django.db.models import Manager
-from ninja import Schema
-from pydantic import ConfigDict, Field, JsonValue, field_validator, model_validator
+from pydantic import Field, JsonValue, model_validator
 
-
-class StrictSchema(Schema):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
+from enclosure.shared.schemas import StrictSchema
 
 
 CategoryId = Annotated[str, Field(description="Record category identifier.")]
@@ -107,12 +103,6 @@ class RecordSummary(StrictSchema):
     category: RecordCategory = Field(description="Category that defines the record's content schema.")
     schema_version: int = Field(description="Content schema version assigned to the record.", ge=1)
     tags: list[Tag] = Field(description="Tags assigned to the record.")
-
-    @field_validator("tags", mode="before")
-    def project_tags(value: object) -> object:
-        if isinstance(value, Manager):
-            return list(value.all())
-        return value
 
 
 class Record(RecordSummary):

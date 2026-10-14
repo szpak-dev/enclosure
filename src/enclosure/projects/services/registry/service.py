@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 
@@ -12,6 +11,7 @@ from .model import (
     ArchitectureConfigurationDocument,
     ArchitectureConfigurationPage,
     Project,
+    ProjectCandidate,
     ProjectPage,
 )
 from .repository import ProjectRepository
@@ -110,20 +110,20 @@ class RegistryService:
 
     def register(
         self,
-        data: Mapping[str, str],
+        candidate: ProjectCandidate,
         boundaries_yaml: str,
         shape_yaml: str,
     ) -> Project:
-        return self._project(self.repository.register(data, boundaries_yaml, shape_yaml))
+        return self._project(self.repository.register(candidate, boundaries_yaml, shape_yaml))
 
     def update(
         self,
         project_id: str,
-        data: Mapping[str, str],
+        candidate: ProjectCandidate,
         boundaries_yaml: str,
         shape_yaml: str,
     ) -> Project:
-        return self._project(self.repository.update(project_id, data, boundaries_yaml, shape_yaml))
+        return self._project(self.repository.update(project_id, candidate, boundaries_yaml, shape_yaml))
 
     def _project(self, project: models.Project) -> Project:
         return Project(

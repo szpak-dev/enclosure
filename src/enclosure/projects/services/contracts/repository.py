@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from django.db import IntegrityError, transaction
@@ -14,10 +13,14 @@ from ..contracts.model import OperatingContractReference
 class OperatingContractRepository:
     model: type[models.OperatingContract] = field(default=models.OperatingContract, init=False)
 
-    def create(self, data: Mapping[str, str]) -> models.OperatingContract:
+    def create(self, title: str, authority: str, provenance: str) -> models.OperatingContract:
         try:
             with transaction.atomic():
-                return self.model.objects.create(**data)
+                return self.model.objects.create(
+                    title=title,
+                    authority=authority,
+                    provenance=provenance,
+                )
         except IntegrityError as error:
             raise ProjectsError("An operating contract with this authority already exists.") from error
 

@@ -17,6 +17,7 @@ from .model import (
     RecordDetail,
     RecordJsonContent,
     RecordResourceContent,
+    RecordSummary,
     RecordTag,
     ResourceManifest,
     ResourceManifestPage,
@@ -28,6 +29,19 @@ from .model import (
 class RecordContentService:
     records: RecordService
     categories: CategoryService
+
+    def record_summary(self, record: Record) -> RecordSummary:
+        return RecordSummary(
+            id=record.id,
+            title=record.title,
+            category=RecordCategory(
+                id=record.category.id,
+                title=record.category.title,
+                schema_version=record.category.schema_version,
+            ),
+            schema_version=record.schema_version,
+            tags=tuple(RecordTag(id=tag.id, name=tag.name) for tag in record.tags.all()),
+        )
 
     def record_detail(self, record: Record) -> RecordDetail:
         content = self._canonical_json(record.content)
