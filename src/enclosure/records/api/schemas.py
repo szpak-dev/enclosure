@@ -4,7 +4,6 @@ from pydantic import Field, JsonValue, model_validator
 
 from enclosure.shared.schemas import StrictSchema
 
-
 CategoryId = Annotated[str, Field(description="Record category identifier.")]
 RecordId = Annotated[str, Field(description="Record identifier.")]
 TagId = Annotated[str, Field(description="Record tag identifier.")]

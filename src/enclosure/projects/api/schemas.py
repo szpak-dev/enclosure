@@ -4,7 +4,6 @@ from pydantic import Field, JsonValue
 
 from enclosure.shared.schemas import StrictSchema
 
-
 ProjectId = Annotated[str, Field(description="Project identifier.")]
 WorkspaceId = Annotated[str, Field(description="Workspace-binding identifier.")]
 

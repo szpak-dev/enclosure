@@ -65,7 +65,7 @@ from .reports.model import (
 from .reports.service import ReportsService
 from .routing.model import GuidanceScope, GuidanceScopePage
 from .routing.service import WorkspaceRoutingService
-from .stack import DetectedStack, DiscoveredProject, StackDetector
+from .stack import DiscoveredProject, StackDetector
 from .workspaces.model import (
     WorkspaceBinding,
     WorkspaceLocation,
@@ -405,7 +405,7 @@ class ProjectsService:
         input: schemas.RegisterProject,
     ) -> WorkspaceResolution:
         self._validate_project(input.boundaries_yaml, input.shape_yaml, input.scaffolding_id)
-        contract_references = self.contracts.prepare_bootstrap(input.record_ids)
+        contract_references = self.contracts.prepare_bootstrap(tuple(input.record_ids))
         workspace_location = self.workspaces.inspection.normalize(input.discovery.root, input.architecture_root)
         project = self.registry.register(
             ProjectCandidate(
