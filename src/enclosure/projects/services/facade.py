@@ -7,6 +7,7 @@ from django.db import transaction
 from pydantic import JsonValue
 from wireup import injectable
 
+from ..api import schemas
 from ..errors import ProjectsError
 from .adapters.scaffoldings import ScaffoldingsAdapter
 from .architecture_contracts.model import (
@@ -14,7 +15,6 @@ from .architecture_contracts.model import (
     ArchitectureContractExclusionInput,
     ArchitectureContractPublication,
     ArchitectureContractUnitInput,
-    PublishArchitectureContract,
 )
 from .architecture_contracts.service import ArchitectureContractsService
 from .architecture_manifests.evidence.identity import ArtifactObservationManifestIdentity
@@ -26,9 +26,9 @@ from .context.service import WorkspaceContextService
 from .contracts.model import (
     ConfiguredOperatingContractBinding,
     OperatingContract,
+    OperatingContractReference,
     OperatingContractRevision,
     OperatingContractUpdatePolicy,
-    PublishOperatingContractRevision,
     UnconfiguredOperatingContractBinding,
 )
 from .contracts.service import OperatingContractsService
@@ -37,8 +37,8 @@ from .health.attestations.model import ArchitectureConformanceAttestation
 from .health.graph import GuidanceGraphService
 from .health.model import (
     GuidanceRelationship,
+    GuidanceRelationshipInput,
     GuidanceRelationshipPage,
-    ReplaceGuidanceRelationships,
 )
 from .health.service import ProjectHealthService
 from .registry.model import (
@@ -47,9 +47,8 @@ from .registry.model import (
     ArchitectureConfigurationDocument,
     ArchitectureConfigurationPage,
     Project,
+    ProjectCandidate,
     ProjectPage,
-    RegisterProject,
-    UpdateProject,
 )
 from .registry.service import RegistryService
 from .reports.adapters.architecture import ArchitectureAdapter
@@ -66,7 +65,7 @@ from .reports.model import (
 from .reports.service import ReportsService
 from .routing.model import GuidanceScope, GuidanceScopePage
 from .routing.service import WorkspaceRoutingService
-from .stack import DetectedStack, DiscoveredProject, StackDetector
+from .stack import DiscoveredProject, StackDetector
 from .workspaces.model import (
     WorkspaceBinding,
     WorkspaceLocation,
@@ -157,7 +156,7 @@ class ProjectsService:
     def publish_project_architecture_contract(
         self,
         project_id: str,
-        input: PublishArchitectureContract,
+        input: schemas.PublishArchitectureContract,
     ) -> ArchitectureContractPublication:
         self.registry.get(project_id)
         return self.architecture_contracts.publish(
@@ -299,12 +298,19 @@ class ProjectsService:
     def replace_guidance_relationships(
         self,
         project_id: str,
-        input: ReplaceGuidanceRelationships,
+        input: schemas.ReplaceGuidanceRelationships,
     ) -> tuple[GuidanceRelationship, ...]:
         self.registry.get(project_id)
         return self.graph.replace_relationships(
             project_id,
-            input.relationships,
+            tuple(
+                GuidanceRelationshipInput(
+                    source_record_id=relationship.source_record_id,
+                    target_record_id=relationship.target_record_id,
+                    kind=relationship.kind,
+                )
+                for relationship in input.relationships
+            ),
         )
 
     def create_operating_contract(self, title: str, authority: str, provenance: str) -> OperatingContract:
@@ -316,12 +322,20 @@ class ProjectsService:
     def publish_operating_contract_revision(
         self,
         contract_id: str,
-        input: PublishOperatingContractRevision,
+        input: schemas.PublishOperatingContractRevision,
     ) -> OperatingContractRevision:
         return self.contracts.publish(
             contract_id,
-            input.record_ids,
-            input.references,
+            tuple(input.record_ids),
+            tuple(
+                OperatingContractReference(
+                    kind=reference.kind,
+                    id=reference.id,
+                    authority=reference.authority,
+                    revision=reference.revision,
+                )
+                for reference in input.references
+            ),
         )
 
     def get_operating_contract_revision(self, contract_id: str, version: int) -> OperatingContractRevision:
@@ -388,16 +402,18 @@ class ProjectsService:
     @transaction.atomic
     def register_project(
         self,
-        input: RegisterProject,
+        input: schemas.RegisterProject,
     ) -> WorkspaceResolution:
         self._validate_project(input.boundaries_yaml, input.shape_yaml, input.scaffolding_id)
-        contract_references = self.contracts.prepare_bootstrap(input.record_ids)
+        contract_references = self.contracts.prepare_bootstrap(tuple(input.record_ids))
         workspace_location = self.workspaces.inspection.normalize(input.discovery.root, input.architecture_root)
         project = self.registry.register(
-            self._project_data(
-                self._project_title(input.discovery.root),
-                input.discovery.stack,
-                input.scaffolding_id,
+            ProjectCandidate(
+                title=self._project_title(input.discovery.root),
+                language_id=input.discovery.stack.language,
+                language_version=input.discovery.stack.language_version,
+                package_manager_id=input.discovery.stack.package_manager,
+                scaffolding_id=input.scaffolding_id,
             ),
             input.boundaries_yaml,
             input.shape_yaml,
@@ -412,13 +428,19 @@ class ProjectsService:
     def update_project(
         self,
         project_id: str,
-        input: UpdateProject,
+        input: schemas.UpdateProject,
     ) -> Project:
         normalized_title = self._validate_title(input.title)
         self._validate_project(input.boundaries_yaml, input.shape_yaml, input.scaffolding_id)
         return self.registry.update(
             project_id,
-            self._project_data(normalized_title, input.stack, input.scaffolding_id),
+            ProjectCandidate(
+                title=normalized_title,
+                language_id=input.stack.language,
+                language_version=input.stack.language_version,
+                package_manager_id=input.stack.package_manager,
+                scaffolding_id=input.scaffolding_id,
+            ),
             input.boundaries_yaml,
             input.shape_yaml,
         )
@@ -524,20 +546,6 @@ class ProjectsService:
     ) -> None:
         self.scaffoldings.check_scaffolding_existence(scaffolding_id)
         self.architecture.validate_yaml_config(boundaries_yaml, shape_yaml)
-
-    def _project_data(
-        self,
-        title: str,
-        stack: DetectedStack,
-        scaffolding_id: str,
-    ) -> dict[str, str]:
-        return {
-            "title": title,
-            "language_id": stack.language,
-            "language_version": stack.language_version,
-            "package_manager_id": stack.package_manager,
-            "scaffolding_id": scaffolding_id,
-        }
 
     def _project_title(self, root: str) -> str:
         return self._validate_title(Path(root).expanduser().resolve().name)

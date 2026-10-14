@@ -1,12 +1,8 @@
 from typing import Annotated, Literal
 
-from ninja import Schema
-from pydantic import ConfigDict, Field, JsonValue
+from pydantic import Field, JsonValue
 
-
-class StrictSchema(Schema):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
-
+from enclosure.shared.schemas import StrictSchema
 
 ProjectId = Annotated[str, Field(description="Project identifier.")]
 WorkspaceId = Annotated[str, Field(description="Workspace-binding identifier.")]

@@ -224,6 +224,51 @@ def test_siren_exposes_operating_contract_lifecycle(
 
 
 @pytest.mark.django_db
+def test_siren_rejects_unknown_nested_contract_revision_input_without_consuming_a_version(
+    client: Client,
+    registered_project: tuple[str, str, Path, str],
+) -> None:
+    _, _, _, record_id = registered_project
+    created = client.post(
+        "/siren/projects/operating-contracts",
+        data={
+            "title": "Strict Siren operating contract",
+            "authority": "example:siren:strict-operating-contract",
+            "provenance": "siren-verification",
+        },
+        content_type="application/json",
+    )
+    assert created.status_code == 201
+    contract_id = created.json()["properties"]["id"]
+    url = f"/siren/projects/operating-contracts/{contract_id}/revisions"
+    payload = {
+        "record_ids": [record_id],
+        "references": [
+            {
+                "kind": "policy",
+                "id": "strict-siren-policy",
+                "authority": "example:siren:policy",
+                "revision": "1",
+                "unexpected": True,
+            }
+        ],
+    }
+
+    rejected = client.post(url, data=payload, content_type="application/json")
+
+    assert rejected.status_code == 422
+    assert rejected["Content-Type"] == SIREN_MEDIA_TYPE
+    assert rejected.json()["class"] == ["error"]
+    assert rejected.json()["properties"]["detail"][0]["type"] == "extra_forbidden"
+
+    del payload["references"][0]["unexpected"]
+    recovered = client.post(url, data=payload, content_type="application/json")
+
+    assert recovered.status_code == 201
+    assert recovered.json()["properties"]["version"] == 1
+
+
+@pytest.mark.django_db
 def test_siren_exposes_guidance_relationship_identity(
     client: Client,
     registered_project: tuple[str, str, Path, str],

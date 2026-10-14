@@ -115,3 +115,121 @@ def test_structurally_invalid_replacement_leaves_record_unchanged() -> None:
     stored = client.get(f"/api/records/{original['id']}")
     assert stored.status_code == 200
     assert stored.json() == original
+
+
+@pytest.mark.django_db
+def test_record_creation_attacks_leave_public_state_empty_and_the_corrected_request_recovers() -> None:
+    client = Client()
+    category, tag = create_dependencies(client)
+    valid = record_input(category["id"], tag["id"])
+    attacks = (
+        {**valid, "unexpected": True},
+        {
+            **valid,
+            "resources": [{**valid["resources"][0], "unexpected": True}],
+        },
+        {**valid, "content": {"name": 7}},
+        {**valid, "tag_ids": ["missing"]},
+        {
+            **valid,
+            "resources": [
+                {
+                    "path": "records/unsupported.source",
+                    "language": "unsupported-language",
+                    "content": "not supported",
+                }
+            ],
+        },
+    )
+
+    responses = [client.post("/api/records", data=attack, content_type="application/json") for attack in attacks]
+
+    assert [response.status_code for response in responses] == [422, 422, 422, 404, 404]
+    assert client.get("/api/records").json()["items"] == []
+
+    recovered = client.post("/api/records", data=valid, content_type="application/json")
+
+    assert recovered.status_code == 201
+    assert [item["id"] for item in client.get("/api/records").json()["items"]] == [recovered.json()["id"]]
+    assert client.get(f"/api/records/{recovered.json()['id']}").json() == recovered.json()
+
+
+@pytest.mark.django_db
+def test_record_replacement_attack_preserves_complete_public_state_and_the_corrected_request_recovers() -> None:
+    client = Client()
+    category, tag = create_dependencies(client)
+    created = client.post(
+        "/api/records",
+        data=record_input(category["id"], tag["id"]),
+        content_type="application/json",
+    )
+    assert created.status_code == 201
+    original = created.json()
+    valid = record_input(category["id"], tag["id"])
+    valid["title"] = "Recovered replacement"
+
+    rejected = client.put(
+        f"/api/records/{original['id']}",
+        data={**valid, "content": {"name": 7}},
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert client.get(f"/api/records/{original['id']}").json() == original
+    assert [item["id"] for item in client.get("/api/records").json()["items"]] == [original["id"]]
+
+    recovered = client.put(
+        f"/api/records/{original['id']}",
+        data=valid,
+        content_type="application/json",
+    )
+
+    assert recovered.status_code == 200
+    assert recovered.json()["title"] == "Recovered replacement"
+    assert [item["id"] for item in client.get("/api/records").json()["items"]] == [original["id"]]
+
+
+@pytest.mark.django_db
+def test_record_catalogue_attacks_preserve_every_public_resource() -> None:
+    client = Client()
+    category, tag = create_dependencies(client)
+    category_url = f"/api/records/categories/{category['id']}"
+    tag_url = f"/api/records/tags/{tag['id']}"
+    category_before = client.get(category_url).json()
+    tag_before = client.get(tag_url).json()
+    categories_before = client.get("/api/records/categories").json()
+    tags_before = client.get("/api/records/tags").json()
+
+    responses = (
+        client.post(
+            "/api/records/categories",
+            data={"title": "Rejected category", "content_schema": {"type": "object"}, "unexpected": True},
+            content_type="application/json",
+        ),
+        client.put(
+            category_url,
+            data={"title": "Rejected category update", "unexpected": True},
+            content_type="application/json",
+        ),
+        client.put(
+            f"{category_url}/content-schema",
+            data={"content_schema": {"type": "object"}, "unexpected": True},
+            content_type="application/json",
+        ),
+        client.post(
+            "/api/records/tags",
+            data={"name": "rejected-tag", "unexpected": True},
+            content_type="application/json",
+        ),
+        client.put(
+            tag_url,
+            data={"name": "rejected-tag-update", "unexpected": True},
+            content_type="application/json",
+        ),
+    )
+
+    assert [response.status_code for response in responses] == [422] * len(responses)
+    assert client.get(category_url).json() == category_before
+    assert client.get(tag_url).json() == tag_before
+    assert client.get("/api/records/categories").json() == categories_before
+    assert client.get("/api/records/tags").json() == tags_before

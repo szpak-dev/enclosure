@@ -19,6 +19,32 @@ def test_siren_projects_an_empty_tag_collection() -> None:
 
 
 @pytest.mark.django_db
+def test_siren_rejects_unknown_record_input_without_side_effects_and_recovers() -> None:
+    client = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE)
+
+    rejected = client.post(
+        "/siren/records/tags",
+        data={"name": "strict-siren-tag", "unexpected": True},
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected["Content-Type"] == SIREN_MEDIA_TYPE
+    assert rejected.json()["class"] == ["error"]
+    assert rejected.json()["properties"]["detail"][0]["type"] == "extra_forbidden"
+    assert client.get("/siren/records/tags").json().get("entities", []) == []
+
+    recovered = client.post(
+        "/siren/records/tags",
+        data={"name": "strict-siren-tag"},
+        content_type="application/json",
+    )
+
+    assert recovered.status_code == 201
+    assert recovered.json()["properties"]["name"] == "strict-siren-tag"
+
+
+@pytest.mark.django_db
 def test_siren_searches_records() -> None:
     response = Client(HTTP_ACCEPT=SIREN_MEDIA_TYPE).post(
         "/siren/records/search-results",

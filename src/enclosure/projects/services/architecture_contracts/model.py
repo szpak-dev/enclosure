@@ -47,12 +47,6 @@ class ArchitectureContractUnitInput(BaseModel):
     exclusions: tuple[ArchitectureContractExclusionInput, ...]
 
 
-class PublishArchitectureContract(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    units: tuple[ArchitectureContractUnitInput, ...] = Field(min_length=1)
-
-
 class ArchitectureContractDiagramContract(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

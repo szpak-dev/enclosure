@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from ...models import Category, Record, Tag
+from ...models import Category, Tag
 
 
 class RecordContentPage(BaseModel):
@@ -69,6 +69,16 @@ class RecordTag(BaseModel):
     name: str
 
 
+class RecordSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str
+    title: str
+    category: RecordCategory
+    schema_version: int
+    tags: tuple[RecordTag, ...]
+
+
 class RecordDetail(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -123,9 +133,9 @@ class CategoryPage(BaseModel):
 
 
 class RecordPage(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
-    items: tuple[Record, ...]
+    items: tuple[RecordSummary, ...]
     has_more: bool
     next_offset: int
     limit: int

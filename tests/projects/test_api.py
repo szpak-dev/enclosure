@@ -4479,3 +4479,190 @@ def test_project_collection_pagination_is_bounded(
     for path in paths:
         assert client.get(path, {"offset": -1, "limit": 10}).status_code == 422
         assert client.get(path, {"offset": 0, "limit": 101}).status_code == 422
+
+
+@pytest.mark.django_db
+def test_registration_rejects_nested_unknown_input_before_bootstrap_persistence_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    payload = registration(discover(client, tmp_path), dependencies)
+    payload["discovery"]["stack"]["unexpected"] = True
+
+    rejected = client.post("/api/projects", data=payload, content_type="application/json")
+
+    assert rejected.status_code == 422
+    assert client.get("/api/projects").json()["items"] == []
+
+    del payload["discovery"]["stack"]["unexpected"]
+    recovered = client.post("/api/projects", data=payload, content_type="application/json")
+
+    assert recovered.status_code == 201
+    project_id = recovered.json()["project"]["id"]
+    binding = client.get(f"/api/projects/{project_id}/operating-contract-binding")
+    assert binding.status_code == 200
+    assert binding.json()["effective_revision"]["version"] == 1
+    assert [reference["id"] for reference in binding.json()["effective_revision"]["references"]] == [
+        dependencies["record_id"]
+    ]
+
+
+@pytest.mark.django_db
+def test_update_rejects_nested_unknown_input_without_changing_project_or_configuration_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    payload = registration(discover(client, tmp_path), dependencies)
+    created = client.post("/api/projects", data=payload, content_type="application/json")
+    assert created.status_code == 201
+    project = created.json()["project"]
+    project_url = f"/api/projects/{project['id']}"
+    configuration_url = f"{project_url}/architecture-configurations"
+    configuration_reference = client.get(configuration_url).json()["items"][0]
+    configuration_detail_url = f"{configuration_url}/{configuration_reference['id']}"
+    configuration_before = client.get(configuration_detail_url).json()
+    update = {
+        "title": "Recovered project title",
+        "stack": {**payload["discovery"]["stack"], "unexpected": True},
+        "boundaries_yaml": payload["boundaries_yaml"],
+        "shape_yaml": UNHEALTHY_SHAPE_YAML,
+        "scaffolding_id": payload["scaffolding_id"],
+    }
+
+    rejected = client.put(project_url, data=update, content_type="application/json")
+
+    assert rejected.status_code == 422
+    assert client.get(project_url).json() == project
+    assert client.get(configuration_detail_url).json() == configuration_before
+
+    del update["stack"]["unexpected"]
+    recovered = client.put(project_url, data=update, content_type="application/json")
+
+    assert recovered.status_code == 200
+    assert recovered.json() == {**project, "title": "Recovered project title"}
+    assert client.get(configuration_detail_url).json()["shape_yaml"] == UNHEALTHY_SHAPE_YAML
+
+
+@pytest.mark.django_db
+def test_rejected_operating_contract_revision_does_not_consume_a_version_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+) -> None:
+    contract = client.post(
+        "/api/projects/operating-contracts",
+        data={
+            "title": "Attacked operating contract",
+            "authority": "example:attacked-operating-contract",
+            "provenance": "verification",
+        },
+        content_type="application/json",
+    ).json()
+    url = f"/api/projects/operating-contracts/{contract['id']}/revisions"
+    payload = {
+        "record_ids": [dependencies["record_id"]],
+        "references": [
+            {
+                "kind": "policy",
+                "id": "example-policy",
+                "authority": "example:policy",
+                "revision": "1",
+                "unexpected": True,
+            }
+        ],
+    }
+
+    rejected = client.post(url, data=payload, content_type="application/json")
+
+    assert rejected.status_code == 422
+    assert client.get(f"{url}/1").status_code == 404
+
+    del payload["references"][0]["unexpected"]
+    recovered = client.post(url, data=payload, content_type="application/json")
+
+    assert recovered.status_code == 201
+    assert recovered.json()["version"] == 1
+    assert client.get(f"{url}/1").json() == recovered.json()
+
+
+@pytest.mark.django_db
+def test_rejected_guidance_relationship_replacement_preserves_graph_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    project = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), dependencies),
+        content_type="application/json",
+    ).json()["project"]
+    url = f"/api/projects/{project['id']}/guidance-relationships"
+    relationship = {
+        "source_record_id": dependencies["record_id"],
+        "target_record_id": dependencies["record_id"],
+        "kind": "containment",
+        "unexpected": True,
+    }
+
+    rejected = client.put(
+        url,
+        data={"relationships": [relationship]},
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert client.get(url).json()["items"] == []
+
+    del relationship["unexpected"]
+    recovered = client.put(
+        url,
+        data={"relationships": [relationship]},
+        content_type="application/json",
+    )
+
+    assert recovered.status_code == 200
+    assert [{key: item[key] for key in relationship} for item in recovered.json()] == [relationship]
+
+
+@pytest.mark.django_db
+def test_rejected_architecture_publication_does_not_consume_a_version_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    fixture = create_architecture_contract_fixture(client, dependencies, tmp_path)
+    tree = fixture.create_diagram(
+        "Attacked structure",
+        "treeView-beta",
+        "add_directory",
+        {"id": "source", "label": "example"},
+    )
+    uml = fixture.create_diagram(
+        "Attacked services",
+        "classDiagram",
+        "add_class",
+        {"id": "service", "label": "ExampleService"},
+    )
+    entity = fixture.create_diagram(
+        "Attacked storage",
+        "erDiagram",
+        "add_entity",
+        {"id": "record", "label": "EXAMPLE_RECORD"},
+    )
+    url = f"/api/projects/{fixture.project_id}/architecture-contract-publications"
+    payload = fixture.publication_body(tree, uml, entity)
+    payload["units"][0]["diagrams"][0]["unexpected"] = True
+
+    rejected = client.post(url, data=payload, content_type="application/json")
+
+    assert rejected.status_code == 422
+
+    del payload["units"][0]["diagrams"][0]["unexpected"]
+    recovered = client.post(url, data=payload, content_type="application/json")
+
+    assert recovered.status_code == 201
+    assert recovered.json()["version"] == 1

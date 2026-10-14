@@ -25,15 +25,7 @@ class OperatingContractsService:
     def create(self, title: str, authority: str, provenance: str) -> OperatingContract:
         if not title.strip() or not authority.strip() or not provenance.strip():
             raise ProjectsError("Operating contract title, authority, and provenance are required.")
-        return self._contract(
-            self.repository.create(
-                {
-                    "title": title,
-                    "authority": authority,
-                    "provenance": provenance,
-                }
-            )
-        )
+        return self._contract(self.repository.create(title, authority, provenance))
 
     def get(self, contract_id: str) -> OperatingContract:
         return self._contract(self.repository.get_contract(contract_id))

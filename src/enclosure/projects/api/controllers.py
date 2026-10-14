@@ -14,14 +14,7 @@ from sirenity import (
 )
 
 from ...security.adapters.http import ReadSecurityPermission, SecurityPermission
-from ..services.facade import (
-    ProjectsService,
-    PublishArchitectureContract,
-    PublishOperatingContractRevision,
-    RegisterProject,
-    ReplaceGuidanceRelationships,
-    UpdateProject,
-)
+from ..services.facade import ProjectsService
 from . import schemas
 
 
@@ -42,7 +35,7 @@ class ProjectsController(ControllerBase):
     ):
         publication = DjangoRequest.resolve(request, ProjectsService).publish_project_architecture_contract(
             project_id,
-            PublishArchitectureContract.model_validate(body.model_dump(mode="python")),
+            body,
         )
         return Status(201, publication)
 
@@ -148,7 +141,7 @@ class ProjectsController(ControllerBase):
     ):
         revision = DjangoRequest.resolve(request, ProjectsService).publish_operating_contract_revision(
             contract_id,
-            PublishOperatingContractRevision.model_validate(body.model_dump(mode="python")),
+            body,
         )
         return Status(201, revision)
 
@@ -285,7 +278,7 @@ class ProjectsController(ControllerBase):
         return list(
             DjangoRequest.resolve(request, ProjectsService).replace_guidance_relationships(
                 project_id,
-                ReplaceGuidanceRelationships.model_validate(body.model_dump(mode="python")),
+                body,
             )
         )
 
@@ -354,7 +347,7 @@ class ProjectsController(ControllerBase):
     )
     def register(self, request, body: schemas.RegisterProject):
         resolution = DjangoRequest.resolve(request, ProjectsService).register_project(
-            RegisterProject.model_validate(body.model_dump(mode="python")),
+            body,
         )
         return Status(201, resolution)
 
@@ -717,7 +710,7 @@ class ProjectsController(ControllerBase):
     ):
         return DjangoRequest.resolve(request, ProjectsService).update_project(
             project_id,
-            UpdateProject.model_validate(body.model_dump(mode="python")),
+            body,
         )
 
     @siren_follow_ups(
