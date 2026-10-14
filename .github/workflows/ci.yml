@@ -53,8 +53,8 @@ jobs:
       - name: Install Python dependencies
         run: uv sync --locked
 
-      - name: Check Python and run general tests
-        run: make ci-python-checks ci-python-tests-general
+      - name: Check Python, prepare static files, and run general tests
+        run: make ci-python-checks ci-static-prepare ci-python-tests-general
 
   python_health:
     name: Python health
