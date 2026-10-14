@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from wireup import injectable
 
 from ...errors import ScaffoldingError
-from ..model import ScaffoldingValue
-from ..spec.template import Template
+from ..registry.model import ScaffoldingValue
+from ..spec.model import Template
 from .model import (
     ScaffoldingDetail,
     ScaffoldingSpecManifest,

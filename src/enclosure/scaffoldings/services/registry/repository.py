@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 from pydantic import ValidationError
 from wireup import injectable
 
-from .. import models
-from ..errors import ScaffoldingError
+from ... import models
+from ...errors import ScaffoldingError
+from ..spec.model import ScaffoldingSpec
 from .model import ScaffoldingCandidate, ScaffoldingValue
-from .spec.model import ScaffoldingSpec
 
 
 @injectable

@@ -1,8 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 
-from ..model import ScaffoldingValue
-from ..spec.template import WriteMode
-from ..spec.variables import Variable
+from ..registry.model import ScaffoldingValue
+from ..spec.model import Variable, WriteMode
 
 
 class TemplateManifest(BaseModel):

@@ -8,14 +8,12 @@ from enclosure.shared.source_code.package import CodePackage, SourceCodePackage
 from ..api.schemas import ReadScaffoldingRenderedFile, RenderScaffolding, ScaffoldingInput
 from .content.model import ScaffoldingDetail, ScaffoldingPage, ScaffoldingTemplateContent, TemplateManifestPage
 from .content.service import ScaffoldingContentService
-from .model import ScaffoldingCandidate, ScaffoldingValue
+from .registry.model import ScaffoldingCandidate, ScaffoldingValue
+from .registry.repository import ScaffoldingRepository
 from .renderings.model import RenderedFile, RenderedFileContent, RenderingPage
 from .renderings.service import RenderingService
-from .repository import ScaffoldingRepository
-from .spec.model import ScaffoldingSpec
+from .spec.model import ScaffoldingSpec, Template, Variable, VariableType, WriteMode
 from .spec.service import ScaffoldingSpecService
-from .spec.template import Template, WriteMode
-from .spec.variables import Variable, VariableType
 
 
 @injectable

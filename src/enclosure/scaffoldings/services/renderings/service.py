@@ -7,8 +7,7 @@ from enclosure.shared.source_code.package import CodePackage, SourceCodePackage
 from enclosure.shared.source_code.renderer import SourceCodeRenderer
 
 from ...errors import ScaffoldingError
-from ..spec.model import PreparedScaffolding
-from ..spec.template import WriteMode
+from ..spec.model import PreparedScaffolding, WriteMode
 from .model import RenderedFile, RenderedFileContent, RenderedFileManifest, RenderingPage
 
 

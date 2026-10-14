@@ -1,12 +1,76 @@
+from enum import StrEnum
 from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, ValidationError, model_validator
 
-from enclosure.shared.source_code.package import SourceCodePackage
+from enclosure.shared.source_code.errors import SourceCodeError
+from enclosure.shared.source_code.package import CodePackage, SourceCodePackage
 
 from ...errors import ScaffoldingError
-from .template import Template
-from .variables import Variable
+
+
+class WriteMode(StrEnum):
+    OVERWRITE = "overwrite"
+    CREATE_IF_MISSING = "create_if_missing"
+
+
+class VariableType(StrEnum):
+    STRING = "string"
+    INTEGER = "integer"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    ARRAY = "array"
+    OBJECT = "object"
+
+
+class Variable(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(description="Parameter name referenced by scaffolding templates.")
+    type: VariableType = Field(description="Value type required for the parameter.")
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        if not self.name.isidentifier():
+            raise ScaffoldingError(f"Scaffolding variable name must be a valid identifier: {self.name!r}")
+        return self
+
+    def validate_value(self, value: JsonValue) -> JsonValue:
+        try:
+            if self.type == VariableType.STRING:
+                return TypeAdapter(str).validate_python(value, strict=True)
+            if self.type == VariableType.INTEGER:
+                return TypeAdapter(int).validate_python(value, strict=True)
+            if self.type == VariableType.NUMBER:
+                return TypeAdapter(int | float).validate_python(value, strict=True)
+            if self.type == VariableType.BOOLEAN:
+                return TypeAdapter(bool).validate_python(value, strict=True)
+            if self.type == VariableType.ARRAY:
+                return TypeAdapter(list[JsonValue]).validate_python(value, strict=True)
+            return TypeAdapter(dict[str, JsonValue]).validate_python(value, strict=True)
+        except ValidationError as error:
+            raise ScaffoldingError(f"Rendering parameter {self.name!r} must have type {self.type.value!r}.") from error
+
+
+class Template(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str = Field(description="Relative output path of the rendered file.")
+    content: str = Field(description="Template source rendered into the output file.")
+    write_mode: WriteMode = Field(
+        default=WriteMode.OVERWRITE,
+        description="Whether rendering may replace an existing file.",
+    )
+
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        try:
+            CodePackage(files={self.path: self.content})
+        except SourceCodeError as error:
+            raise ScaffoldingError(f"Invalid scaffolding template path {self.path!r}: {error}") from error
+        if not self.path.endswith(".jinja") and any(token in self.content for token in ("{{", "{%", "{#")):
+            raise ScaffoldingError("Template content uses Jinja syntax; its path must end with '.jinja'.")
+        return self
 
 
 class ScaffoldingSpec(BaseModel):
