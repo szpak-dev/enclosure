@@ -1387,6 +1387,40 @@ def test_creates_operating_contract_through_public_mcp() -> None:
 
 
 @pytest.mark.django_db(transaction=True)
+def test_public_mcp_rejects_unknown_operating_contract_input_without_reserving_authority() -> None:
+    async def attack_and_recover() -> tuple[CallToolResult, CallToolResult]:
+        client = PublicMcpClient(ConfiguredApplication())
+        async with client.session() as (session, _):
+            await session.initialize()
+            rejected = await session.call_tool(
+                "create_operating_contract",
+                {
+                    "title": "Strict MCP operating contract",
+                    "authority": "example:mcp:strict-operating-contract",
+                    "provenance": "mcp-verification",
+                    "unexpected": True,
+                },
+            )
+            recovered = await session.call_tool(
+                "create_operating_contract",
+                {
+                    "title": "Strict MCP operating contract",
+                    "authority": "example:mcp:strict-operating-contract",
+                    "provenance": "mcp-verification",
+                },
+            )
+            return rejected, recovered
+
+    rejected, recovered = asyncio.run(attack_and_recover())
+
+    assert rejected.is_error is True
+    assert rejected.structured_content["status"] == "error"
+    assert recovered.is_error is False
+    assert recovered.structured_content["status"] == "ok"
+    assert recovered.structured_content["data"]["authority"] == "example:mcp:strict-operating-contract"
+
+
+@pytest.mark.django_db(transaction=True)
 def test_presents_gating_health_failures_with_exact_follow_ups(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
