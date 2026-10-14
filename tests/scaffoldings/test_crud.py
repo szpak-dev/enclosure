@@ -188,6 +188,12 @@ def test_render_rejects_invalid_parameter_types_with_scaffolding_error() -> None
         data={"parameters": {"count": "one"}},
         content_type="application/json",
     )
+    recovered = Client().post(
+        f"/api/scaffoldings/{created.json()['id']}/renderings",
+        data={"parameters": {"count": 1}},
+        content_type="application/json",
+    )
 
     assert response.status_code == 422
-    assert "Input should be a valid integer" in response.json()["detail"]
+    assert response.json() == {"detail": "Rendering parameter 'count' must have type 'integer'."}
+    assert recovered.status_code == 200

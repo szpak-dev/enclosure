@@ -30,8 +30,7 @@ class ScaffoldingService:
         spec = ScaffoldingSpec(
             language=input.spec.language,
             variables=tuple(
-                Variable(name=variable.name, type=VariableType(variable.type))
-                for variable in input.spec.variables
+                Variable(name=variable.name, type=VariableType(variable.type)) for variable in input.spec.variables
             ),
             templates=tuple(
                 Template(

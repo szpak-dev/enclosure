@@ -22,17 +22,13 @@ class ScaffoldingSpec(BaseModel):
     @model_validator(mode="after")
     def validate_contract(self) -> Self:
         variable_names = tuple(variable.name for variable in self.variables)
-        duplicate_variable_names = sorted(
-            name for name in set(variable_names) if variable_names.count(name) > 1
-        )
+        duplicate_variable_names = sorted(name for name in set(variable_names) if variable_names.count(name) > 1)
         if duplicate_variable_names:
             rendered_names = ", ".join(duplicate_variable_names)
             raise ScaffoldingError(f"Scaffolding variable names must be unique: {rendered_names}")
 
         template_paths = tuple(template.path for template in self.templates)
-        duplicate_template_paths = sorted(
-            path for path in set(template_paths) if template_paths.count(path) > 1
-        )
+        duplicate_template_paths = sorted(path for path in set(template_paths) if template_paths.count(path) > 1)
         if duplicate_template_paths:
             rendered_paths = ", ".join(duplicate_template_paths)
             raise ScaffoldingError(f"Scaffolding template paths must be unique: {rendered_paths}")

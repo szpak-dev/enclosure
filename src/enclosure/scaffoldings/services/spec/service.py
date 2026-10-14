@@ -30,14 +30,10 @@ class ScaffoldingSpecService:
                 details.append(f"unexpected: {', '.join(sorted(unexpected_names))}")
             raise ScaffoldingError(f"Invalid rendering parameters ({'; '.join(details)}).")
 
-        validated_parameters = {
-            name: variable.validate_value(parameters[name]) for name, variable in variables.items()
-        }
+        validated_parameters = {name: variable.validate_value(parameters[name]) for name, variable in variables.items()}
         source = SourceCodePackage.model_construct(
             language=spec.language,
-            package=CodePackage.model_construct(
-                files={template.path: template.content for template in spec.templates}
-            ),
+            package=CodePackage.model_construct(files={template.path: template.content for template in spec.templates}),
         )
         return PreparedScaffolding(
             spec=spec,

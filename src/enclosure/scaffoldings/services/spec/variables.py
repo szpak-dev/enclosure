@@ -41,6 +41,4 @@ class Variable(BaseModel):
                 return TypeAdapter(list[JsonValue]).validate_python(value, strict=True)
             return TypeAdapter(dict[str, JsonValue]).validate_python(value, strict=True)
         except ValidationError as error:
-            raise ScaffoldingError(
-                f"Rendering parameter {self.name!r} must have type {self.type.value!r}."
-            ) from error
+            raise ScaffoldingError(f"Rendering parameter {self.name!r} must have type {self.type.value!r}.") from error

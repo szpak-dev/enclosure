@@ -63,7 +63,7 @@ class ScaffoldingController(ControllerBase):
         description="Find a bounded set of compact scaffolding references by name and language.",
     )
     def search(self, request, body: schemas.SearchScaffoldings):
-        return DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id, body.limit)
+        return list(DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id, body.limit))
 
     @siren_follow_ups(
         http_get,
