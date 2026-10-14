@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    name: CI
+  python_general:
+    name: Python general
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
@@ -47,6 +47,88 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Install Python dependencies
+        run: uv sync --locked
+
+      - name: Check Python and run general tests
+        run: make ci-python-checks ci-python-tests-general
+
+  python_health:
+    name: Python health
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.2-pg18-bookworm
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: enclosure
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          path: enclosure
+
+      - name: Check out local modwire-siren source
+        uses: actions/checkout@v6
+        with:
+          repository: modwire/modwire-siren
+          ref: v4.0.0
+          path: modwire-siren
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Install Python dependencies
+        run: uv sync --locked
+
+      - name: Run health tests
+        run: make ci-python-tests-health
+
+  browser_static:
+    name: Browser and static
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: enclosure
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          path: enclosure
+
+      - name: Check out local modwire-siren source
+        uses: actions/checkout@v6
+        with:
+          repository: modwire/modwire-siren
+          ref: v4.0.0
+          path: modwire-siren
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -63,5 +145,24 @@ jobs:
       - name: Install browser dependencies
         run: npm --prefix browser ci
 
-      - name: Check
-        run: make ci
+      - name: Check browser and generated static assets
+        run: make ci-browser-checks ci-static-prepare ci-browser-tests ci-browser-build ci-static-check
+
+  ci:
+    name: CI
+    if: ${{ always() }}
+    needs:
+      - python_general
+      - python_health
+      - browser_static
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful partitions
+        env:
+          BROWSER_STATIC_RESULT: ${{ needs.browser_static.result }}
+          PYTHON_GENERAL_RESULT: ${{ needs.python_general.result }}
+          PYTHON_HEALTH_RESULT: ${{ needs.python_health.result }}
+        run: |
+          test "$PYTHON_GENERAL_RESULT" = success
+          test "$PYTHON_HEALTH_RESULT" = success
+          test "$BROWSER_STATIC_RESULT" = success

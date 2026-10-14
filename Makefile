@@ -36,7 +36,7 @@ ci-python-tests:
 	@$(MAKE) --jobs=2 ci-python-tests-general ci-python-tests-health
 
 ci-python-tests-general:
-	@uv run pytest -n 4 --dist loadfile -k "not health"
+	@uv run pytest -n 4 --dist worksteal -k "not health"
 
 ci-python-tests-health:
 	@uv run pytest -k health
