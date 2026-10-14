@@ -2345,6 +2345,224 @@ def test_reads_revision_pinned_architecture_configuration_content(
 
 
 @pytest.mark.django_db
+def test_generation_rejects_rendered_path_collisions_without_filesystem_mutation_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    scaffolding = client.post(
+        "/api/scaffoldings",
+        data={
+            "language_id": "python",
+            "name": "Example dynamic paths",
+            "description": "Example generated package topology.",
+            "spec": {
+                "language": "python",
+                "variables": [
+                    {"name": "example_first", "type": "string"},
+                    {"name": "example_second", "type": "string"},
+                ],
+                "templates": [
+                    {
+                        "path": "{{ example_first }}.jinja",
+                        "content": "first",
+                        "write_mode": "overwrite",
+                    },
+                    {
+                        "path": "{{ example_second }}/child.py.jinja",
+                        "content": "second",
+                        "write_mode": "overwrite",
+                    },
+                ],
+            },
+        },
+        content_type="application/json",
+    )
+    assert scaffolding.status_code == 201
+    project_dependencies = {**dependencies, "scaffolding_id": scaffolding.json()["id"]}
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), project_dependencies),
+        content_type="application/json",
+    ).json()
+    generation_path = (
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/source-generations"
+    )
+    output = tmp_path / "generated"
+    output.mkdir()
+    sentinel = output / "example-sentinel.txt"
+    sentinel.write_text("existing", encoding="utf-8")
+
+    rejected = client.post(
+        generation_path,
+        data={
+            "destination": "generated",
+            "parameters": {"example_first": "example", "example_second": "example"},
+        },
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json() == {
+        "detail": "Rendered scaffolding paths conflict as files and directories: example and example/child.py"
+    }
+    assert sentinel.read_text(encoding="utf-8") == "existing"
+    assert not (output / "example").exists()
+
+    recovered = client.post(
+        generation_path,
+        data={
+            "destination": "generated",
+            "parameters": {"example_first": "example.txt", "example_second": "example"},
+        },
+        content_type="application/json",
+    )
+
+    assert recovered.status_code == 200
+    assert recovered.json() == {"files": ["generated/example.txt", "generated/example/child.py"]}
+    assert (output / "example.txt").read_text(encoding="utf-8") == "first"
+    assert (output / "example" / "child.py").read_text(encoding="utf-8") == "second"
+
+
+@pytest.mark.django_db
+def test_generation_preflights_a_later_parent_file_before_writing_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    scaffolding = client.post(
+        "/api/scaffoldings",
+        data={
+            "language_id": "python",
+            "name": "Example parent conflict",
+            "description": "Example parent-file preflight.",
+            "spec": {
+                "language": "python",
+                "variables": [],
+                "templates": [
+                    {"path": "example-first.txt", "content": "first", "write_mode": "overwrite"},
+                    {
+                        "path": "example-parent/example-second.txt",
+                        "content": "second",
+                        "write_mode": "overwrite",
+                    },
+                ],
+            },
+        },
+        content_type="application/json",
+    )
+    assert scaffolding.status_code == 201
+    project_dependencies = {**dependencies, "scaffolding_id": scaffolding.json()["id"]}
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), project_dependencies),
+        content_type="application/json",
+    ).json()
+    generation_path = (
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/source-generations"
+    )
+    output = tmp_path / "generated"
+    output.mkdir()
+    occupied_parent = output / "example-parent"
+    occupied_parent.write_text("existing", encoding="utf-8")
+
+    rejected = client.post(
+        generation_path,
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json() == {"detail": "Generation path is occupied by a file: generated/example-parent"}
+    assert not (output / "example-first.txt").exists()
+    assert occupied_parent.read_text(encoding="utf-8") == "existing"
+
+    occupied_parent.unlink()
+    recovered = client.post(
+        generation_path,
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert recovered.status_code == 200
+    assert recovered.json() == {
+        "files": [
+            "generated/example-first.txt",
+            "generated/example-parent/example-second.txt",
+        ]
+    }
+    assert (output / "example-first.txt").read_text(encoding="utf-8") == "first"
+    assert (output / "example-parent" / "example-second.txt").read_text(encoding="utf-8") == "second"
+
+
+@pytest.mark.django_db
+def test_generation_preflights_a_later_target_directory_before_writing_and_recovers(
+    client: Client,
+    dependencies: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    python_project(tmp_path)
+    scaffolding = client.post(
+        "/api/scaffoldings",
+        data={
+            "language_id": "python",
+            "name": "Example directory conflict",
+            "description": "Example target-directory preflight.",
+            "spec": {
+                "language": "python",
+                "variables": [],
+                "templates": [
+                    {"path": "example-first.txt", "content": "first", "write_mode": "overwrite"},
+                    {"path": "example-target", "content": "second", "write_mode": "overwrite"},
+                ],
+            },
+        },
+        content_type="application/json",
+    )
+    assert scaffolding.status_code == 201
+    project_dependencies = {**dependencies, "scaffolding_id": scaffolding.json()["id"]}
+    resolution = client.post(
+        "/api/projects",
+        data=registration(discover(client, tmp_path), project_dependencies),
+        content_type="application/json",
+    ).json()
+    generation_path = (
+        f"/api/projects/{resolution['project']['id']}/workspaces/{resolution['workspace']['id']}/source-generations"
+    )
+    output = tmp_path / "generated"
+    occupied_target = output / "example-target"
+    occupied_target.mkdir(parents=True)
+    marker = occupied_target / "example-marker.txt"
+    marker.write_text("existing", encoding="utf-8")
+
+    rejected = client.post(
+        generation_path,
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json() == {"detail": "Generation destination is an existing directory: generated/example-target"}
+    assert not (output / "example-first.txt").exists()
+    assert marker.read_text(encoding="utf-8") == "existing"
+
+    marker.unlink()
+    occupied_target.rmdir()
+    recovered = client.post(
+        generation_path,
+        data={"destination": "generated", "parameters": {}},
+        content_type="application/json",
+    )
+
+    assert recovered.status_code == 200
+    assert recovered.json() == {"files": ["generated/example-first.txt", "generated/example-target"]}
+    assert (output / "example-first.txt").read_text(encoding="utf-8") == "first"
+    assert occupied_target.read_text(encoding="utf-8") == "second"
+
+
+@pytest.mark.django_db
 def test_generates_project_source_from_associated_scaffolding(
     client: Client,
     dependencies: dict[str, str],

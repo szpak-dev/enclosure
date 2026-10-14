@@ -33,7 +33,42 @@ class FilesystemAdapter:
         if not output_root.is_relative_to(root):
             raise ProjectsError("Generation destination escapes the project root.")
 
-        self._validate_targets(root, output_root, files)
+        targets = tuple((file, (output_root / file.path).resolve()) for file in files)
+        target_paths = tuple(target[1] for target in targets)
+        if len(set(target_paths)) != len(target_paths):
+            raise ProjectsError("Rendered file paths must resolve to unique destinations.")
+
+        target_path_set = set(target_paths)
+        for file, target in targets:
+            if not target.is_relative_to(root):
+                raise ProjectsError(f"Rendered file path escapes the project root: {file.path}")
+
+            for parent in target.parents:
+                if not parent.is_relative_to(root):
+                    break
+                if parent.exists() and not parent.is_dir():
+                    relative_parent = parent.relative_to(root).as_posix()
+                    raise ProjectsError(f"Generation path is occupied by a file: {relative_parent}")
+                if parent == root:
+                    break
+
+            conflicting_parents = tuple(parent for parent in target.parents if parent in target_path_set)
+            if conflicting_parents:
+                conflicting_parent = conflicting_parents[0]
+                relative_parent = conflicting_parent.relative_to(root).as_posix()
+                relative_target = target.relative_to(root).as_posix()
+                raise ProjectsError(
+                    f"Rendered file destinations conflict as a file and directory: "
+                    f"{relative_parent} and {relative_target}"
+                )
+
+            if target.is_dir():
+                relative_target = target.relative_to(root).as_posix()
+                raise ProjectsError(f"Generation destination is an existing directory: {relative_target}")
+            if target.exists() and not file.overwrite:
+                relative_target = target.relative_to(root).as_posix()
+                raise ProjectsError(f"Destination already contains: {relative_target}")
+
         for file in files:
             self.writer.write(
                 CodePackage(files={file.path: file.content}),
@@ -42,17 +77,3 @@ class FilesystemAdapter:
             )
 
         return tuple(sorted((output_root / file.path).resolve().relative_to(root).as_posix() for file in files))
-
-    def _validate_targets(
-        self,
-        project_root: Path,
-        output_root: Path,
-        files: tuple[RenderedFile, ...],
-    ) -> None:
-        for file in files:
-            target = (output_root / file.path).resolve()
-            if not target.is_relative_to(project_root):
-                raise ProjectsError(f"Rendered file path escapes the project root: {file.path}")
-            if target.exists() and not file.overwrite:
-                relative_target = target.relative_to(project_root).as_posix()
-                raise ProjectsError(f"Destination already contains: {relative_target}")

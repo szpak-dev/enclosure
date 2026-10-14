@@ -21,4 +21,4 @@ class ScaffoldingsAdapter:
         scaffolding_id: str,
         parameters: Mapping[str, JsonValue],
     ) -> tuple[RenderedFile, ...]:
-        return self.scaffoldings.render_files(scaffolding_id, parameters)
+        return self.scaffoldings.render_files(scaffolding_id, dict(parameters))

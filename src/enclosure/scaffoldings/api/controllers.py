@@ -28,7 +28,7 @@ class ScaffoldingController(ControllerBase):
         description="Store a reusable source-code template and its parameter specification.",
     )
     def create(self, request, body: schemas.ScaffoldingInput):
-        value = DjangoRequest.resolve(request, ScaffoldingService).create(body.model_dump(mode="json"))
+        value = DjangoRequest.resolve(request, ScaffoldingService).create(body)
         return Status(201, value)
 
     @siren_pagination(
@@ -63,7 +63,7 @@ class ScaffoldingController(ControllerBase):
         description="Find a bounded set of compact scaffolding references by name and language.",
     )
     def search(self, request, body: schemas.SearchScaffoldings):
-        return DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id, body.limit)
+        return list(DjangoRequest.resolve(request, ScaffoldingService).search(body.name, body.language_id, body.limit))
 
     @siren_follow_ups(
         http_get,
@@ -171,7 +171,7 @@ class ScaffoldingController(ControllerBase):
         scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
         body: schemas.ScaffoldingInput,
     ):
-        return DjangoRequest.resolve(request, ScaffoldingService).update(scaffolding_id, body.model_dump(mode="json"))
+        return DjangoRequest.resolve(request, ScaffoldingService).update(scaffolding_id, body)
 
     @route.post(
         "/{scaffolding_id}/renderings",
@@ -187,12 +187,7 @@ class ScaffoldingController(ControllerBase):
         scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
         body: schemas.RenderScaffolding,
     ):
-        return DjangoRequest.resolve(request, ScaffoldingService).render_page(
-            scaffolding_id,
-            body.parameters,
-            body.offset,
-            body.limit,
-        )
+        return DjangoRequest.resolve(request, ScaffoldingService).render_page(scaffolding_id, body)
 
     @route.post(
         "/{scaffolding_id}/rendered-file-content",
@@ -208,14 +203,7 @@ class ScaffoldingController(ControllerBase):
         scaffolding_id: Annotated[str, Path(description="Scaffolding identifier.")],
         body: schemas.ReadScaffoldingRenderedFile,
     ):
-        return DjangoRequest.resolve(request, ScaffoldingService).read_rendered_file(
-            scaffolding_id,
-            body.parameters,
-            body.path,
-            body.expected_revision,
-            body.offset,
-            body.limit,
-        )
+        return DjangoRequest.resolve(request, ScaffoldingService).read_rendered_file(scaffolding_id, body)
 
     @route.delete(
         "/{scaffolding_id}",

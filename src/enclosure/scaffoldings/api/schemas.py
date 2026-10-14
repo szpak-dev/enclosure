@@ -1,25 +1,19 @@
-from typing import Annotated, Literal
+from typing import Literal
 
-from ninja import Schema
-from pydantic import ConfigDict, Field, JsonValue
+from pydantic import Field, JsonValue
 
-
-class StrictSchema(Schema):
-    model_config = ConfigDict(extra="forbid", frozen=True, from_attributes=True)
-
-
-ScaffoldingId = Annotated[str, Field(description="Scaffolding identifier.")]
+from enclosure.shared.schemas import StrictSchema
 
 
 class ScaffoldingVariableInput(StrictSchema):
-    name: str = Field(description="Parameter name referenced by scaffolding templates.")
+    name: str = Field(description="Parameter name referenced by scaffolding templates.", min_length=1)
     type: Literal["string", "integer", "number", "boolean", "array", "object"] = Field(
         default="string", description="Value type required for the parameter."
     )
 
 
 class ScaffoldingTemplateInput(StrictSchema):
-    path: str = Field(description="Relative output path of the rendered file.")
+    path: str = Field(description="Relative output path of the rendered file.", min_length=1)
     content: str = Field(description="Template source rendered into the output file.")
     write_mode: Literal["overwrite", "create_if_missing"] = Field(
         default="overwrite",
@@ -28,23 +22,33 @@ class ScaffoldingTemplateInput(StrictSchema):
 
 
 class ScaffoldingSpecInput(StrictSchema):
-    language: str = Field(description="Language identifier for the rendered source code.")
-    variables: list[ScaffoldingVariableInput] = Field(
-        default_factory=list,
+    language: str = Field(
+        description="Language identifier for the rendered source code.",
+        min_length=1,
+        max_length=32,
+    )
+    variables: tuple[ScaffoldingVariableInput, ...] = Field(
+        default=(),
         description="Parameters accepted when rendering the scaffolding.",
     )
-    templates: list[ScaffoldingTemplateInput] = Field(description="Source file templates rendered by the scaffolding.")
+    templates: tuple[ScaffoldingTemplateInput, ...] = Field(
+        description="Source file templates rendered by the scaffolding."
+    )
 
 
 class ScaffoldingInput(StrictSchema):
-    language_id: str = Field(description="Language identifier for the rendered source code.")
-    name: str = Field(description="Human-readable scaffolding name.")
+    language_id: str = Field(
+        description="Language identifier for the rendered source code.",
+        min_length=1,
+        max_length=32,
+    )
+    name: str = Field(description="Human-readable scaffolding name.", min_length=1, max_length=120)
     description: str = Field(description="Purpose and intended use of the scaffolding.")
     spec: ScaffoldingSpecInput = Field(description="Templates and parameters used to render source code.")
 
 
 class ScaffoldingSummary(StrictSchema):
-    id: ScaffoldingId
+    id: str = Field(description="Scaffolding identifier.")
     language_id: str = Field(description="Language identifier for the rendered source code.")
     name: str = Field(description="Human-readable scaffolding name.")
     description: str = Field(description="Purpose and intended use of the scaffolding.")
@@ -59,9 +63,16 @@ class TemplateManifest(StrictSchema):
     revision: str = Field(description="SHA-256 revision of the complete template content.")
 
 
+class ScaffoldingVariable(StrictSchema):
+    name: str = Field(description="Parameter name referenced by scaffolding templates.")
+    type: Literal["string", "integer", "number", "boolean", "array", "object"] = Field(
+        description="Value type required for the parameter."
+    )
+
+
 class ScaffoldingSpecManifest(StrictSchema):
     language: str = Field(description="Language identifier declared by the scaffolding specification.")
-    variables: list[dict[str, JsonValue]] = Field(description="Rendering variable declarations.")
+    variables: list[ScaffoldingVariable] = Field(description="Rendering variable declarations.")
     templates: list[TemplateManifest] = Field(description="Template manifests without complete bodies.")
 
 
@@ -107,7 +118,7 @@ class ReadTemplateManifests(StrictSchema):
 
 
 class TemplateManifestPage(StrictSchema):
-    scaffolding_id: ScaffoldingId
+    scaffolding_id: str = Field(description="Scaffolding identifier.")
     revision: str = Field(description="SHA-256 revision of the canonical template-manifest document.")
     offset: int = Field(description="Template-manifest offset at which this page starts.", ge=0)
     limit: int = Field(description="Maximum manifests selected for this page.", ge=1)
@@ -118,7 +129,7 @@ class TemplateManifestPage(StrictSchema):
 
 
 class ScaffoldingTemplateContent(StrictSchema):
-    scaffolding_id: ScaffoldingId
+    scaffolding_id: str = Field(description="Scaffolding identifier.")
     path: str = Field(description="Exact relative template path.")
     write_mode: Literal["overwrite", "create_if_missing"] = Field(
         description="Write policy applied to the rendered file."
@@ -147,7 +158,7 @@ class RenderedFileManifest(StrictSchema):
 
 
 class RenderingPage(StrictSchema):
-    scaffolding_id: ScaffoldingId
+    scaffolding_id: str = Field(description="Scaffolding identifier.")
     items: list[RenderedFileManifest] = Field(description="Rendered-file manifests in this bounded page.")
     has_more: bool = Field(description="Whether another rendered-file page remains.")
     next_offset: int = Field(description="Rendered-file offset for the next page.", ge=0)
@@ -165,7 +176,7 @@ class ReadScaffoldingRenderedFile(StrictSchema):
 
 
 class RenderedFileContent(StrictSchema):
-    scaffolding_id: ScaffoldingId
+    scaffolding_id: str = Field(description="Scaffolding identifier.")
     path: str = Field(description="Exact rendered output path.")
     overwrite: bool = Field(description="Whether generation may replace an existing file.")
     revision: str = Field(description="SHA-256 revision of the complete rendered content.")
