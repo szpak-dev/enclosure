@@ -54,12 +54,12 @@ class ScaffoldingRepository:
     def hydrate(self, scaffolding: models.Scaffolding) -> ScaffoldingValue:
         try:
             spec = ScaffoldingSpec.model_validate(scaffolding.spec)
-        except ValidationError as error:
-            raise ScaffoldingError("Persisted scaffolding specification violates its stored contract.") from error
-        return ScaffoldingValue(
-            id=str(scaffolding.id),
-            language_id=scaffolding.language_id,
-            name=scaffolding.name,
-            description=scaffolding.description,
-            spec=spec,
-        )
+            return ScaffoldingValue(
+                id=str(scaffolding.id),
+                language_id=scaffolding.language_id,
+                name=scaffolding.name,
+                description=scaffolding.description,
+                spec=spec,
+            )
+        except (ValidationError, ScaffoldingError) as error:
+            raise ScaffoldingError("Persisted scaffolding violates its stored contract.") from error

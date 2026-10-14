@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from pydantic import JsonValue
@@ -18,6 +19,6 @@ class ScaffoldingsAdapter:
     def render(
         self,
         scaffolding_id: str,
-        parameters: dict[str, JsonValue],
+        parameters: Mapping[str, JsonValue],
     ) -> tuple[RenderedFile, ...]:
-        return self.scaffoldings.render_files(scaffolding_id, parameters)
+        return self.scaffoldings.render_files(scaffolding_id, dict(parameters))

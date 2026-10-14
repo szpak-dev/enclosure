@@ -36,6 +36,23 @@ class ScaffoldingSpec(BaseModel):
         if duplicate_template_paths:
             rendered_paths = ", ".join(duplicate_template_paths)
             raise ScaffoldingError(f"Scaffolding template paths must be unique: {rendered_paths}")
+
+        template_path_set = set(template_paths)
+        topology_conflicts: list[tuple[str, str]] = []
+        for path in template_paths:
+            parts = path.split("/")
+            for index in range(1, len(parts)):
+                ancestor = "/".join(parts[:index])
+                if ancestor in template_path_set:
+                    topology_conflicts.append((ancestor, path))
+
+        if topology_conflicts:
+            rendered_conflicts = ", ".join(
+                f"{ancestor} and {descendant}" for ancestor, descendant in sorted(topology_conflicts)
+            )
+            raise ScaffoldingError(
+                f"Scaffolding template paths conflict as files and directories: {rendered_conflicts}"
+            )
         return self
 
 

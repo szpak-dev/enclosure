@@ -23,8 +23,10 @@ class RenderingService:
 
         for template in prepared.spec.templates:
             source = SourceCodePackage.model_construct(
-                language=prepared.spec.language,
-                package=CodePackage.model_construct(files={template.path: template.content}),
+                language=prepared.source.language,
+                package=CodePackage.model_construct(
+                    files={template.path: prepared.source.package.files[template.path]}
+                ),
             )
             files = self.renderer.render(source, prepared.parameters).package.files
             if len(files) != 1:
@@ -41,6 +43,23 @@ class RenderingService:
                     content=content,
                     overwrite=template.write_mode == WriteMode.OVERWRITE,
                 )
+            )
+
+        rendered_path_set = {file.path for file in rendered_files}
+        topology_conflicts: list[tuple[str, str]] = []
+        for file in rendered_files:
+            parts = file.path.split("/")
+            for index in range(1, len(parts)):
+                ancestor = "/".join(parts[:index])
+                if ancestor in rendered_path_set:
+                    topology_conflicts.append((ancestor, file.path))
+
+        if topology_conflicts:
+            rendered_conflicts = ", ".join(
+                f"{ancestor} and {descendant}" for ancestor, descendant in sorted(topology_conflicts)
+            )
+            raise ScaffoldingError(
+                f"Rendered scaffolding paths conflict as files and directories: {rendered_conflicts}"
             )
 
         return tuple(rendered_files)

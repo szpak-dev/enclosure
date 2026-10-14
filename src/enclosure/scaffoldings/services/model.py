@@ -9,8 +9,8 @@ from .spec.model import ScaffoldingSpec
 class ScaffoldingCandidate(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    language_id: str = Field(min_length=1)
-    name: str = Field(min_length=1)
+    language_id: str = Field(min_length=1, max_length=32)
+    name: str = Field(min_length=1, max_length=120)
     description: str
     spec: ScaffoldingSpec
 

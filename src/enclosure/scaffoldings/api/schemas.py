@@ -22,7 +22,11 @@ class ScaffoldingTemplateInput(StrictSchema):
 
 
 class ScaffoldingSpecInput(StrictSchema):
-    language: str = Field(description="Language identifier for the rendered source code.", min_length=1)
+    language: str = Field(
+        description="Language identifier for the rendered source code.",
+        min_length=1,
+        max_length=32,
+    )
     variables: tuple[ScaffoldingVariableInput, ...] = Field(
         default=(),
         description="Parameters accepted when rendering the scaffolding.",
@@ -33,8 +37,12 @@ class ScaffoldingSpecInput(StrictSchema):
 
 
 class ScaffoldingInput(StrictSchema):
-    language_id: str = Field(description="Language identifier for the rendered source code.", min_length=1)
-    name: str = Field(description="Human-readable scaffolding name.", min_length=1)
+    language_id: str = Field(
+        description="Language identifier for the rendered source code.",
+        min_length=1,
+        max_length=32,
+    )
+    name: str = Field(description="Human-readable scaffolding name.", min_length=1, max_length=120)
     description: str = Field(description="Purpose and intended use of the scaffolding.")
     spec: ScaffoldingSpecInput = Field(description="Templates and parameters used to render source code.")
 
