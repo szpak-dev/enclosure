@@ -1,7 +1,8 @@
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict
 
-from ...models import Scaffolding
-from ..spec.model import WriteMode
+from ..model import ScaffoldingValue
+from ..spec.template import WriteMode
+from ..spec.variables import Variable
 
 
 class TemplateManifest(BaseModel):
@@ -17,7 +18,7 @@ class ScaffoldingSpecManifest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     language: str
-    variables: tuple[dict[str, JsonValue], ...]
+    variables: tuple[Variable, ...]
     templates: tuple[TemplateManifest, ...]
 
 
@@ -62,9 +63,9 @@ class ScaffoldingTemplateContent(BaseModel):
 
 
 class ScaffoldingPage(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+    model_config = ConfigDict(frozen=True)
 
-    items: tuple[Scaffolding, ...]
+    items: tuple[ScaffoldingValue, ...]
     has_more: bool
     next_offset: int
     limit: int

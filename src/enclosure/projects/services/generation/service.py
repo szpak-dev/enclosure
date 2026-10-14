@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from pydantic import JsonValue
@@ -39,7 +38,7 @@ class GenerationService:
         project: Project,
         workspace: WorkspaceBinding,
         destination: str,
-        parameters: Mapping[str, JsonValue],
+        parameters: dict[str, JsonValue],
     ) -> GenerationResult:
         rendered_files = self.scaffoldings.render(project.scaffolding_id, parameters)
         written_files = self.filesystem.write(workspace.root, destination, rendered_files)

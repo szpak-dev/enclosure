@@ -1,4 +1,4 @@
-from enclosure.shared import DomainError
+from enclosure.shared.errors import DomainError
 
 
 class ScaffoldingError(DomainError): ...

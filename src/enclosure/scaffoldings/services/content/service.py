@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from wireup import injectable
 
 from ...errors import ScaffoldingError
-from ...models import Scaffolding
-from ..spec.service import ScaffoldingSpecService
+from ..model import ScaffoldingValue
+from ..spec.template import Template
 from .model import (
     ScaffoldingDetail,
     ScaffoldingSpecManifest,
@@ -19,20 +19,17 @@ from .model import (
 @injectable
 @dataclass(frozen=True)
 class ScaffoldingContentService:
-    spec_service: ScaffoldingSpecService
-
-    def detail(self, scaffolding: Scaffolding) -> ScaffoldingDetail:
-        spec = self.spec_service.validate(scaffolding.spec)
-        manifests = self._manifests(spec.templates)
-        revision = self._manifest_revision(manifests)
+    def detail(self, scaffolding: ScaffoldingValue) -> ScaffoldingDetail:
+        manifests = self.manifests(scaffolding.spec.templates)
+        revision = self.manifest_revision(manifests)
         return ScaffoldingDetail(
-            id=str(scaffolding.id),
+            id=scaffolding.id,
             language_id=scaffolding.language_id,
             name=scaffolding.name,
             description=scaffolding.description,
             spec=ScaffoldingSpecManifest(
-                language=spec.language,
-                variables=tuple(variable.model_dump(mode="json") for variable in spec.variables),
+                language=scaffolding.spec.language,
+                variables=scaffolding.spec.variables,
                 templates=manifests,
             ),
             templates_revision=revision,
@@ -41,21 +38,21 @@ class ScaffoldingContentService:
 
     def read_template_manifests(
         self,
-        scaffolding: Scaffolding,
+        scaffolding: ScaffoldingValue,
         expected_revision: str,
         offset: int,
         limit: int,
     ) -> TemplateManifestPage:
-        manifests = self._manifests(self.spec_service.validate(scaffolding.spec).templates)
-        revision = self._manifest_revision(manifests)
-        self._require_revision(expected_revision, revision)
+        manifests = self.manifests(scaffolding.spec.templates)
+        revision = self.manifest_revision(manifests)
+        self.require_revision(expected_revision, revision)
         if offset > len(manifests):
             raise ScaffoldingError("Template-manifest offset exceeds the collection length.")
         effective_limit = max(1, len(manifests) - offset) if limit == 0 else limit
         items = manifests[offset : offset + effective_limit]
         next_offset = offset + len(items)
         return TemplateManifestPage(
-            scaffolding_id=str(scaffolding.id),
+            scaffolding_id=scaffolding.id,
             revision=revision,
             offset=offset,
             limit=effective_limit,
@@ -67,19 +64,19 @@ class ScaffoldingContentService:
 
     def read_template(
         self,
-        scaffolding: Scaffolding,
+        scaffolding: ScaffoldingValue,
         path: str,
         expected_revision: str,
         offset: int,
         limit: int,
     ) -> ScaffoldingTemplateContent:
-        spec = self.spec_service.validate(scaffolding.spec)
-        template = next((candidate for candidate in spec.templates if candidate.path == path), None)
-        if template is None:
+        templates = {template.path: template for template in scaffolding.spec.templates}
+        if path not in templates:
             raise ScaffoldingError(f"Scaffolding template does not exist: {path}")
+        template = templates[path]
 
-        revision = self._revision(template.content)
-        self._require_revision(expected_revision, revision)
+        revision = self.revision(template.content)
+        self.require_revision(expected_revision, revision)
         if offset > len(template.content):
             raise ScaffoldingError("Template content offset exceeds its length.")
 
@@ -87,7 +84,7 @@ class ScaffoldingContentService:
         content = template.content[offset : offset + effective_limit]
         next_offset = offset + len(content)
         return ScaffoldingTemplateContent(
-            scaffolding_id=str(scaffolding.id),
+            scaffolding_id=scaffolding.id,
             path=template.path,
             write_mode=template.write_mode,
             revision=revision,
@@ -99,29 +96,29 @@ class ScaffoldingContentService:
             next_offset=next_offset,
         )
 
-    def _revision(self, content: str) -> str:
+    def revision(self, content: str) -> str:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    def _manifests(self, templates) -> tuple[TemplateManifest, ...]:
+    def manifests(self, templates: tuple[Template, ...]) -> tuple[TemplateManifest, ...]:
         return tuple(
             TemplateManifest(
                 path=template.path,
                 write_mode=template.write_mode,
                 size_bytes=len(template.content.encode("utf-8")),
-                revision=self._revision(template.content),
+                revision=self.revision(template.content),
             )
             for template in sorted(templates, key=lambda item: item.path)
         )
 
-    def _manifest_revision(self, manifests: tuple[TemplateManifest, ...]) -> str:
+    def manifest_revision(self, manifests: tuple[TemplateManifest, ...]) -> str:
         content = json.dumps(
             [manifest.model_dump(mode="json") for manifest in manifests],
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
         )
-        return self._revision(content)
+        return self.revision(content)
 
-    def _require_revision(self, expected_revision: str, revision: str) -> None:
+    def require_revision(self, expected_revision: str, revision: str) -> None:
         if expected_revision != revision:
             raise ScaffoldingError("Scaffolding template revision changed; restart the read from its manifest.")

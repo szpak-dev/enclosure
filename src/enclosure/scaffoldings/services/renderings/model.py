@@ -1,6 +1,11 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from typing import Self
 
+from pydantic import BaseModel, ConfigDict, model_validator
+
+from enclosure.shared.source_code.errors import SourceCodeError
 from enclosure.shared.source_code.package import CodePackage
+
+from ...errors import ScaffoldingError
 
 
 class RenderedFile(BaseModel):
@@ -10,11 +15,13 @@ class RenderedFile(BaseModel):
     content: str
     overwrite: bool
 
-    @field_validator("path")
-    @classmethod
-    def validate_path(cls, path: str) -> str:
-        CodePackage(files={path: ""})
-        return path
+    @model_validator(mode="after")
+    def validate_contract(self) -> Self:
+        try:
+            CodePackage(files={self.path: self.content})
+        except SourceCodeError as error:
+            raise ScaffoldingError(f"Invalid rendered scaffolding path {self.path!r}: {error}") from error
+        return self
 
 
 class RenderedFileManifest(BaseModel):
