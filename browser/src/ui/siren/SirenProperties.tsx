@@ -1,4 +1,4 @@
-import { Box, Code, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Box, Code, SimpleGrid, Text } from "@mantine/core";
 import type { Entity } from "@siren-js/client";
 import { SirenValue, type SirenPropertyValue } from "./SirenValue";
 
@@ -27,21 +27,17 @@ export function SirenProperties({
   const yaml = new Map(entries);
 
   return (
-    <Stack component="dl" gap="lg">
-      {properties.length ? (
-        <SimpleGrid cols={{ base: 1, sm: 2 }} component="div">
-          {properties.map(([name, value]) => (
-            <div key={name}>
-              <Text component="dt" fw={600}>
-                {name}
-              </Text>
-              <Box component="dd">
-                <SirenValue value={value} />
-              </Box>
-            </div>
-          ))}
-        </SimpleGrid>
-      ) : null}
+    <SimpleGrid cols={{ base: 1, sm: 2 }} component="dl" spacing="lg">
+      {properties.map(([name, value]) => (
+        <div key={name}>
+          <Text component="dt" fw={600}>
+            {name}
+          </Text>
+          <Box component="dd">
+            <SirenValue value={value} />
+          </Box>
+        </div>
+      ))}
       {YAML_PROPERTIES.flatMap(([name, label]) => {
         const value = yaml.get(name);
         return typeof value === "string"
@@ -63,6 +59,6 @@ export function SirenProperties({
             ]
           : [];
       })}
-    </Stack>
+    </SimpleGrid>
   );
 }

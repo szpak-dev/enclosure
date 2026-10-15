@@ -1,6 +1,8 @@
 import { EmbeddedLink, type SubEntity, type Target } from "@siren-js/client";
-import { Anchor } from "@mantine/core";
-import { collectionItemLabel } from "./SirenLabels";
+import { NavLink, Stack, Text } from "@mantine/core";
+import type { ReactElement } from "react";
+import { RelativeTime } from "../time/RelativeTime";
+import { collectionItemPresentation } from "./SirenLabels";
 
 export type SirenCollectionItemProps = {
   ambiguousTitle: boolean;
@@ -18,22 +20,39 @@ export function SirenCollectionItem({
   const target =
     item instanceof EmbeddedLink
       ? item
-      : item.links.find((link) => link.rel.includes("self"));
-  const label = collectionItemLabel(item, index, ambiguousTitle);
+      : (item.links.find((link) => link.rel.includes("self")) ??
+        item.links.find((link) => !link.rel.includes("self")));
+  const presentation = collectionItemPresentation(item, index, ambiguousTitle);
+  const description: ReactElement | string | undefined =
+    presentation.kind === "title-and-description" ? (
+      presentation.description
+    ) : presentation.kind === "title-and-updated-at" ? (
+      <RelativeTime prefix="Updated " timestamp={presentation.updatedAt} />
+    ) : undefined;
 
   if (!target) {
-    return <span>{label}</span>;
+    return (
+      <Stack gap={0} py="xs">
+        <Text>{presentation.title}</Text>
+        {description ? (
+          <Text c="dimmed" size="sm">
+            {description}
+          </Text>
+        ) : null}
+      </Stack>
+    );
   }
 
   return (
-    <Anchor
+    <NavLink
+      component="a"
       href={`#${target.href}`}
+      label={presentation.title}
       onClick={(event) => {
         event.preventDefault();
         onFollow(target);
       }}
-    >
-      {label}
-    </Anchor>
+      {...(description ? { description } : {})}
+    />
   );
 }

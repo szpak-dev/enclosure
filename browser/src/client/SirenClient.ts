@@ -92,6 +92,8 @@ export class SirenClient {
       requestHeaders.set(name, value),
     );
     requestHeaders.set("Accept", requestHeaders.get("Accept") ?? SIREN_ACCEPT);
-    return { headers: requestHeaders, signal };
+    return signal
+      ? { headers: requestHeaders, signal }
+      : { headers: requestHeaders };
   }
 }

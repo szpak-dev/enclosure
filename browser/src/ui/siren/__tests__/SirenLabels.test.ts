@@ -60,6 +60,7 @@ describe("Siren labels", () => {
     expect(collectionLabel(collection("Available categories"))).toBe(
       "Available categories",
     );
+    expect(collectionLabel(collection("Projects"))).toBe("Projects");
   });
 
   it("replaces framework collection titles with a domain class label", () => {

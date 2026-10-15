@@ -23,8 +23,8 @@ export function SirenPage({
 }: SirenPageProps) {
   if (isLoading || !root)
     return (
-      <Center>
-        <Loader aria-label="Loading resource" />
+      <Center aria-label="Loading resource" role="status">
+        <Loader aria-hidden />
       </Center>
     );
   if (!entity) return <Text>No resource selected.</Text>;

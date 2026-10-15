@@ -49,6 +49,7 @@ export function DiagramEntity({
               diagramId={properties.id}
               revision={properties.revision}
               source={properties.source}
+              title={properties.title}
             />
           </Tabs.Panel>
           <Tabs.Panel pt="md" value="source">

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict
 
-from ...models import Diagram
+from ...models import Diagram, DiagramOrderField, SortDirection
 
 
 class DiagramPage(BaseModel):
@@ -12,6 +12,8 @@ class DiagramPage(BaseModel):
     has_more: bool
     next_offset: int
     limit: int
+    order_by: DiagramOrderField
+    direction: SortDirection
 
 
 @dataclass(frozen=True)

@@ -26,7 +26,7 @@ export function SirenActions({ actions, onSubmit, values }: SirenActionsProps) {
             action={action}
             key={`${action.method}-${action.href}-${action.name}`}
             onSubmit={onSubmit}
-            values={values}
+            {...(values ? { values } : {})}
           />
         );
       })}

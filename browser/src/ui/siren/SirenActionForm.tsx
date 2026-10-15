@@ -175,7 +175,7 @@ export function SirenActionForm({
         action.fields = fields;
         return onSubmit(action, values);
       }}
-      schema={schema}
+      {...(schema ? { schema } : {})}
     >
       {(errors) => (
         <Fieldset legend={action.title}>
@@ -184,9 +184,9 @@ export function SirenActionForm({
               const control = controlsByName.get(field.name);
               return (
                 <FormField
-                  error={errors[field.name]}
                   key={field.name}
                   label={field.title ?? field.name}
+                  {...(errors[field.name] ? { error: errors[field.name] } : {})}
                 >
                   {actionFieldInput(field, control)}
                 </FormField>

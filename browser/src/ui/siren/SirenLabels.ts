@@ -51,8 +51,9 @@ function humanize(value: string): string {
 
 function pluralize(value: string): string {
   if (/[^aeiou]y$/i.test(value)) return `${value.slice(0, -1)}ies`;
+  if (value.endsWith("s")) return value;
   if (/(s|x|z|ch|sh)$/i.test(value)) return `${value}es`;
-  return value.endsWith("s") ? value : `${value}s`;
+  return `${value}s`;
 }
 
 function resourceClass(classes: string[]): string | undefined {
@@ -144,6 +145,50 @@ export function collectionItemLabel(
   if (path) return projected ? `${projected} — ${path}` : path;
   const className = resourceClass(item.class) ?? "Resource";
   return `${className} ${index + 1}`;
+}
+
+export type CollectionItemPresentation =
+  | Readonly<{ kind: "title"; title: string }>
+  | Readonly<{
+      kind: "title-and-description";
+      title: string;
+      description: string;
+    }>
+  | Readonly<{
+      kind: "title-and-updated-at";
+      title: string;
+      updatedAt: string;
+    }>;
+
+export function collectionItemPresentation(
+  item: SubEntity,
+  index: number,
+  ambiguousTitle: boolean,
+): CollectionItemPresentation {
+  const itemProperties = properties(item);
+  const label = collectionItemLabel(item, index, ambiguousTitle);
+  const primary = text(itemProperties.title) ?? itemTitle(item) ?? label;
+  const updatedAt = text(itemProperties.updated_at);
+  if (updatedAt)
+    return {
+      kind: "title-and-updated-at",
+      title: primary,
+      updatedAt,
+    };
+  const identity = text(itemProperties.id);
+  if (identity && identity !== primary)
+    return {
+      kind: "title-and-description",
+      title: primary,
+      description: `ID ${identity}`,
+    };
+  if (label !== primary)
+    return {
+      kind: "title-and-description",
+      title: primary,
+      description: label,
+    };
+  return { kind: "title", title: primary };
 }
 
 export function linkLabel(link: Link): string {

@@ -1,8 +1,27 @@
+import os
 from collections.abc import Callable
 
 import pytest
+from django.conf import settings
 from django.http.response import HttpResponseBase
 from django.test import Client
+
+
+@pytest.fixture(scope="session", autouse=True)
+def isolate_project_health_cache(tmp_path_factory: pytest.TempPathFactory):
+    cache_directory = tmp_path_factory.getbasetemp() / "health-cache"
+    previous_environment = os.environ.get("PROJECT_HEALTH_CACHE_DIRECTORY")
+    previous_setting = settings.PROJECT_HEALTH_CACHE_DIRECTORY
+    settings.PROJECT_HEALTH_CACHE_DIRECTORY = str(cache_directory)
+    os.environ["PROJECT_HEALTH_CACHE_DIRECTORY"] = str(cache_directory)
+    try:
+        yield
+    finally:
+        settings.PROJECT_HEALTH_CACHE_DIRECTORY = previous_setting
+        if previous_environment is None:
+            del os.environ["PROJECT_HEALTH_CACHE_DIRECTORY"]
+        else:
+            os.environ["PROJECT_HEALTH_CACHE_DIRECTORY"] = previous_environment
 
 
 @pytest.fixture

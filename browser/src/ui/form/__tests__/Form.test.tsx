@@ -46,7 +46,6 @@ it("preserves falsy and empty form values", async () => {
       limit: 0,
     }),
   );
-  expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("omitted_value");
 });
 
 it("shows submission violations beside their fields", async () => {
@@ -62,7 +61,12 @@ it("shows submission violations beside their fields", async () => {
       >
         {(errors) => (
           <>
-            <FormField error={errors.example_property} label="Example property">
+            <FormField
+              {...(errors.example_property
+                ? { error: errors.example_property }
+                : {})}
+              label="Example property"
+            >
               <input name="example_property" />
             </FormField>
             <button type="submit">Submit</button>

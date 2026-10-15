@@ -1,84 +1,97 @@
 import { MantineProvider } from "@mantine/core";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, expect, it } from "vitest";
 import { DiagramRenderer } from "../DiagramRenderer";
 
-const renderMermaidDiagram = vi.hoisted(() => vi.fn());
-const source = "flowchart LR\nA-->B";
-
-vi.mock("../MermaidRendererService", () => ({ renderMermaidDiagram }));
+const source = "flowchart LR\nExampleA-->ExampleB";
 
 afterEach(() => {
   cleanup();
-  vi.resetAllMocks();
+  document
+    .querySelectorAll("script[data-mermaid-embed-loader]")
+    .forEach((script) => script.remove());
 });
 
-function renderDiagram(
-  properties: Partial<React.ComponentProps<typeof DiagramRenderer>> = {},
-) {
+function renderDiagram(sourceValue = source) {
   return render(
     <MantineProvider>
       <DiagramRenderer
-        diagramId="diagram-one"
+        diagramId="example-diagram"
         revision={1}
-        source={source}
-        {...properties}
+        source={sourceValue}
+        title="Example diagram"
       />
     </MantineProvider>,
   );
 }
 
-it("shows loading before inserting a non-empty SVG", async () => {
-  let finish: (value: string) => void = () => undefined;
-  renderMermaidDiagram.mockReturnValue(
-    new Promise<string>((resolve) => {
-      finish = resolve;
-    }),
-  );
-
+it("reports a Mermaid viewer load failure inside the full-screen preview", async () => {
   renderDiagram();
 
-  expect(screen.getByRole("status")).toHaveTextContent("Rendering diagram");
-  finish('<svg data-rendered="true"><title>Example</title></svg>');
-
-  const rendered = await screen.findByRole("img", { name: "Rendered diagram" });
-  expect(rendered.querySelector("svg")).not.toBeNull();
-});
-
-it("shows an empty-source state without invoking Mermaid", () => {
-  renderDiagram({ source: "  " });
-
-  expect(screen.getByText("Diagram has no source")).toBeVisible();
-  expect(renderMermaidDiagram).not.toHaveBeenCalled();
-});
-
-it("shows Mermaid syntax failures", async () => {
-  renderMermaidDiagram.mockRejectedValue(new Error("Parse error on line 2"));
-
-  renderDiagram({ source: "not a diagram" });
+  fireEvent.click(screen.getByRole("button", { name: "Preview diagram" }));
+  const script = await waitFor(() => {
+    const candidate = document.querySelector<HTMLScriptElement>(
+      "script[data-mermaid-embed-loader]",
+    );
+    if (!candidate) throw new Error("Mermaid viewer script was not requested.");
+    return candidate;
+  });
+  fireEvent.error(script);
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Unable to render diagramParse error on line 2",
+    "Mermaid's embedded viewer could not be loaded.",
   );
+  expect(
+    screen.getByRole("dialog", { name: "Example diagram preview" }),
+  ).toBeVisible();
 });
 
-it("renders again when the persisted revision changes", async () => {
-  renderMermaidDiagram.mockResolvedValue("<svg></svg>");
-  const view = renderDiagram();
-  await screen.findByRole("img");
+it("reports an empty diagram only after its preview is opened", async () => {
+  renderDiagram("  ");
 
-  view.rerender(
-    <MantineProvider>
-      <DiagramRenderer diagramId="diagram-one" revision={2} source={source} />
-    </MantineProvider>,
-  );
+  expect(screen.queryByText("Diagram has no source")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Preview diagram" }));
 
-  await waitFor(() =>
-    expect(renderMermaidDiagram).toHaveBeenLastCalledWith(
-      "diagram-one",
-      2,
-      source,
-    ),
-  );
-  expect(renderMermaidDiagram).toHaveBeenCalledTimes(2);
+  expect(await screen.findByText("Diagram has no source")).toBeInTheDocument();
+  expect(
+    document.querySelector("script[data-mermaid-embed-loader]"),
+  ).toBeNull();
+});
+
+it("opens the official Mermaid embed in a full-screen preview", async () => {
+  if (!customElements.get("mermaid-embed")) {
+    customElements.define(
+      "mermaid-embed",
+      class extends HTMLElement {
+        connectedCallback() {
+          const frame = document.createElement("iframe");
+          frame.title = "Rendered Mermaid diagram";
+          this.append(frame);
+        }
+      },
+    );
+  }
+  renderDiagram();
+
+  fireEvent.click(screen.getByRole("button", { name: "Preview diagram" }));
+
+  const embed = await waitFor(() => {
+    const candidate = document.querySelector("mermaid-embed");
+    if (!candidate) throw new Error("Mermaid embed was not displayed.");
+    return candidate;
+  });
+  expect(
+    await screen.findByRole("dialog", { name: "Example diagram preview" }),
+  ).toBeInTheDocument();
+  expect(embed).toHaveAttribute("src", "https://mermaid.live/embed");
+  expect(embed).toHaveAttribute("controls", "1");
+  expect(embed).toHaveAttribute("grid", "1");
+  expect(screen.getByTitle("Rendered Mermaid diagram")).toBeInTheDocument();
+  expect(document.querySelector("pre")).toBeNull();
 });

@@ -177,19 +177,30 @@ export function DiagramCommandForm({
       </Alert>
     );
   if (!description)
-    return <Loader aria-label="Loading diagram commands" size="sm" />;
+    return (
+      <Loader aria-label="Loading diagram commands" role="status" size="sm" />
+    );
 
   const commands = (description.properties as Record<string, unknown>)
     .commands as CommandSchemas;
   const operations = Object.keys(commands);
   const selectedOperation =
     operation && operations.includes(operation) ? operation : operations[0];
+  if (!selectedOperation)
+    return (
+      <Alert color="yellow" role="status" title="No diagram commands">
+        This diagram kind does not advertise any commands.
+      </Alert>
+    );
+  const selectedSchema = commands[selectedOperation];
+  if (!selectedSchema)
+    throw new Error(`Diagram command schema unavailable: ${selectedOperation}`);
   const selectedAction = commandAction(
     action,
     contract,
     selectedOperation,
     revision,
-    commands[selectedOperation],
+    selectedSchema,
   );
 
   const submit = async (
@@ -220,7 +231,11 @@ export function DiagramCommandForm({
           value,
         }))}
         label={contract.operation.title ?? contract.operation.name}
-        onChange={setOperation}
+        onChange={(value) => {
+          if (value !== null && typeof value !== "string")
+            throw new Error("Diagram command identifiers must be strings.");
+          setOperation(value);
+        }}
         value={selectedOperation}
       />
       {revisionConflict ? (

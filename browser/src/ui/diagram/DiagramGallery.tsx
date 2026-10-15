@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { SirenActions } from "../siren/SirenActions";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { DiagramCollection } from "./DiagramCollection";
+import {
+  type DiagramCollectionProperties,
+  isOrderedDiagramCollection,
+} from "./DiagramOrderingControls";
 
 type DiagramSetProperties = Entity["properties"] & {
   description: string;
@@ -21,7 +25,8 @@ export function DiagramGallery({
   onLoad,
   onSubmit,
 }: DiagramGalleryProps) {
-  const [collection, setCollection] = useState<Entity | null>(null);
+  const [collection, setCollection] =
+    useState<Entity<DiagramCollectionProperties> | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const properties = entity.properties as DiagramSetProperties;
@@ -30,7 +35,10 @@ export function DiagramGallery({
     setError(null);
     setIsLoading(true);
     try {
-      setCollection(await onLoad(collectionTarget));
+      const loaded = await onLoad(collectionTarget);
+      if (!isOrderedDiagramCollection(loaded))
+        throw new Error("Diagram collection ordering is unavailable.");
+      setCollection(loaded);
     } catch (reason) {
       setError(reason as Error);
     } finally {
