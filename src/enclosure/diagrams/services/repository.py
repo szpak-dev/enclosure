@@ -2,13 +2,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import F, Max, QuerySet
+from django.db.models.functions import Coalesce
 from pydantic import JsonValue
 from wireup import injectable
 
 from ...core.models import DjangoRepository
 from ..errors import DiagramsError
-from ..models import Diagram, DiagramSet
+from ..models import Diagram, DiagramOrderField, DiagramOrdering, DiagramSet, SortDirection
 
 
 @injectable
@@ -25,8 +26,21 @@ class DiagramsRepository(DjangoRepository[Diagram]):
     def find_all_sets(self) -> QuerySet[DiagramSet]:
         return DiagramSet.objects.order_by("id")
 
-    def find_set_page(self, offset: int, limit: int) -> QuerySet[DiagramSet]:
-        return self.find_all_sets()[offset : offset + limit + 1]
+    def find_set_page(self, offset: int, limit: int, ordering: DiagramOrdering) -> QuerySet[DiagramSet]:
+        diagram_sets = DiagramSet.objects.annotate(
+            latest_diagram_updated_at=Max("diagrams__updated_at"),
+            diagram_activity_at=Coalesce("latest_diagram_updated_at", F("updated_at")),
+        )
+        if ordering.field is DiagramOrderField.UPDATED_AT:
+            activity = F("latest_diagram_updated_at")
+            identifier = F("id")
+            expressions = (
+                (activity.desc(nulls_last=True), identifier.desc())
+                if ordering.direction is SortDirection.DESC
+                else (activity.asc(nulls_last=True), identifier.asc())
+            )
+            return diagram_sets.order_by(*expressions)[offset : offset + limit + 1]
+        return diagram_sets.order_by(*ordering.terms())[offset : offset + limit + 1]
 
     def replace_set(self, id: str, title: str, description: str) -> DiagramSet:
         diagram_set = self.get_set(id)
@@ -63,14 +77,24 @@ class DiagramsRepository(DjangoRepository[Diagram]):
     def find_all_diagrams(self) -> QuerySet[Diagram]:
         return self.model.objects.select_related("diagram_set").order_by("id")
 
-    def find_diagram_page(self, offset: int, limit: int) -> QuerySet[Diagram]:
-        return self.find_all_diagrams()[offset : offset + limit + 1]
+    def find_diagram_page(self, offset: int, limit: int, ordering: DiagramOrdering) -> QuerySet[Diagram]:
+        return self.model.objects.select_related("diagram_set").order_by(*ordering.terms())[offset : offset + limit + 1]
 
     def find_diagrams_in_set(self, diagram_set_id: str) -> QuerySet[Diagram]:
         return self.find_all_diagrams().filter(diagram_set_id=diagram_set_id)
 
-    def find_diagram_set_page(self, diagram_set_id: str, offset: int, limit: int) -> QuerySet[Diagram]:
-        return self.find_diagrams_in_set(diagram_set_id)[offset : offset + limit + 1]
+    def find_diagram_set_page(
+        self,
+        diagram_set_id: str,
+        offset: int,
+        limit: int,
+        ordering: DiagramOrdering,
+    ) -> QuerySet[Diagram]:
+        return (
+            self.model.objects.select_related("diagram_set")
+            .filter(diagram_set_id=diagram_set_id)
+            .order_by(*ordering.terms())[offset : offset + limit + 1]
+        )
 
     @transaction.atomic
     def rename_diagram(self, id: str, expected_revision: int, title: str) -> Diagram:

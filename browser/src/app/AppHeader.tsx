@@ -1,10 +1,27 @@
-import { AppShell, Group, Text } from "@mantine/core";
+import { AppShell, Burger, Group, Text } from "@mantine/core";
 
-export function AppHeader() {
+export type AppHeaderProps = {
+  navigationOpened: boolean;
+  onToggleNavigation: () => void;
+};
+
+export function AppHeader({
+  navigationOpened,
+  onToggleNavigation,
+}: AppHeaderProps) {
   return (
     <AppShell.Header>
       <Group h="100%" justify="space-between" px="md">
-        <Text fw={700}>Enclosure</Text>
+        <Group>
+          <Burger
+            aria-label="Toggle navigation"
+            hiddenFrom="sm"
+            onClick={onToggleNavigation}
+            opened={navigationOpened}
+            size="sm"
+          />
+          <Text fw={700}>Enclosure</Text>
+        </Group>
       </Group>
     </AppShell.Header>
   );

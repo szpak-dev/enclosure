@@ -382,6 +382,8 @@ def test_diagram_collections_are_deterministically_paginated() -> None:
             "has_more": False,
             "next_offset": 3,
             "limit": 1,
+            "order_by": "updated_at",
+            "direction": "desc",
         }
 
 
@@ -400,6 +402,8 @@ def test_sirenity_owns_diagram_collection_continuation_links() -> None:
         assert links["next"]["parameters"] == {
             "offset": "$response.body#/next_offset",
             "limit": "$response.body#/limit",
+            "order_by": "$response.body#/order_by",
+            "direction": "$response.body#/direction",
         }
         if "{diagram_set_id}" in path:
             assert links["next"]["x-sirenity"]["sourceInputs"] == {"diagram_set_id": "$request.path.diagram_set_id"}

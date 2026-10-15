@@ -1,18 +1,14 @@
-import {
-  Group,
-  NativeSelect,
-  SegmentedControl,
-  SimpleGrid,
-  Stack,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { Group, List, Stack, Text } from "@mantine/core";
 import type { Entity, Target } from "@siren-js/client";
-import { useMemo, useState } from "react";
-import { DiagramCard, type DiagramSummary } from "./DiagramCard";
+import { SirenContinuation } from "../siren/SirenContinuation";
+import {
+  DiagramOrderingControls,
+  type DiagramCollectionProperties,
+} from "./DiagramOrderingControls";
+import { DiagramListItem, type DiagramSummary } from "./DiagramListItem";
 
 export type DiagramCollectionProps = {
-  collection: Entity;
+  collection: Entity<DiagramCollectionProperties>;
   onFollow: (target: Target) => void;
   onLoad: (target: Target) => Promise<Entity>;
 };
@@ -22,72 +18,34 @@ export function DiagramCollection({
   onFollow,
   onLoad,
 }: DiagramCollectionProps) {
-  const [kind, setKind] = useState("all");
-  const [layout, setLayout] = useState("grid");
-  const [query, setQuery] = useState("");
   const diagrams = collection.entities as DiagramSummary[];
-  const kinds = useMemo(
-    () =>
-      [...new Set(diagrams.map((diagram) => diagram.properties.kind))].sort(),
-    [diagrams],
-  );
-  const filtered = useMemo(() => {
-    const title = query.trim().toLocaleLowerCase();
-    return diagrams.filter(
-      (diagram) =>
-        (kind === "all" || diagram.properties.kind === kind) &&
-        diagram.properties.title.toLocaleLowerCase().includes(title),
-    );
-  }, [diagrams, kind, query]);
 
   return (
     <Stack>
       <Group align="end">
-        <TextInput
-          label="Search diagrams"
-          onChange={(event) => setQuery(event.currentTarget.value)}
-          value={query}
-        />
-        <NativeSelect
-          data={[
-            { label: "All kinds", value: "all" },
-            ...kinds.map((value) => ({ label: value, value })),
-          ]}
-          label="Diagram kind"
-          onChange={(event) => setKind(event.currentTarget.value)}
-          value={kind}
-        />
-        <SegmentedControl
-          aria-label="Gallery layout"
-          data={[
-            { label: "Grid", value: "grid" },
-            { label: "List", value: "list" },
-          ]}
-          onChange={setLayout}
-          value={layout}
-        />
+        <DiagramOrderingControls collection={collection} onFollow={onFollow} />
       </Group>
       <Text>
-        Showing {filtered.length} of {diagrams.length} diagrams
+        {diagrams.length} {diagrams.length === 1 ? "diagram" : "diagrams"}
       </Text>
-      {filtered.length ? (
-        <SimpleGrid
-          aria-label={`${layout} diagram gallery`}
-          cols={layout === "grid" ? { base: 1, md: 2, xl: 3 } : 1}
-          component="section"
-        >
-          {filtered.map((diagram) => (
-            <DiagramCard
-              diagram={diagram}
-              key={diagram.properties.id}
-              onFollow={onFollow}
-              onLoad={onLoad}
-            />
-          ))}
-        </SimpleGrid>
+      {diagrams.length ? (
+        <List aria-label="Diagrams" listStyleType="none" spacing="xs">
+          {diagrams.map((diagram) => {
+            return (
+              <List.Item key={diagram.properties.id}>
+                <DiagramListItem
+                  diagram={diagram}
+                  onFollow={onFollow}
+                  onLoad={onLoad}
+                />
+              </List.Item>
+            );
+          })}
+        </List>
       ) : (
-        <Text>No diagrams match the current filters.</Text>
+        <Text>This diagram set has no diagrams.</Text>
       )}
+      <SirenContinuation entity={collection} onFollow={onFollow} />
     </Stack>
   );
 }

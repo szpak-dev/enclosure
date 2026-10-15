@@ -10,10 +10,11 @@ from ..api.schemas import (
     CreateDiagram,
     CreateDiagramBatch,
     CreateDiagramSet,
+    FindDiagramPage,
     UpdateDiagram,
     UpdateDiagramSet,
 )
-from ..models import Diagram, DiagramSet
+from ..models import Diagram, DiagramOrderField, DiagramOrdering, DiagramSet, SortDirection
 from .catalog import DiagramCatalogService, DiagramKindContentPage
 from .content import DiagramContentDocument, DiagramContentPage, DiagramContentService
 from .contracts import DiagramContractService, DiagramContractSnapshot
@@ -63,8 +64,12 @@ class DiagramsService:
     def find_all_sets(self) -> QuerySet[DiagramSet]:
         return self.diagram_sets.find_all()
 
-    def find_set_page(self, offset: int, limit: int) -> DiagramSetPage:
-        return self.diagram_sets.find_page(offset, limit)
+    def find_set_page(self, input: FindDiagramPage) -> DiagramSetPage:
+        ordering = DiagramOrdering(
+            field=DiagramOrderField(input.order_by),
+            direction=SortDirection(input.direction),
+        )
+        return self.diagram_sets.find_page(input.offset, input.limit, ordering)
 
     def update_set(self, id: str, input: UpdateDiagramSet) -> DiagramSet:
         return self.diagram_sets.replace(id, input.title, input.description)
@@ -130,14 +135,22 @@ class DiagramsService:
     def find_all_diagrams(self) -> QuerySet[Diagram]:
         return self.editing.find_all()
 
-    def find_diagram_page(self, offset: int, limit: int) -> DiagramPage:
-        return self.editing.find_page(offset, limit)
+    def find_diagram_page(self, input: FindDiagramPage) -> DiagramPage:
+        ordering = DiagramOrdering(
+            field=DiagramOrderField(input.order_by),
+            direction=SortDirection(input.direction),
+        )
+        return self.editing.find_page(input.offset, input.limit, ordering)
 
     def find_diagrams_in_set(self, diagram_set_id: str) -> QuerySet[Diagram]:
         return self.editing.find_in_set(diagram_set_id)
 
-    def find_diagram_set_page(self, diagram_set_id: str, offset: int, limit: int) -> DiagramPage:
-        return self.editing.find_in_set_page(diagram_set_id, offset, limit)
+    def find_diagram_set_page(self, diagram_set_id: str, input: FindDiagramPage) -> DiagramPage:
+        ordering = DiagramOrdering(
+            field=DiagramOrderField(input.order_by),
+            direction=SortDirection(input.direction),
+        )
+        return self.editing.find_in_set_page(diagram_set_id, input.offset, input.limit, ordering)
 
     def apply_command(
         self,

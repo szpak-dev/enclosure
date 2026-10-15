@@ -103,8 +103,7 @@ export function ownsNavigationTarget(
 
 export function navigableResources(entity: Entity): NavigationItem[] {
   return entity.links.reduce<NavigationItem[]>((resources, link) => {
-    if (!link.rel.includes("related") && !link.rel.includes("collection"))
-      return resources;
+    if (link.rel.includes("self")) return resources;
     resources.push({
       id: targetId(link),
       label: linkLabel(link),

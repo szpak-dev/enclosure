@@ -1,4 +1,5 @@
 import { Alert, AppShell, Button, Stack } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useMemo, useState, type ReactElement } from "react";
 import { SirenClient } from "../client/SirenClient";
 import { navigationGroups } from "../ui/siren/SirenNavigationModel";
@@ -15,6 +16,7 @@ export type AppProps = {
 
 function Browser({ rootTarget }: AppProps): ReactElement {
   const [client] = useState(() => new SirenClient());
+  const [navigationOpened, { toggle: toggleNavigation }] = useDisclosure();
   const state = useSirenBrowser(client, rootTarget);
   const groups = useMemo(
     () => navigationGroups(rootTarget, state.root?.links ?? []),
@@ -25,10 +27,17 @@ function Browser({ rootTarget }: AppProps): ReactElement {
     <AppShell
       footer={{ height: 48 }}
       header={{ height: 60 }}
-      navbar={{ breakpoint: "sm", width: 280 }}
+      navbar={{
+        breakpoint: "sm",
+        collapsed: { mobile: !navigationOpened },
+        width: 280,
+      }}
       padding="md"
     >
-      <AppHeader />
+      <AppHeader
+        navigationOpened={navigationOpened}
+        onToggleNavigation={toggleNavigation}
+      />
       <Navigation
         groups={groups}
         onFollow={state.follow}

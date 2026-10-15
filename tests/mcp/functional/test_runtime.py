@@ -115,6 +115,8 @@ class ConfiguredApplication:
         await self.application(scope, receive, send)
 
 
+@pytest.mark.health_serial
+@pytest.mark.health_process
 @override_settings(PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS=0)
 def test_lifespan_rejects_an_unready_health_worker_and_recovers(
     capsys: pytest.CaptureFixture[str],
@@ -158,6 +160,8 @@ def test_lifespan_rejects_an_unready_health_worker_and_recovers(
     )
 
 
+@pytest.mark.health_serial
+@pytest.mark.health_process
 @override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=2)
 def test_lifespan_prepares_every_health_worker_before_serving_and_closes_them(
     capsys: pytest.CaptureFixture[str],
@@ -1604,6 +1608,8 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
 
+@pytest.mark.health_serial
+@pytest.mark.health_process
 @pytest.mark.django_db(transaction=True)
 def test_public_mcp_health_reuses_the_process_start_worker(
     tmp_path: Path,
@@ -1761,7 +1767,16 @@ def test_presents_every_diagram_operation_from_siren_documents() -> None:
 
     references = results["find_diagrams"].structured_content["data"]["items"]
     assert len(references) == 1
-    assert set(references[0]) == {"href", "id", "kind", "revision", "title"}
+    assert set(references[0]) == {
+        "created_at",
+        "diagram_set_id",
+        "href",
+        "id",
+        "kind",
+        "revision",
+        "title",
+        "updated_at",
+    }
 
     applied = results["apply_diagram_command"].structured_content["data"]
     batched = results["apply_diagram_command_batch"].structured_content["data"]
@@ -1936,6 +1951,11 @@ def test_presents_project_and_diagram_collection_continuations(tmp_path: Path) -
             assert all(follow_up["operation_id"] != operation for follow_up in first.structured_content["follow_ups"])
         else:
             assert first_data["has_more"] is True, operation
+            ordering = (
+                {"order_by": "updated_at", "direction": "desc"}
+                if operation in {"find_diagram_sets", "find_diagrams", "find_diagram_set_diagrams"}
+                else {}
+            )
             assert [
                 follow_up
                 for follow_up in first.structured_content["follow_ups"]
@@ -1943,7 +1963,7 @@ def test_presents_project_and_diagram_collection_continuations(tmp_path: Path) -
             ] == [
                 {
                     "operation_id": operation,
-                    "arguments": {**identities[operation], "offset": 1, "limit": 1},
+                    "arguments": {**identities[operation], "offset": 1, "limit": 1, **ordering},
                 }
             ]
 

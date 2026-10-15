@@ -68,6 +68,10 @@ cache_dir = ".dev/pytest-cache"
 pythonpath = ["src", "."]
 python_files = ["test_*.py", "*_test.py"]
 testpaths = ["src", "tests"]
+markers = [
+    "health_process: health verification that requires a fresh pytest process",
+    "health_serial: health verification that requires isolated timing, process, or filesystem state",
+]
 
 [tool.ruff]
 cache-dir = ".dev/ruff-cache"

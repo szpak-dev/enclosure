@@ -30,6 +30,7 @@ export function SirenEntity({
       <SirenCollection
         entity={entity}
         onFollow={onFollow}
+        onLoad={onLoad}
         onSubmit={onSubmit}
       />
     );
@@ -57,10 +58,12 @@ export function SirenEntity({
       <Stack>
         <Title order={1}>{label}</Title>
         <SirenProperties entity={entity} />
-        <SirenRelatedResources
-          onFollow={onFollow}
-          resources={navigableResources(entity)}
-        />
+        {entity === root ? null : (
+          <SirenRelatedResources
+            onFollow={onFollow}
+            resources={navigableResources(entity)}
+          />
+        )}
         <SirenActions
           actions={entity.actions}
           onSubmit={onSubmit}

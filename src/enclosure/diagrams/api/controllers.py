@@ -134,7 +134,12 @@ class DiagramSetsController(ControllerBase):
         "",
         response=schemas.DiagramSetPage,
         operation_id="find_diagram_sets",
-        continuation={"offset": "next_offset", "limit": "limit"},
+        continuation={
+            "offset": "next_offset",
+            "limit": "limit",
+            "order_by": "order_by",
+            "direction": "direction",
+        },
         source_inputs={},
         item_follow_ups={
             "diagram_set": SirenItemFollowUp(
@@ -149,8 +154,8 @@ class DiagramSetsController(ControllerBase):
         summary="List diagram sets",
         description="Return one bounded page of diagram-set summaries.",
     )
-    def find_all(self, request, query: Query[schemas.FindPage]):
-        return DjangoRequest.resolve(request, DiagramsService).find_set_page(query.offset, query.limit)
+    def find_all(self, request, query: Query[schemas.FindDiagramPage]):
+        return DjangoRequest.resolve(request, DiagramsService).find_set_page(query)
 
     @route.get(
         "/{diagram_set_id}",
@@ -242,8 +247,15 @@ class DiagramSetsController(ControllerBase):
         "/{diagram_set_id}/diagrams",
         response=schemas.DiagramPage,
         operation_id="find_diagram_set_diagrams",
-        continuation={"offset": "next_offset", "limit": "limit"},
-        source_inputs={"diagram_set_id": SirenSourceInput(location="path", name="diagram_set_id")},
+        continuation={
+            "offset": "next_offset",
+            "limit": "limit",
+            "order_by": "order_by",
+            "direction": "direction",
+        },
+        source_inputs={
+            "diagram_set_id": SirenSourceInput(location="path", name="diagram_set_id"),
+        },
         item_follow_ups={
             "diagram": SirenItemFollowUp(
                 operation_id="get_diagram_set_diagram",
@@ -262,12 +274,11 @@ class DiagramSetsController(ControllerBase):
         self,
         request,
         diagram_set_id: Annotated[str, Path(description="Diagram set identifier.")],
-        query: Query[schemas.FindPage],
+        query: Query[schemas.FindDiagramPage],
     ):
         return DjangoRequest.resolve(request, DiagramsService).find_diagram_set_page(
             diagram_set_id,
-            query.offset,
-            query.limit,
+            query,
         )
 
     @siren_follow_ups(
@@ -320,7 +331,12 @@ class DiagramsController(ControllerBase):
         "",
         response=schemas.DiagramPage,
         operation_id="find_diagrams",
-        continuation={"offset": "next_offset", "limit": "limit"},
+        continuation={
+            "offset": "next_offset",
+            "limit": "limit",
+            "order_by": "order_by",
+            "direction": "direction",
+        },
         source_inputs={},
         item_follow_ups={
             "diagram": SirenItemFollowUp(
@@ -335,8 +351,8 @@ class DiagramsController(ControllerBase):
         summary="List diagrams",
         description="Return one bounded page of diagram summaries.",
     )
-    def find_all(self, request, query: Query[schemas.FindPage]):
-        return DjangoRequest.resolve(request, DiagramsService).find_diagram_page(query.offset, query.limit)
+    def find_all(self, request, query: Query[schemas.FindDiagramPage]):
+        return DjangoRequest.resolve(request, DiagramsService).find_diagram_page(query)
 
     @SirenContinuation(
         http_get,

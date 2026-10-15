@@ -199,8 +199,14 @@ describe("DiagramCommandForm", () => {
       await screen.findByRole("combobox", { name: "Operation" }),
     ).toBeVisible();
     expect(onLoad).toHaveBeenCalledTimes(2);
-    expect(href(onLoad.mock.calls[0][0])).toBe("/advertised-catalogue");
-    expect(href(onLoad.mock.calls[1][0])).toBe("/advertised-kind");
+    expect(onLoad).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ href: "/advertised-catalogue" }),
+    );
+    expect(onLoad).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ href: "/advertised-kind" }),
+    );
     expect(screen.getByRole("textbox", { name: "Id" })).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Label" })).toBeVisible();
   });
@@ -351,7 +357,9 @@ describe("DiagramCommandForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply command" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
-    expect(onSubmit.mock.calls[1][1]).toEqual(
+    expect(onSubmit).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Action),
       expect.objectContaining({ expected_revision: 4 }),
     );
   });

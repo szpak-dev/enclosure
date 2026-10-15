@@ -3010,6 +3010,7 @@ def test_health_rejects_an_artifact_symlink_that_escapes_the_workspace(
     assert response.json() == {"detail": "Architecture artifact path escapes the workspace: 'src/example/escape.py'."}
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db(transaction=True)
 def test_health_rejects_source_drift_before_returning_a_completed_report(
     client: Client,
@@ -3453,6 +3454,7 @@ def test_health_preserves_exact_dependency_flow_location(
     }
 
 
+@pytest.mark.health_serial
 @override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=1)
 @pytest.mark.django_db(transaction=True)
 def test_health_rejects_excess_concurrency_and_recovers_capacity(
@@ -3498,6 +3500,7 @@ def test_health_rejects_excess_concurrency_and_recovers_capacity(
     assert recovery_duration < 15
 
 
+@pytest.mark.health_serial
 @override_settings(PROJECT_HEALTH_TIMEOUT_SECONDS=1)
 @pytest.mark.django_db(transaction=True)
 def test_health_times_out_blocked_work_and_recovers_capacity(
@@ -3545,6 +3548,7 @@ def test_health_times_out_blocked_work_and_recovers_capacity(
     assert replacement["replacement"] is True
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db(transaction=True)
 def test_health_disconnect_cancels_work_and_recovers(
     client: Client,
@@ -3585,6 +3589,7 @@ def test_health_disconnect_cancels_work_and_recovers(
     assert len(canceled_events) == 2
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db(transaction=True)
 def test_health_recovers_from_corrupted_persistent_cache(
     client: Client,
@@ -3634,6 +3639,7 @@ def test_health_recovers_from_corrupted_persistent_cache(
     )
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db(transaction=True)
 def test_health_recovers_from_stale_persistent_cache(
     client: Client,
@@ -3841,6 +3847,7 @@ def test_health_recompiles_only_after_the_accepted_architecture_reference_change
     assert events[2]["compilation_duration_ns"] > 0
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db
 def test_health_is_insensitive_to_one_hundred_thousand_excluded_files(
     client: Client,
@@ -3944,6 +3951,7 @@ def test_repeated_health_reuses_warm_execution_and_observes_source_changes(
     assert changed_worker_events == ["project_health_worker_reused"]
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db(transaction=True)
 def test_health_remains_truthful_when_persistent_cache_is_unavailable(
     client: Client,
@@ -4014,6 +4022,7 @@ def test_health_remains_truthful_when_persistent_cache_is_unavailable(
     )
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db
 def test_health_cold_execution_is_stable_across_five_independent_projects(
     client: Client,
@@ -4083,6 +4092,7 @@ def test_health_cold_execution_is_stable_across_five_independent_projects(
     )
 
 
+@pytest.mark.health_serial
 @pytest.mark.django_db
 def test_health_warm_execution_is_stable_across_twenty_requests(
     client: Client,

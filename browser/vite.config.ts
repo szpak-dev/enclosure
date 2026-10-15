@@ -1,4 +1,6 @@
 import react from "@vitejs/plugin-react";
+import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
+import { playwright } from "@vitest/browser-playwright";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -40,12 +42,37 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
-    server: {
-      deps: {
-        inline: ["@rjsf/mantine"],
+    projects: [
+      {
+        extends: true,
+        test: {
+          environment: "jsdom",
+          name: "unit",
+          server: {
+            deps: {
+              inline: ["@rjsf/mantine"],
+            },
+          },
+          setupFiles: "./src/test/setup.ts",
+        },
       },
-    },
-    setupFiles: "./src/test/setup.ts",
+      {
+        extends: true,
+        plugins: [
+          storybookTest({
+            configDir: resolve(import.meta.dirname, ".storybook"),
+          }),
+        ],
+        test: {
+          browser: {
+            enabled: true,
+            headless: true,
+            instances: [{ browser: "chromium" }],
+            provider: playwright({}),
+          },
+          name: "storybook",
+        },
+      },
+    ],
   },
 });

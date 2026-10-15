@@ -1,11 +1,37 @@
 import json
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
 
 from django.db import models
 
 from ..core.models import ShortUUIDModel
 
 
+class DiagramOrderField(StrEnum):
+    CREATED_AT = "created_at"
+    UPDATED_AT = "updated_at"
+    TITLE = "title"
+
+
+class SortDirection(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+@dataclass(frozen=True)
+class DiagramOrdering:
+    field: DiagramOrderField
+    direction: SortDirection
+
+    def terms(self) -> tuple[str, str]:
+        prefix = "-" if self.direction is SortDirection.DESC else ""
+        return f"{prefix}{self.field.value}", f"{prefix}id"
+
+
 class DiagramSet(ShortUUIDModel):
+    diagram_activity_at: datetime
+
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,4 +1,4 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -20,8 +20,10 @@ format:
 ci:
 	@$(MAKE) --jobs=2 ci-python-checks ci-browser-checks
 	@$(MAKE) ci-static-prepare
-	@$(MAKE) --jobs=3 ci-python-tests-general ci-python-tests-health ci-browser-tests
-	@$(MAKE) ci-browser-build ci-static-check
+	@$(MAKE) --jobs=2 ci-python-tests-parallel ci-browser-tests
+	@$(MAKE) ci-python-tests-health-serial
+	@$(MAKE) ci-python-tests-health-process
+	@$(MAKE) ci-browser-build-check
 
 ci-python-checks:
 	@uv run ruff format --check .
@@ -33,19 +35,43 @@ ci-browser-checks:
 	@npm --prefix browser run format:check
 
 ci-python-tests:
-	@$(MAKE) --jobs=2 ci-python-tests-general ci-python-tests-health
+	@$(MAKE) ci-python-tests-parallel
+	@$(MAKE) ci-python-tests-health-serial
+	@$(MAKE) ci-python-tests-health-process
+
+ci-python-tests-parallel:
+	@uv run pytest -n 4 --dist worksteal -m "not health_serial"
 
 ci-python-tests-general:
 	@uv run pytest -n 4 --dist worksteal -k "not health"
 
 ci-python-tests-health:
-	@uv run pytest -k health
+	@$(MAKE) ci-python-tests-health-parallel
+	@$(MAKE) ci-python-tests-health-serial
+	@$(MAKE) ci-python-tests-health-process
+
+ci-python-tests-health-parallel:
+	@uv run pytest -n 4 --dist worksteal -k health -m "not health_serial"
+
+ci-python-tests-health-serial:
+	@uv run pytest -k health -m "health_serial and not health_process"
+
+ci-python-tests-health-process:
+	@uv run pytest -k health -m health_process
 
 ci-browser-tests:
 	@npm --prefix browser test
 
 ci-browser-build:
 	@npm --prefix browser run build
+
+ci-browser-build-check:
+	@temporary="$$(mktemp -d)"; \
+	trap 'rm -rf "$$temporary"' EXIT; \
+	git diff --binary -- src/enclosure/browser/adapters/http/static/browser > "$$temporary/before.patch"; \
+	$(MAKE) ci-browser-build; \
+	git diff --binary -- src/enclosure/browser/adapters/http/static/browser > "$$temporary/after.patch"; \
+	cmp "$$temporary/before.patch" "$$temporary/after.patch"
 
 ci-static-prepare:
 	@uv run python manage.py collectstatic --noinput

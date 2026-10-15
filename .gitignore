@@ -11,3 +11,4 @@ coverage/
 .vite/
 playwright-report/
 test-results/
+browser/storybook-static/

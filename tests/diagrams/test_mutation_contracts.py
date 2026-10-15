@@ -27,6 +27,8 @@ def test_rejects_unknown_fields_at_every_diagram_mutation_boundary_without_side_
     client = Client()
     diagram_set = create_example_diagram_set(client)
     diagram = create_example_diagram(client, diagram_set["id"])
+    diagram_sets_before = client.get("/api/diagram-sets").json()
+    diagrams_before = client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams").json()
 
     responses = (
         client.post(
@@ -83,15 +85,8 @@ def test_rejects_unknown_fields_at_every_diagram_mutation_boundary_without_side_
     assert [response.status_code for response in responses] == [422] * len(responses)
     assert client.get(f"/api/diagram-sets/{diagram_set['id']}").json() == diagram_set
     assert client.get(f"/api/diagrams/{diagram['id']}").json() == diagram
-    assert client.get("/api/diagram-sets").json()["items"] == [diagram_set]
-    assert client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams").json()["items"] == [
-        {
-            "id": diagram["id"],
-            "title": diagram["title"],
-            "kind": diagram["kind"],
-            "revision": diagram["revision"],
-        }
-    ]
+    assert client.get("/api/diagram-sets").json() == diagram_sets_before
+    assert client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams").json() == diagrams_before
 
 
 @pytest.mark.django_db
@@ -129,6 +124,7 @@ def test_blank_titles_are_rejected_before_resource_mutation() -> None:
     client = Client()
     diagram_set = create_example_diagram_set(client)
     diagram = create_example_diagram(client, diagram_set["id"])
+    diagram_sets_before = client.get("/api/diagram-sets").json()
 
     rejected_set = client.post(
         "/api/diagram-sets",
@@ -143,5 +139,5 @@ def test_blank_titles_are_rejected_before_resource_mutation() -> None:
 
     assert rejected_set.status_code == 422
     assert rejected_diagram.status_code == 422
-    assert client.get("/api/diagram-sets").json()["items"] == [diagram_set]
+    assert client.get("/api/diagram-sets").json() == diagram_sets_before
     assert client.get(f"/api/diagrams/{diagram['id']}").json() == diagram

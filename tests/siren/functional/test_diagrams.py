@@ -262,17 +262,27 @@ def test_siren_projects_bounded_diagram_collection_pages() -> None:
             "has_more": True,
             "next_offset": 1,
             "limit": 1,
+            "order_by": "updated_at",
+            "direction": "desc",
         }
         assert len(first.json()["entities"]) == 1
         next_link = next(link for link in first.json()["links"] if link["rel"] == ["next"])
-        assert parse_qs(urlsplit(next_link["href"]).query) == {"offset": ["1"], "limit": ["1"]}
+        assert parse_qs(urlsplit(next_link["href"]).query) == {
+            "offset": ["1"],
+            "limit": ["1"],
+            "order_by": ["updated_at"],
+            "direction": ["desc"],
+        }
 
-        final = client.get(urlsplit(next_link["href"]).path, {"offset": 1, "limit": 1})
+        next_target = urlsplit(next_link["href"])
+        final = client.get(f"{next_target.path}?{next_target.query}")
         assert final.status_code == 200
         assert final.json()["properties"] == {
             "has_more": False,
             "next_offset": 2,
             "limit": 1,
+            "order_by": "updated_at",
+            "direction": "desc",
         }
         assert len(final.json()["entities"]) == 1
         assert all(link["rel"] != ["next"] for link in final.json()["links"])

@@ -31,7 +31,7 @@ export function SirenStructuredInput({
         formData={value}
         idPrefix={field.name}
         onChange={updateValue}
-        schema={schema as RJSFSchema}
+        schema={{ ...schema, title: "" } as RJSFSchema}
         tagName="div"
         validator={jsonSchemaValidator}
       >

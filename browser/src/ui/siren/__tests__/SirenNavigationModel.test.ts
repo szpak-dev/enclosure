@@ -41,7 +41,7 @@ it("groups root collections by their application path", () => {
   ]);
 });
 
-it("keeps only advertised related and nested collection links for entity subresources", () => {
+it("keeps every advertised non-self link for entity subresources", () => {
   const entity = {
     actions: [],
     class: ["project"],
@@ -71,14 +71,22 @@ it("keeps only advertised related and nested collection links for entity subreso
       label: "Architecture configuration",
       target: "/siren/projects/project-1/architecture-configurations",
     },
+    {
+      id: "/siren/projects/project-1/insights",
+      label: "Insights",
+      target: "/siren/projects/project-1/insights",
+    },
   ]);
 });
 
 it("keeps the owning application active for nested resources", () => {
-  const [records, projects] = navigationGroups("/siren/", [
+  const groups = navigationGroups("/siren/", [
     link("/siren/records", ["collection"], "Record"),
     link("/siren/projects", ["collection"], "Project"),
   ]);
+  const records = groups.find((group) => group.id === "records");
+  const projects = groups.find((group) => group.id === "projects");
+  if (!records || !projects) throw new Error("Expected navigation groups.");
 
   expect(isActiveNavigationGroup(records, "/siren/projects/project-1")).toBe(
     false,

@@ -30,9 +30,16 @@ function radioChoices(field: Field): RadioChoice[] {
 
 export function Input({ field }: InputProps) {
   const inputId = useId();
+  const label = field.title ?? field.name;
 
   if (field.type === "checkbox") {
-    return <Checkbox defaultChecked={field.value === true} name={field.name} />;
+    return (
+      <Checkbox
+        aria-label={label}
+        defaultChecked={field.value === true}
+        name={field.name}
+      />
+    );
   }
 
   if (field.type === "radio") {
@@ -41,6 +48,7 @@ export function Input({ field }: InputProps) {
 
     return (
       <Radio.Group
+        aria-label={label}
         defaultValue={selected == null ? null : String(selected.value)}
         name={field.name}
       >
@@ -63,7 +71,7 @@ export function Input({ field }: InputProps) {
   }
 
   if (field.type === "file") {
-    return <FileInput name={field.name} />;
+    return <FileInput aria-label={label} name={field.name} />;
   }
 
   if (field.type === "hidden") {
@@ -79,6 +87,7 @@ export function Input({ field }: InputProps) {
   if (field.type === "textarea") {
     return (
       <Textarea
+        aria-label={label}
         defaultValue={field.value == null ? "" : String(field.value)}
         name={field.name}
       />
@@ -87,6 +96,7 @@ export function Input({ field }: InputProps) {
 
   return (
     <TextInput
+      aria-label={label}
       defaultValue={field.value == null ? "" : String(field.value)}
       name={field.name}
       type={field.type}

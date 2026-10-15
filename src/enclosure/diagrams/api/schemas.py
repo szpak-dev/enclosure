@@ -177,7 +177,9 @@ class DiagramSetSummary(StrictSchema):
     title: str = Field(description="Human-readable diagram-set title.")
     description: str = Field(description="Purpose and topic of the diagram set.")
     created_at: datetime = Field(description="Time at which the diagram set was created.")
-    updated_at: datetime = Field(description="Time at which the diagram set was last updated.")
+    updated_at: datetime = Field(
+        description="Latest contained-diagram activity, or the set update time when the set is empty."
+    )
 
 
 class DiagramSet(DiagramSetSummary):
@@ -189,15 +191,34 @@ class FindPage(StrictSchema):
     limit: int = Field(default=50, description="Maximum items returned by the page.", ge=1, le=100)
 
 
+class FindDiagramPage(FindPage):
+    order_by: Literal["created_at", "updated_at", "title"] = Field(
+        default="updated_at",
+        description="Diagram collection field used for ordering.",
+    )
+    direction: Literal["asc", "desc"] = Field(
+        default="desc",
+        description="Direction applied to the selected ordering field and identifier tie-breaker.",
+    )
+
+
 class DiagramSetPage(StrictSchema):
     items: list[DiagramSetSummary] = Field(description="Diagram-set summaries in this bounded page.")
     has_more: bool = Field(description="Whether another page of diagram sets remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+    order_by: Literal["created_at", "updated_at", "title"] = Field(
+        description="Diagram collection field used for ordering."
+    )
+    direction: Literal["asc", "desc"] = Field(description="Applied ordering direction.")
 
 
 class DiagramPage(StrictSchema):
-    items: list[DiagramReference] = Field(description="Diagram references in this bounded page.")
+    items: list[DiagramSummary] = Field(description="Diagram summaries in this bounded page.")
     has_more: bool = Field(description="Whether another page of diagrams remains.")
     next_offset: int = Field(description="Item offset for the next page.", ge=0)
     limit: int = Field(description="Maximum items requested for this page.", ge=1, le=100)
+    order_by: Literal["created_at", "updated_at", "title"] = Field(
+        description="Diagram collection field used for ordering."
+    )
+    direction: Literal["asc", "desc"] = Field(description="Applied ordering direction.")
