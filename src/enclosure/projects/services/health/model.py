@@ -22,7 +22,6 @@ class GuidanceRule(StrEnum):
     AUTHORITY_CONFLICT = "authority-conflict"
     DUPLICATE_EFFECTIVE_POLICY = "duplicate-effective-policy"
     GUIDANCE_OVERSIZED = "guidance-oversized"
-    OPTIONAL_BUDGET_EXCEEDED = "optional-budget-exceeded"
 
 
 class RemediationCategory(StrEnum):
