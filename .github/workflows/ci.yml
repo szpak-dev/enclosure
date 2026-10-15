@@ -145,6 +145,10 @@ jobs:
       - name: Install browser dependencies
         run: npm --prefix browser ci
 
+      - name: Install Playwright Chromium
+        working-directory: enclosure/browser
+        run: npx playwright install --with-deps chromium
+
       - name: Check browser and generated static assets
         run: make ci-browser-checks ci-static-prepare ci-browser-tests ci-browser-build ci-static-check
 
