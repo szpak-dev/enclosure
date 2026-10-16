@@ -84,12 +84,13 @@ export function Input({ field }: InputProps) {
     );
   }
 
-  if (field.type === "textarea") {
+  if (field.type === "textarea" || field.name.endsWith("_yaml")) {
     return (
       <Textarea
         aria-label={label}
         defaultValue={field.value == null ? "" : String(field.value)}
         name={field.name}
+        rows={8}
       />
     );
   }

@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactElement } from "react";
 import { SirenClient } from "../client/SirenClient";
 import { navigationGroups } from "../ui/siren/SirenNavigationModel";
 import { SirenPage } from "../ui/siren/SirenPage";
+import { SirenActionExecutionProvider } from "../ui/siren/SirenActionExecution";
 import { AppFooter } from "./AppFooter";
 import { AppHeader } from "./AppHeader";
 import { Navigation } from "./Navigation";
@@ -69,15 +70,17 @@ function Browser({ rootTarget }: AppProps): ReactElement {
               </Stack>
             </Alert>
           ) : (
-            <SirenPage
-              entity={state.entity}
-              isLoading={state.isLoading}
-              onFollow={follow}
-              onLoad={state.load}
-              onRefresh={state.retry}
-              onSubmit={state.submit}
-              root={state.root}
-            />
+            <SirenActionExecutionProvider execute={state.execute}>
+              <SirenPage
+                entity={state.entity}
+                isLoading={state.isLoading}
+                onFollow={follow}
+                onLoad={state.load}
+                onRefresh={state.retry}
+                onSubmit={state.submit}
+                root={state.root}
+              />
+            </SirenActionExecutionProvider>
           )}
         </Stack>
       </AppShell.Main>

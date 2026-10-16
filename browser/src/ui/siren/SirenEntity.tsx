@@ -26,6 +26,19 @@ export function SirenEntity({
   root,
 }: SirenEntityProps) {
   if (entity.class.includes("collection")) {
+    const CollectionComponent = sirenRegistry.collections.resolve(entity.class);
+    if (CollectionComponent) {
+      return (
+        <CollectionComponent
+          entity={entity}
+          onFollow={onFollow}
+          onLoad={onLoad}
+          onRefresh={onRefresh}
+          onSubmit={onSubmit}
+          root={root}
+        />
+      );
+    }
     return (
       <SirenCollection
         entity={entity}

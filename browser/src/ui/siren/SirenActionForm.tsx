@@ -157,11 +157,16 @@ function structuredFormSchema(
   return undefined;
 }
 
-export function SirenActionForm({
+type SirenActionFormLayoutProps = SirenActionFormProps & {
+  layout: "drawer" | "fieldset";
+};
+
+function SirenActionFormLayout({
   action,
+  layout,
   onSubmit,
   values,
-}: SirenActionFormProps) {
+}: SirenActionFormLayoutProps) {
   const [submitting, setSubmitting] = useState(false);
   const controls = structuredControls(action);
   const schema = structuredFormSchema(controls);
@@ -184,8 +189,8 @@ export function SirenActionForm({
       }}
       {...(schema ? { schema } : {})}
     >
-      {(errors) => (
-        <Fieldset legend={action.title}>
+      {(errors) => {
+        const content = (
           <Stack gap="sm">
             {fields.map((field) => {
               const control = controlsByName.get(field.name);
@@ -203,8 +208,21 @@ export function SirenActionForm({
               {action.title}
             </Button>
           </Stack>
-        </Fieldset>
-      )}
+        );
+        return layout === "drawer" ? (
+          content
+        ) : (
+          <Fieldset legend={action.title}>{content}</Fieldset>
+        );
+      }}
     </Form>
   );
+}
+
+export function SirenActionForm(props: SirenActionFormProps) {
+  return <SirenActionFormLayout {...props} layout="fieldset" />;
+}
+
+export function SirenDrawerActionForm(props: SirenActionFormProps) {
+  return <SirenActionFormLayout {...props} layout="drawer" />;
 }

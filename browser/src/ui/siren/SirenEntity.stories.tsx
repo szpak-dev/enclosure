@@ -31,7 +31,7 @@ type Story = StoryObj<typeof meta>;
 export const GenericEntity: Story = {
   args: {
     entity: sirenFixtures.entity(
-      ["workspace"],
+      ["generic-workspace"],
       "Local workspace",
       { root: "/workspace", status: "ready" },
       [
@@ -57,7 +57,7 @@ export const GenericEntity: Story = {
 export const ActionForm: Story = {
   args: {
     entity: sirenFixtures.entity(
-      ["project"],
+      ["generic-project"],
       "Enclosure",
       { title: "Enclosure" },
       [],
@@ -181,7 +181,7 @@ export const FieldlessAction: Story = {
 export const SubmissionFailure: Story = {
   args: {
     entity: sirenFixtures.entity(
-      ["project"],
+      ["generic-project"],
       "Conflicting project",
       { title: "Conflicting project" },
       [],
