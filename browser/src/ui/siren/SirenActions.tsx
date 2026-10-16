@@ -10,15 +10,11 @@ export type SirenActionsProps = {
 };
 
 export function SirenActions({ actions, onSubmit, values }: SirenActionsProps) {
-  const displayedActions = actions.filter(
-    (action) => action.method !== "GET" || action.fields.length > 0,
-  );
-
-  if (!displayedActions.length) return null;
+  if (!actions.length) return null;
 
   return (
     <Stack>
-      {displayedActions.map((action) => {
+      {actions.map((action) => {
         const ActionForm =
           sirenRegistry.actions.get(action.name) ?? SirenActionForm;
         return (

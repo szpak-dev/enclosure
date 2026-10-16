@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { sirenFixtures } from "../../stories/SirenFixtures";
 import { OBJECT_CONTROL, STRUCTURED_FORM_EXTENSION } from "./SirenActionForm";
 import { SirenEntity } from "./SirenEntity";
@@ -42,6 +42,16 @@ export const GenericEntity: Story = {
       [],
     ),
   },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Local workspace" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("link", { name: "Project" }));
+    await expect(args.onFollow).toHaveBeenCalledWith(
+      "/siren/projects/project-1",
+    );
+  },
 };
 
 export const ActionForm: Story = {
@@ -62,6 +72,19 @@ export const ActionForm: Story = {
         ),
       ],
     ),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const title = canvas.getByRole("textbox", { name: "Project title" });
+    await userEvent.clear(title);
+    await userEvent.type(title, "Updated project");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Rename project" }),
+    );
+    await expect(args.onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "rename-project" }),
+      { title: "Updated project" },
+    );
   },
 };
 
@@ -114,5 +137,76 @@ export const StructuredValidationFailure: Story = {
           "Submit the empty command to display the structured validation failure.",
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Apply command" }),
+    );
+    await expect(await canvas.findByRole("alert")).toBeVisible();
+  },
+};
+
+export const FieldlessAction: Story = {
+  args: {
+    entity: sirenFixtures.entity(
+      ["status"],
+      "Runtime status",
+      { status: "ready" },
+      [],
+      [],
+      [
+        sirenFixtures.action(
+          "refresh-status",
+          "Refresh status",
+          "/siren/status",
+          "GET",
+          [],
+        ),
+      ],
+    ),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Refresh status" }),
+    );
+    await expect(args.onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "refresh-status" }),
+      {},
+    );
+  },
+};
+
+export const SubmissionFailure: Story = {
+  args: {
+    entity: sirenFixtures.entity(
+      ["project"],
+      "Conflicting project",
+      { title: "Conflicting project" },
+      [],
+      [],
+      [
+        sirenFixtures.action(
+          "rename-project",
+          "Rename project",
+          "/siren/projects/project-1",
+          "PATCH",
+          [sirenFixtures.field("title", "Project title", "text")],
+        ),
+      ],
+    ),
+    onSubmit: fn(async () => {
+      throw new Error("The project changed before submission.");
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Rename project" }),
+    );
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "The project changed before submission.",
+    );
   },
 };

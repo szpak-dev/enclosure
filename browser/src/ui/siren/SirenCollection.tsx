@@ -1,4 +1,4 @@
-import { Group, List, Paper, Stack, Title } from "@mantine/core";
+import { Group, List, Paper, Stack, Text, Title } from "@mantine/core";
 import type { Action, Entity, Target } from "@siren-js/client";
 import {
   DiagramOrderingControls,
@@ -40,28 +40,32 @@ export function SirenCollection({
             <DiagramOrderingControls collection={entity} onFollow={onFollow} />
           </Group>
         ) : null}
-        <List listStyleType="none" spacing="xs">
-          {entity.entities.map((item, index) => (
-            <List.Item key={`${item.rel.join("-")}-${index}`}>
-              {isDiagramSummary(item) ? (
-                <DiagramListItem
-                  diagram={item}
-                  onFollow={onFollow}
-                  onLoad={onLoad}
-                />
-              ) : (
-                <SirenCollectionItem
-                  ambiguousTitle={
-                    (titleCounts.get(itemTitle(item) ?? "") ?? 0) > 1
-                  }
-                  index={index}
-                  item={item}
-                  onFollow={onFollow}
-                />
-              )}
-            </List.Item>
-          ))}
-        </List>
+        {entity.entities.length ? (
+          <List listStyleType="none" spacing="xs">
+            {entity.entities.map((item, index) => (
+              <List.Item key={`${item.rel.join("-")}-${index}`}>
+                {isDiagramSummary(item) ? (
+                  <DiagramListItem
+                    diagram={item}
+                    onFollow={onFollow}
+                    onLoad={onLoad}
+                  />
+                ) : (
+                  <SirenCollectionItem
+                    ambiguousTitle={
+                      (titleCounts.get(itemTitle(item) ?? "") ?? 0) > 1
+                    }
+                    index={index}
+                    item={item}
+                    onFollow={onFollow}
+                  />
+                )}
+              </List.Item>
+            ))}
+          </List>
+        ) : (
+          <Text c="dimmed">No resources available.</Text>
+        )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
         <SirenActions actions={entity.actions} onSubmit={onSubmit} />
       </Stack>

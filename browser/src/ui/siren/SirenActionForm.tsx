@@ -1,5 +1,6 @@
 import { Button, Fieldset, Stack } from "@mantine/core";
 import { Field, type Action } from "@siren-js/client";
+import { useState } from "react";
 import { Form } from "../form/Form";
 import { FormField } from "../form/FormField";
 import type { FormSchema, FormSchemaProperty } from "../form/FormSchema";
@@ -161,6 +162,7 @@ export function SirenActionForm({
   onSubmit,
   values,
 }: SirenActionFormProps) {
+  const [submitting, setSubmitting] = useState(false);
   const controls = structuredControls(action);
   const schema = structuredFormSchema(controls);
   const fields = actionFields(action, schema, values);
@@ -171,9 +173,14 @@ export function SirenActionForm({
   return (
     <Form
       controls={fields.map(formControl)}
-      onSubmit={(values) => {
+      onSubmit={async (values) => {
         action.fields = fields;
-        return onSubmit(action, values);
+        setSubmitting(true);
+        try {
+          await onSubmit(action, values);
+        } finally {
+          setSubmitting(false);
+        }
       }}
       {...(schema ? { schema } : {})}
     >
@@ -192,7 +199,9 @@ export function SirenActionForm({
                 </FormField>
               );
             })}
-            <Button type="submit">{action.title}</Button>
+            <Button loading={submitting} type="submit">
+              {action.title}
+            </Button>
           </Stack>
         </Fieldset>
       )}

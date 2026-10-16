@@ -39,6 +39,9 @@ export function SirenCollectionItem({
             {description}
           </Text>
         ) : null}
+        <Text c="dimmed" size="xs">
+          No destination advertised.
+        </Text>
       </Stack>
     );
   }

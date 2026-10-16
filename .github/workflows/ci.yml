@@ -150,7 +150,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Check browser and generated static assets
-        run: make ci-browser-checks ci-static-prepare ci-browser-tests ci-browser-build ci-static-check
+        run: make ci-browser-checks ci-static-prepare ci-browser-tests ci-storybook-contract ci-browser-build ci-static-check
 
   ci:
     name: CI

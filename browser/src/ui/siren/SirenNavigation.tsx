@@ -68,6 +68,11 @@ export function SirenNavigation({
                   {group.resources.map((resource) => (
                     <NavLink
                       active={sameTarget(activeTarget, resource.target)}
+                      aria-current={
+                        sameTarget(activeTarget, resource.target)
+                          ? "page"
+                          : undefined
+                      }
                       component="a"
                       href={`#${href(resource.target)}`}
                       key={resource.id}

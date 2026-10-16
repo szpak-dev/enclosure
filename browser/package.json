@@ -9,6 +9,7 @@
     "format:check": "prettier --check .",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
+    "storybook:contract": "node scripts/verify-storybook-contract.mjs",
     "storybook:test": "vitest --project=storybook",
     "test": "vitest run",
     "test:watch": "vitest",
