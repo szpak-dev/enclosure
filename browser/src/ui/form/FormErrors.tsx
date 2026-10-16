@@ -6,7 +6,7 @@ export function FormErrors({ errors }: FormErrorsProps) {
   const messages = Object.values(errors);
   if (!messages.length) return null;
   return (
-    <Alert color="red" title="Please fix the highlighted fields">
+    <Alert color="red" role="alert" title="Please fix the highlighted fields">
       {messages.join(" ")}
     </Alert>
   );

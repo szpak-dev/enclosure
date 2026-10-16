@@ -14,6 +14,7 @@ export function AppHeader({
       <Group h="100%" justify="space-between" px="md">
         <Group>
           <Burger
+            aria-expanded={navigationOpened}
             aria-label="Toggle navigation"
             hiddenFrom="sm"
             onClick={onToggleNavigation}

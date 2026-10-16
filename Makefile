@@ -1,4 +1,4 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -23,6 +23,7 @@ ci:
 	@$(MAKE) --jobs=2 ci-python-tests-parallel ci-browser-tests
 	@$(MAKE) ci-python-tests-health-serial
 	@$(MAKE) ci-python-tests-health-process
+	@$(MAKE) ci-storybook-contract
 	@$(MAKE) ci-browser-build-check
 
 ci-python-checks:
@@ -61,6 +62,10 @@ ci-python-tests-health-process:
 
 ci-browser-tests:
 	@npm --prefix browser test
+
+ci-storybook-contract:
+	@npm --prefix browser run storybook:build
+	@npm --prefix browser run storybook:contract
 
 ci-browser-build:
 	@npm --prefix browser run build

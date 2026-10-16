@@ -254,6 +254,25 @@ export const UntargetedItem: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole("link")).not.toBeInTheDocument();
     await expect(canvas.getByText("Maintenance window")).toBeVisible();
+    await expect(canvas.getByText("No destination advertised.")).toBeVisible();
+  },
+};
+
+export const EmptyCollection: Story = {
+  args: {
+    entity: sirenFixtures.entity(
+      ["collection", "workspace"],
+      "Workspaces",
+      {},
+      [],
+      [],
+      [],
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("No resources available.")).toBeVisible();
+    await expect(canvas.queryByRole("list")).not.toBeInTheDocument();
   },
 };
 
@@ -282,5 +301,10 @@ export const AmbiguousTitles: Story = {
       ],
       [],
     ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("ID project-1")).toBeVisible();
+    await expect(canvas.getByText("ID project-2")).toBeVisible();
   },
 };

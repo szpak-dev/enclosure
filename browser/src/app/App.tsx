@@ -1,5 +1,6 @@
 import { Alert, AppShell, Button, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import type { Target } from "@siren-js/client";
 import { useMemo, useState, type ReactElement } from "react";
 import { SirenClient } from "../client/SirenClient";
 import { navigationGroups } from "../ui/siren/SirenNavigationModel";
@@ -16,12 +17,19 @@ export type AppProps = {
 
 function Browser({ rootTarget }: AppProps): ReactElement {
   const [client] = useState(() => new SirenClient());
-  const [navigationOpened, { toggle: toggleNavigation }] = useDisclosure();
+  const [
+    navigationOpened,
+    { close: closeNavigation, toggle: toggleNavigation },
+  ] = useDisclosure();
   const state = useSirenBrowser(client, rootTarget);
   const groups = useMemo(
     () => navigationGroups(rootTarget, state.root?.links ?? []),
     [rootTarget, state.root],
   );
+  const follow = (target: Target) => {
+    state.follow(target);
+    closeNavigation();
+  };
 
   return (
     <AppShell
@@ -38,11 +46,7 @@ function Browser({ rootTarget }: AppProps): ReactElement {
         navigationOpened={navigationOpened}
         onToggleNavigation={toggleNavigation}
       />
-      <Navigation
-        groups={groups}
-        onFollow={state.follow}
-        target={state.target}
-      />
+      <Navigation groups={groups} onFollow={follow} target={state.target} />
       <AppShell.Main>
         <Stack>
           {state.rootError ? (
@@ -68,7 +72,7 @@ function Browser({ rootTarget }: AppProps): ReactElement {
             <SirenPage
               entity={state.entity}
               isLoading={state.isLoading}
-              onFollow={state.follow}
+              onFollow={follow}
               onLoad={state.load}
               onRefresh={state.retry}
               onSubmit={state.submit}

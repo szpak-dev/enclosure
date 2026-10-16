@@ -17,6 +17,7 @@ const colors: CSSVariablesResolver = () => ({
   },
   light: {
     "--mantine-color-dimmed": "var(--mantine-color-dark-3)",
+    "--mantine-color-error": "var(--mantine-color-red-9)",
   },
   variables: {},
 });
