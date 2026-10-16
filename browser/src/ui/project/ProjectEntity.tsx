@@ -1,15 +1,15 @@
 import { Alert, Paper, Skeleton, Stack } from "@mantine/core";
 import type { Link } from "@siren-js/client";
 import { useEffect, useState } from "react";
-import type { SirenEntityProps } from "../siren/SirenEntity";
-import { ProjectActions } from "./ProjectActions";
 import {
   Identity,
-  ProjectPage,
   PropertyTable,
   ResourceCards,
+  ResourcePage,
   Section,
-} from "./ProjectPrimitives";
+} from "../resource/ResourcePrimitives";
+import type { SirenEntityProps } from "../siren/SirenEntity";
+import { ProjectActions } from "./ProjectActions";
 import { projectPresentation } from "./ProjectPresentation";
 
 export function ProjectEntity({
@@ -104,7 +104,7 @@ export function ProjectEntity({
       : entity.actions.filter((action) => action.name !== "update_project");
 
   return (
-    <ProjectPage
+    <ResourcePage
       description="Identity, runtime bindings, architecture, and governing guidance."
       title={title}
     >
@@ -139,7 +139,11 @@ export function ProjectEntity({
         <Paper p="md" radius="md" withBorder>
           <PropertyTable
             caption="Project metadata"
+            label={(name) => projectPresentation.label(name)}
             properties={entity.properties}
+            text={(properties, name) =>
+              projectPresentation.text(properties, name)
+            }
             visible={[
               "language_id",
               "language_version",
@@ -151,12 +155,20 @@ export function ProjectEntity({
       </Section>
       <Stack gap="xl">
         <Section title="Runtime">
-          <ResourceCards links={runtime} onFollow={onFollow} />
+          <ResourceCards
+            label={(link) => projectPresentation.linkLabel(link)}
+            links={runtime}
+            onFollow={onFollow}
+          />
         </Section>
         <Section title="Governance">
-          <ResourceCards links={governance} onFollow={onFollow} />
+          <ResourceCards
+            label={(link) => projectPresentation.linkLabel(link)}
+            links={governance}
+            onFollow={onFollow}
+          />
         </Section>
       </Stack>
-    </ProjectPage>
+    </ResourcePage>
   );
 }

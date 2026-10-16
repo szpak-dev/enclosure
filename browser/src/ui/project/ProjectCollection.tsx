@@ -7,10 +7,14 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import {
+  Identity,
+  ResourcePage,
+  Section,
+} from "../resource/ResourcePrimitives";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { SirenContinuation } from "../siren/SirenContinuation";
 import { ProjectActions } from "./ProjectActions";
-import { Identity, ProjectPage, Section } from "./ProjectPrimitives";
 import { projectPresentation } from "./ProjectPresentation";
 
 export function ProjectCollection({
@@ -19,7 +23,7 @@ export function ProjectCollection({
   onRefresh,
 }: SirenEntityProps) {
   return (
-    <ProjectPage
+    <ResourcePage
       description="Registered software systems and their governed delivery resources."
       title="Projects"
     >
@@ -81,6 +85,6 @@ export function ProjectCollection({
         )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
-    </ProjectPage>
+    </ResourcePage>
   );
 }

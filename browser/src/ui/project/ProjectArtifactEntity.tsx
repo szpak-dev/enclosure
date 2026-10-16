@@ -1,8 +1,8 @@
 import { Paper } from "@mantine/core";
+import { ResourcePage, Section } from "../resource/ResourcePrimitives";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { ProjectActionResult } from "./ProjectActionResult";
 import { ProjectActions } from "./ProjectActions";
-import { ProjectPage, Section } from "./ProjectPrimitives";
 
 export function ProjectArtifactEntity({ entity, onRefresh }: SirenEntityProps) {
   const ignored = entity.actions
@@ -22,7 +22,7 @@ export function ProjectArtifactEntity({ entity, onRefresh }: SirenEntityProps) {
     if (!primaryName || action.method !== "GET") primaryName = action.name;
   });
   return (
-    <ProjectPage
+    <ResourcePage
       description="Revision-pinned Projects evidence and its advertised operations."
       title={entity.title || "Project evidence"}
     >
@@ -39,6 +39,6 @@ export function ProjectArtifactEntity({ entity, onRefresh }: SirenEntityProps) {
           <ProjectActionResult actionName="artifact" entity={entity} />
         </Paper>
       </Section>
-    </ProjectPage>
+    </ResourcePage>
   );
 }

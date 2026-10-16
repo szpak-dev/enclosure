@@ -26,7 +26,7 @@ export function SirenEntity({
   root,
 }: SirenEntityProps) {
   if (entity.class.includes("collection")) {
-    const CollectionComponent = sirenRegistry.collections.resolve(entity.class);
+    const CollectionComponent = sirenRegistry.collections.resolve(entity);
     if (CollectionComponent) {
       return (
         <CollectionComponent
@@ -49,7 +49,7 @@ export function SirenEntity({
     );
   }
 
-  const EntityComponent = sirenRegistry.entities.resolve(entity.class);
+  const EntityComponent = sirenRegistry.entities.resolve(entity);
 
   if (EntityComponent) {
     return (

@@ -16,19 +16,18 @@ import {
 import { IconCheck, IconCopy } from "@tabler/icons-react";
 import type { Link, Target } from "@siren-js/client";
 import type { ReactNode } from "react";
-import { projectPresentation } from "./ProjectPresentation";
 
-export type ProjectPageProps = {
+export type ResourcePageProps = {
   children: ReactNode;
   description: string;
   title: string;
 };
 
-export function ProjectPage({
+export function ResourcePage({
   children,
   description,
   title,
-}: ProjectPageProps) {
+}: ResourcePageProps) {
   return (
     <Container size="xl">
       <Stack gap="xl">
@@ -75,13 +74,17 @@ export function Identity({ label, value }: IdentityProps) {
 
 export type PropertyTableProps = {
   caption?: string;
+  label: (name: string) => string;
   properties: object;
+  text: (properties: object, name: string) => string;
   visible: readonly string[];
 };
 
 export function PropertyTable({
   caption = "Details",
+  label,
   properties,
+  text,
   visible,
 }: PropertyTableProps) {
   return (
@@ -96,9 +99,9 @@ export function PropertyTable({
         <Table.Tbody>
           {visible.map((name) => (
             <Table.Tr key={name}>
-              <Table.Th>{projectPresentation.label(name)}</Table.Th>
+              <Table.Th>{label(name)}</Table.Th>
               <Table.Td>
-                <Text>{projectPresentation.text(properties, name)}</Text>
+                <Text>{text(properties, name)}</Text>
               </Table.Td>
             </Table.Tr>
           ))}
@@ -109,11 +112,12 @@ export function PropertyTable({
 }
 
 export type ResourceCardsProps = {
+  label: (link: Link) => string;
   links: readonly Link[];
   onFollow: (target: Target) => void;
 };
 
-export function ResourceCards({ links, onFollow }: ResourceCardsProps) {
+export function ResourceCards({ label, links, onFollow }: ResourceCardsProps) {
   if (!links.length)
     return <Text c="dimmed">No related resources advertised.</Text>;
   return (
@@ -132,7 +136,7 @@ export function ResourceCards({ links, onFollow }: ResourceCardsProps) {
           withBorder
         >
           <Stack gap={4}>
-            <Text fw={600}>{projectPresentation.linkLabel(link)}</Text>
+            <Text fw={600}>{label(link)}</Text>
             <Text c="dimmed" size="sm">
               Open resource
             </Text>

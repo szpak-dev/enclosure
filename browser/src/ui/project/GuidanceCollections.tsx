@@ -11,10 +11,10 @@ import {
 } from "@mantine/core";
 import type { Entity, SubEntity, Target } from "@siren-js/client";
 import { useEffect, useState } from "react";
+import { ResourcePage, Section } from "../resource/ResourcePrimitives";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { SirenContinuation } from "../siren/SirenContinuation";
 import { ProjectActions } from "./ProjectActions";
-import { ProjectPage, Section } from "./ProjectPrimitives";
 import { projectPresentation } from "./ProjectPresentation";
 
 type RecordResolution =
@@ -114,7 +114,7 @@ export function GuidanceScopeCollection({
     ),
   };
   return (
-    <ProjectPage
+    <ResourcePage
       description="Ordered optional guidance eligible for routing to this project."
       title="Guidance scopes"
     >
@@ -183,7 +183,7 @@ export function GuidanceScopeCollection({
         )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
-    </ProjectPage>
+    </ResourcePage>
   );
 }
 
@@ -210,7 +210,7 @@ export function GuidanceRelationshipCollection({
     }),
   };
   return (
-    <ProjectPage
+    <ResourcePage
       description="Typed relationships between authoritative guidance records."
       title="Guidance relationships"
     >
@@ -283,6 +283,6 @@ export function GuidanceRelationshipCollection({
         )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
-    </ProjectPage>
+    </ResourcePage>
   );
 }

@@ -1,8 +1,8 @@
 import { Alert, Button, Code, Table, Text } from "@mantine/core";
+import { ResourcePage, Section } from "../resource/ResourcePrimitives";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { SirenContinuation } from "../siren/SirenContinuation";
 import { ProjectActions } from "./ProjectActions";
-import { ProjectPage, Section } from "./ProjectPrimitives";
 import { projectPresentation } from "./ProjectPresentation";
 
 export function WorkspaceCollection({
@@ -11,7 +11,7 @@ export function WorkspaceCollection({
   onRefresh,
 }: SirenEntityProps) {
   return (
-    <ProjectPage
+    <ResourcePage
       description="Explicit local checkouts bound to this logical project."
       title="Workspaces"
     >
@@ -102,6 +102,6 @@ export function WorkspaceCollection({
         )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
-    </ProjectPage>
+    </ResourcePage>
   );
 }
