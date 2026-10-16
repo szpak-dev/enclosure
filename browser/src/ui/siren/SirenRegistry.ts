@@ -5,6 +5,7 @@ import type { SirenFieldProps } from "./SirenField";
 
 export const sirenRegistry = {
   actions: new Map<string, ComponentType<SirenActionFormProps>>(),
+  collections: new SirenEntityRendererRegistry(),
   entities: new SirenEntityRendererRegistry(),
   fields: new Map<string, ComponentType<SirenFieldProps>>(),
 };

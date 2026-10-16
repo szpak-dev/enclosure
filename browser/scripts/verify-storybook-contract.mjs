@@ -5,6 +5,12 @@ import { setTimeout as pause } from "node:timers/promises";
 
 const EXPECTED_COMPONENTS = [
   "browser-application",
+  "browser-projects-actions",
+  "browser-projects-architecture-configuration",
+  "browser-projects-guidance",
+  "browser-projects-project-collection",
+  "browser-projects-project-detail",
+  "browser-projects-workspaces",
   "browser-siren-collection",
   "browser-siren-entity",
   "browser-siren-page",

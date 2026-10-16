@@ -57,6 +57,23 @@ it("renders an entity with the first registered resource renderer", () => {
   ).not.toBeInTheDocument();
 });
 
+it("renders a collection with its registered collection renderer", () => {
+  function SpecializedCollection({ entity }: SirenEntityProps): ReactElement {
+    return <Text>Curated {entity.title}</Text>;
+  }
+  unregister.push(
+    sirenRegistry.collections.register(
+      "specialized-collection",
+      SpecializedCollection,
+    ),
+  );
+
+  renderEntity(entity(["collection", "specialized-collection"]));
+
+  expect(screen.getByText("Curated Generic resource")).toBeVisible();
+  expect(screen.queryByRole("list")).not.toBeInTheDocument();
+});
+
 it("provides the resource loader to a specialized renderer", () => {
   const onLoad = vi.fn().mockResolvedValue(entity(["related"]));
   function SpecializedEntity({ onLoad }: SirenEntityProps): ReactElement {

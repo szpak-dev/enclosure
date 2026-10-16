@@ -4,6 +4,9 @@ import type { SirenClient } from "../client/SirenClient";
 
 type BrowserEntity = Entity<object>;
 
+export type ActionExecutionResult =
+  { kind: "entity"; entity: BrowserEntity } | { kind: "empty" };
+
 function error(reason: unknown, fallback: string): Error {
   return reason instanceof Error ? reason : new Error(fallback);
 }
@@ -127,9 +130,18 @@ export function useSirenBrowser(client: SirenClient, rootTarget: Target) {
     }
   };
 
+  const execute = async (
+    action: Action,
+    values: Record<string, unknown>,
+  ): Promise<ActionExecutionResult> => {
+    const response = await client.execute(action, values);
+    return response ? { kind: "entity", entity: response } : { kind: "empty" };
+  };
+
   return {
     entity,
     error: targetIsRoot ? rootError : resourceError,
+    execute,
     follow,
     isLoading: targetIsRoot ? isRootLoading : isResourceLoading,
     load,

@@ -2,10 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App";
 import { registerDiagramRenderer } from "./ui/diagram/registerDiagramRenderer";
+import { registerProjectRenderers } from "./ui/project/registerProjectRenderers";
 import "@mantine/core/styles.css";
 import "./styles.css";
 
 registerDiagramRenderer();
+registerProjectRenderers();
 
 const root = document.querySelector<HTMLDivElement>("#app");
 

@@ -4,9 +4,6 @@ import { expect, userEvent, within } from "storybook/test";
 import { App } from "./App";
 
 const SIREN_HEADERS = { "Content-Type": "application/vnd.siren+json" };
-let rootAttempts = 0;
-let resourceAttempts = 0;
-
 const rootDocument = {
   actions: [],
   class: ["api", "entry-point"],
@@ -48,7 +45,7 @@ const projectDocument = {
       type: "application/json",
     },
   ],
-  class: ["project"],
+  class: ["example-resource"],
   entities: [],
   links: [
     {
@@ -137,28 +134,26 @@ export const RootLoading: Story = {
 };
 
 export const RootFailureAndRecovery: Story = {
-  beforeEach: () => {
-    rootAttempts = 0;
-  },
   parameters: {
     msw: {
       handlers: [
-        http.get("*/siren/", () => {
-          rootAttempts += 1;
-          return rootAttempts === 1
-            ? HttpResponse.json(
-                {
-                  actions: [],
-                  class: ["error"],
-                  entities: [],
-                  links: [],
-                  properties: { detail: "Navigation service unavailable" },
-                  title: "Navigation unavailable",
-                },
-                { headers: SIREN_HEADERS, status: 503 },
-              )
-            : HttpResponse.json(rootDocument, { headers: SIREN_HEADERS });
-        }),
+        http.get(
+          "*/siren/",
+          () =>
+            HttpResponse.json(
+              {
+                actions: [],
+                class: ["error"],
+                entities: [],
+                links: [],
+                properties: { detail: "Navigation service unavailable" },
+                title: "Navigation unavailable",
+              },
+              { headers: SIREN_HEADERS, status: 503 },
+            ),
+          { once: true },
+        ),
+        rootHandler,
       ],
     },
   },
@@ -201,33 +196,33 @@ export const ResourceLoading: Story = {
 
 export const ResourceFailureAndRecovery: Story = {
   beforeEach: () => {
-    resourceAttempts = 0;
     window.history.replaceState(null, "", "/#/siren/projects");
   },
   parameters: {
     msw: {
       handlers: [
         rootHandler,
-        http.get("*/siren/projects", () => {
-          resourceAttempts += 1;
-          return resourceAttempts === 1
-            ? HttpResponse.json(
-                {
-                  actions: [],
-                  class: ["error"],
-                  entities: [],
-                  links: [],
-                  properties: {
-                    detail: "Projects are temporarily unavailable",
-                  },
-                  title: "Projects unavailable",
+        http.get(
+          "*/siren/projects",
+          () =>
+            HttpResponse.json(
+              {
+                actions: [],
+                class: ["error"],
+                entities: [],
+                links: [],
+                properties: {
+                  detail: "Projects are temporarily unavailable",
                 },
-                { headers: SIREN_HEADERS, status: 503 },
-              )
-            : HttpResponse.json(projectsDocument, {
-                headers: SIREN_HEADERS,
-              });
-        }),
+                title: "Projects unavailable",
+              },
+              { headers: SIREN_HEADERS, status: 503 },
+            ),
+          { once: true },
+        ),
+        http.get("*/siren/projects", () =>
+          HttpResponse.json(projectsDocument, { headers: SIREN_HEADERS }),
+        ),
       ],
     },
   },
