@@ -1,6 +1,7 @@
 import {
   Alert,
   Badge,
+  Box,
   Button,
   Code,
   Group,
@@ -13,7 +14,7 @@ import {
   Title,
 } from "@mantine/core";
 import type { Entity, Target } from "@siren-js/client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Identity,
   ResourcePage,
@@ -154,6 +155,10 @@ export function TemplateManifestCollection({
   const [selection, setSelection] = useState<TemplateSelection>({
     kind: "none",
   });
+  const source = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selection.kind !== "none") source.current?.focus();
+  }, [selection.kind]);
   const scaffoldingId = scaffoldingPresentation.text(
     entity.properties,
     "scaffolding_id",
@@ -243,25 +248,27 @@ export function TemplateManifestCollection({
         )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
-      <Section title="Template source">
-        {selection.kind === "none" ? (
-          <Text c="dimmed">Choose a template to inspect its source.</Text>
-        ) : null}
-        {selection.kind === "loading" ? (
-          <Group role="status">
-            <Loader size="sm" />
-            <Text>Loading revision-pinned template…</Text>
-          </Group>
-        ) : null}
-        {selection.kind === "failed" ? (
-          <Alert color="red" role="alert" title="Template unavailable">
-            {selection.message}
-          </Alert>
-        ) : null}
-        {selection.kind === "ready" ? (
-          <TemplateContent entity={selection.entity} onLoad={onLoad} />
-        ) : null}
-      </Section>
+      <Box aria-label="Template source" ref={source} tabIndex={-1}>
+        <Section title="Template source">
+          {selection.kind === "none" ? (
+            <Text c="dimmed">Choose a template to inspect its source.</Text>
+          ) : null}
+          {selection.kind === "loading" ? (
+            <Group role="status">
+              <Loader size="sm" />
+              <Text>Loading revision-pinned template…</Text>
+            </Group>
+          ) : null}
+          {selection.kind === "failed" ? (
+            <Alert color="red" role="alert" title="Template unavailable">
+              {selection.message}
+            </Alert>
+          ) : null}
+          {selection.kind === "ready" ? (
+            <TemplateContent entity={selection.entity} onLoad={onLoad} />
+          ) : null}
+        </Section>
+      </Box>
     </ResourcePage>
   );
 }

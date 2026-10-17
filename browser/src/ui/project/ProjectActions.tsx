@@ -3,6 +3,7 @@ import { SirenResponseError } from "../../client/SirenClient";
 import {
   ResourceActions,
   type ResourceActionErrorResolution,
+  type ResourceActionScope,
 } from "../resource/ResourceActions";
 import { ProjectActionResult } from "./ProjectActionResult";
 
@@ -12,6 +13,7 @@ export type ProjectActionsProps = {
   omitNames: readonly string[];
   onRefresh: () => void;
   primaryName: string;
+  scope?: ResourceActionScope;
   values: object;
 };
 
@@ -21,6 +23,7 @@ export function ProjectActions({
   omitNames,
   onRefresh,
   primaryName,
+  scope = "all",
   values,
 }: ProjectActionsProps) {
   return (
@@ -54,6 +57,7 @@ export function ProjectActions({
           };
         return { kind: "unhandled" };
       }}
+      scope={scope}
       values={values}
     />
   );

@@ -44,7 +44,7 @@ export function ScaffoldingCollection({
         resolveError={() => ({ kind: "unhandled" })}
         values={entity.properties}
       />
-      <Section title={title}>
+      <Section title={searchResults ? "Matches" : "Available scaffoldings"}>
         <ScaffoldingCards items={entity.entities} onFollow={onFollow} />
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>

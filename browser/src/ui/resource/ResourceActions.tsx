@@ -1,13 +1,14 @@
 import {
   Alert,
+  Box,
   Button,
-  Divider,
   Drawer,
   Group,
   Menu,
   Modal,
   Stack,
   Text,
+  Title,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import type { Action, Entity } from "@siren-js/client";
@@ -43,6 +44,8 @@ export type ResourceActionResult = {
   values: Record<string, unknown>;
 };
 
+export type ResourceActionScope = "all" | "safe" | "danger";
+
 export type ResourceActionsProps = {
   actions: readonly Action[];
   dangerDescription: string;
@@ -55,6 +58,7 @@ export type ResourceActionsProps = {
     action: Action,
     reason: unknown,
   ) => ResourceActionErrorResolution;
+  scope?: ResourceActionScope;
   values: object;
 };
 
@@ -67,13 +71,19 @@ export function ResourceActions({
   primaryName,
   renderResult,
   resolveError,
+  scope = "all",
   values,
 }: ResourceActionsProps) {
   const execution = useSirenActionExecution();
   const narrow = useMediaQuery("(max-width: 48em)") === true;
   const [selection, setSelection] = useState<ActionSelection>({ kind: "none" });
   const [result, setResult] = useState<ActionResult>({ kind: "idle" });
-  const visible = actions.filter((action) => !omitNames.includes(action.name));
+  const visible = actions.filter((action) => {
+    if (omitNames.includes(action.name)) return false;
+    if (scope === "all") return true;
+    const dangerous = dangerNames.includes(action.name);
+    return scope === "danger" ? dangerous : !dangerous;
+  });
   const primary = visible.find((action) => action.name === primaryName);
   const secondary = visible.filter(
     (action) => action !== primary && !dangerNames.includes(action.name),
@@ -123,28 +133,38 @@ export function ResourceActions({
           ) : null}
         </Group>
         {danger.length ? (
-          <Stack gap="xs">
-            <Divider color="red" label="Danger zone" labelPosition="left" />
-            <Group>
-              {danger.map((action) => (
-                <Button
-                  color="red"
-                  key={action.name}
-                  onClick={() => choose(action)}
-                  variant="light"
-                >
-                  {action.title}
-                </Button>
-              ))}
-            </Group>
-          </Stack>
+          <Box component="section">
+            <Stack gap="xs">
+              <Title order={2} size="h3">
+                Danger zone
+              </Title>
+              <Text c="dimmed" size="sm">
+                {dangerDescription}
+              </Text>
+              <Group>
+                {danger.map((action) => (
+                  <Button
+                    color="red"
+                    key={action.name}
+                    onClick={() => choose(action)}
+                  >
+                    {action.title}
+                  </Button>
+                ))}
+              </Group>
+            </Stack>
+          </Box>
         ) : null}
       </Stack>
       <Modal
         closeButtonProps={{ "aria-label": "Close confirmation" }}
         onClose={close}
         opened={selection.kind === "confirm"}
-        title="Confirm destructive action"
+        title={
+          selection.kind === "confirm"
+            ? `${selection.action.title}?`
+            : "Confirm destructive action"
+        }
         transitionProps={{ duration: 0 }}
       >
         <Stack>

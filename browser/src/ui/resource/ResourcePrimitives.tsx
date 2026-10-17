@@ -48,11 +48,11 @@ export type IdentityProps = {
 
 export function Identity({ label, value }: IdentityProps) {
   return (
-    <Group gap="xs" wrap="nowrap">
+    <Group gap="xs">
       <Text c="dimmed" size="sm">
         {label}
       </Text>
-      <Code>{value}</Code>
+      <Code style={{ overflowWrap: "anywhere" }}>{value}</Code>
       <CopyButton value={value}>
         {({ copied, copy }) => (
           <Tooltip label={copied ? "Copied" : `Copy ${label.toLowerCase()}`}>

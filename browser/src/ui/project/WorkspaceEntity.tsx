@@ -24,6 +24,7 @@ export function WorkspaceEntity({ entity, onRefresh }: SirenEntityProps) {
         omitNames={["get_workspace"]}
         onRefresh={onRefresh}
         primaryName="check_project_health"
+        scope="safe"
         values={entity.properties}
       />
       <Section title="Workspace binding">
@@ -39,6 +40,15 @@ export function WorkspaceEntity({ entity, onRefresh }: SirenEntityProps) {
           />
         </Paper>
       </Section>
+      <ProjectActions
+        actions={entity.actions}
+        dangerNames={["delete_workspace"]}
+        omitNames={["get_workspace"]}
+        onRefresh={onRefresh}
+        primaryName="check_project_health"
+        scope="danger"
+        values={entity.properties}
+      />
     </ResourcePage>
   );
 }

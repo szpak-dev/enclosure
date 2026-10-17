@@ -13,14 +13,20 @@ import {
 import type { Action, Entity, Target } from "@siren-js/client";
 import { useEffect, useState } from "react";
 import { SirenResponseError } from "../../client/SirenClient";
-import { ResourceActions } from "../resource/ResourceActions";
+import {
+  ResourceActions,
+  type ResourceActionScope,
+} from "../resource/ResourceActions";
 import {
   Identity,
   ResourcePage,
   Section,
 } from "../resource/ResourcePrimitives";
 import type { SirenEntityProps } from "../siren/SirenEntity";
-import { ScaffoldingActionResult } from "./ScaffoldingActionResult";
+import {
+  ScaffoldingActionResult,
+  type ScaffoldingRenderingActions,
+} from "./ScaffoldingActionResult";
 import {
   scaffoldingPresentation,
   type ScaffoldingSpec,
@@ -84,6 +90,80 @@ function collectionTarget(root: Entity): Target | undefined {
     (link) =>
       link.rel.includes("collection") &&
       link.href.toString().endsWith("/scaffoldings"),
+  );
+}
+
+type ScaffoldingActionsProps = {
+  actions: readonly Action[];
+  onFollow: (target: Target) => void;
+  onRefresh: () => void;
+  renderingActions: ScaffoldingRenderingActions;
+  root: Entity;
+  scope: ResourceActionScope;
+  values: object;
+};
+
+function ScaffoldingActions({
+  actions,
+  onFollow,
+  onRefresh,
+  renderingActions,
+  root,
+  scope,
+  values,
+}: ScaffoldingActionsProps) {
+  return (
+    <ResourceActions
+      actions={actions}
+      dangerDescription="Deleting this scaffolding permanently removes its metadata, variables, and complete template specification."
+      dangerNames={["delete_scaffolding"]}
+      omitNames={[
+        "get_scaffolding",
+        "read_scaffolding_rendered_file",
+        "read_scaffolding_template",
+      ]}
+      onCompleted={(action) => {
+        if (action.name === "update_scaffolding") onRefresh();
+        if (action.name === "delete_scaffolding") {
+          const target = collectionTarget(root);
+          if (target) onFollow(target);
+        }
+      }}
+      primaryName="render_scaffolding"
+      renderResult={({ actionName, entity: result, values: resultValues }) => (
+        <ScaffoldingActionResult
+          actionName={actionName}
+          entity={result}
+          onFollow={onFollow}
+          renderingActions={renderingActions}
+          values={resultValues}
+        />
+      )}
+      resolveError={(action, reason) => {
+        if (
+          action.name === "delete_scaffolding" &&
+          reason instanceof SirenResponseError &&
+          reason.status === 409 &&
+          reason.entity &&
+          scaffoldingPresentation.string(
+            reason.entity.properties,
+            "reason_code",
+          ) === "destructive_approval_required"
+        )
+          return {
+            kind: "conflict",
+            conflict: {
+              description:
+                "Deletion has not run. Approve the exact one-time request shown below through an authorized security client, then submit Delete a scaffolding again before it expires.",
+              entity: reason.entity,
+              title: "One-time approval required",
+            },
+          };
+        return { kind: "unhandled" };
+      }}
+      scope={scope}
+      values={values}
+    />
   );
 }
 
@@ -184,54 +264,13 @@ export function ScaffoldingEntity({
           {scaffoldingPresentation.text(entity.properties, "language_id")}
         </Badge>
       </Group>
-      <ResourceActions
+      <ScaffoldingActions
         actions={actions}
-        dangerDescription="Deleting this scaffolding permanently removes its metadata, variables, and complete template specification."
-        dangerNames={["delete_scaffolding"]}
-        omitNames={[
-          "get_scaffolding",
-          "read_scaffolding_rendered_file",
-          "read_scaffolding_template",
-        ]}
-        onCompleted={(action) => {
-          if (action.name === "update_scaffolding") onRefresh();
-          if (action.name === "delete_scaffolding") {
-            const target = collectionTarget(root);
-            if (target) onFollow(target);
-          }
-        }}
-        primaryName="render_scaffolding"
-        renderResult={({ actionName, entity: result, values }) => (
-          <ScaffoldingActionResult
-            actionName={actionName}
-            entity={result}
-            onFollow={onFollow}
-            renderingActions={renderingActions}
-            values={values}
-          />
-        )}
-        resolveError={(action, reason) => {
-          if (
-            action.name === "delete_scaffolding" &&
-            reason instanceof SirenResponseError &&
-            reason.status === 409 &&
-            reason.entity &&
-            scaffoldingPresentation.string(
-              reason.entity.properties,
-              "reason_code",
-            ) === "destructive_approval_required"
-          )
-            return {
-              kind: "conflict",
-              conflict: {
-                description:
-                  "Deletion has not run. Approve the exact one-time request shown below through an authorized security client, then submit Delete a scaffolding again before it expires.",
-                entity: reason.entity,
-                title: "One-time approval required",
-              },
-            };
-          return { kind: "unhandled" };
-        }}
+        onFollow={onFollow}
+        onRefresh={onRefresh}
+        renderingActions={renderingActions}
+        root={root}
+        scope="safe"
         values={updateValues.kind === "ready" ? updateValues.values : {}}
       />
       {updateValues.kind === "loading" ? (
@@ -329,6 +368,15 @@ export function ScaffoldingEntity({
           </Stack>
         </Paper>
       </Section>
+      <ScaffoldingActions
+        actions={actions}
+        onFollow={onFollow}
+        onRefresh={onRefresh}
+        renderingActions={renderingActions}
+        root={root}
+        scope="danger"
+        values={updateValues.kind === "ready" ? updateValues.values : {}}
+      />
     </ResourcePage>
   );
 }
