@@ -1,4 +1,4 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev docs docs-check docs-generated docs-generated-check docs-linkcheck docs-links docs-lock format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -25,6 +25,31 @@ ci:
 	@$(MAKE) ci-python-tests-health-process
 	@$(MAKE) ci-storybook-contract
 	@$(MAKE) ci-browser-build-check
+	@$(MAKE) docs-check
+
+docs-generated:
+	@PYTHONPATH=src uv run --locked python scripts/generate_docs.py
+
+docs-generated-check:
+	@PYTHONPATH=src uv run --locked python scripts/generate_docs.py --check
+
+docs-links:
+	@uv run --isolated --no-project --python 3.14 python scripts/check_docs_links.py
+
+docs-check: docs-generated-check docs-links
+	@rm -rf docs/_build/html
+	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b html docs docs/_build/html
+
+docs: docs-generated
+	@rm -rf docs/_build/html
+	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -b html docs docs/_build/html
+
+docs-linkcheck:
+	@rm -rf docs/_build/linkcheck
+	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b linkcheck docs docs/_build/linkcheck
+
+docs-lock:
+	@uv pip compile --python-version 3.14 --universal --output-file docs/requirements.lock docs/requirements.in
 
 ci-python-checks:
 	@uv run ruff format --check .
