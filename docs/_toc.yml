@@ -1,0 +1,43 @@
+format: jb-book
+root: index
+chapters:
+  - file: evidence/index
+    sections:
+      - file: evidence/dogfooding
+  - file: tutorials/index
+    sections:
+      - file: tutorials/first-governed-project
+  - file: how-to/index
+    sections:
+      - file: how-to/run-locally
+      - file: how-to/run-machine-wide-mcp
+      - file: how-to/connect-an-agent
+      - file: how-to/manage-guidance
+      - file: how-to/manage-architecture
+      - file: how-to/check-project-health
+      - file: how-to/manage-records
+      - file: how-to/manage-scaffoldings
+      - file: how-to/manage-diagrams
+  - file: explanation/index
+    sections:
+      - file: explanation/accountable-consent
+      - file: explanation/governed-delivery-loop
+      - file: explanation/context-routing
+      - file: explanation/architecture-promises
+      - file: explanation/empty-core
+      - file: explanation/human-authority
+      - file: explanation/limits-and-non-goals
+  - file: architecture/index
+    sections:
+      - file: architecture/interfaces
+      - file: architecture/security-and-approval
+  - file: reference/index
+    sections:
+      - file: reference/configuration
+      - file: reference/interfaces
+      - file: reference/contracts
+      - file: reference/identifiers-and-revisions
+      - file: reference/errors-and-limits
+      - file: reference/compatibility
+      - file: reference/glossary
+      - file: reference/api
