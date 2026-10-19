@@ -176,7 +176,7 @@ function RenderingResult({ actions, entity, values }: RenderingResultProps) {
         </Alert>
       ) : null}
       {hasMore === true && !canLoadMore ? (
-        <Alert color="orange" title="Rendering continuation unavailable">
+        <Alert color="red.9" title="Rendering continuation unavailable">
           The server reported more rendered files without a complete limit and
           next offset.
         </Alert>
@@ -362,7 +362,7 @@ function RenderedContentPanel({
             Complete rendered file loaded.
           </Text>
         ) : (
-          <Alert color="orange" title="Content continuation unavailable">
+          <Alert color="red.9" title="Content continuation unavailable">
             The server did not provide complete continuation metadata for this
             rendered file.
           </Alert>

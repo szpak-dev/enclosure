@@ -17,7 +17,14 @@ export function SirenStructuredInput({
   field,
   schema,
 }: SirenStructuredInputProps) {
-  const [value, setValue] = useState<unknown>(field.value);
+  const initialValue =
+    field.value ??
+    (schema.type === "object" || schema.properties
+      ? {}
+      : schema.type === "array" || schema.items
+        ? []
+        : undefined);
+  const [value, setValue] = useState<unknown>(initialValue);
   const publishValue = useFormValue(field.name, value);
 
   const updateValue = (event: IChangeEvent) => {

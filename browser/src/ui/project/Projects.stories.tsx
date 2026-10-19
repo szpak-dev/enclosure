@@ -572,7 +572,7 @@ export const WorkspaceDeleteConfirmation: Story = {
       canvas.getByRole("button", { name: "Delete a workspace binding" }),
     );
     const confirmation = await page.findByRole("dialog", {
-      name: "Confirm destructive action",
+      name: "Delete a workspace binding?",
     });
     await expect(
       within(confirmation).getByText(/remove project configuration/),
@@ -582,7 +582,7 @@ export const WorkspaceDeleteConfirmation: Story = {
     );
     await waitFor(() =>
       expect(
-        page.queryByRole("dialog", { name: "Confirm destructive action" }),
+        page.queryByRole("dialog", { name: "Delete a workspace binding?" }),
       ).not.toBeInTheDocument(),
     );
   },

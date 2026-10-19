@@ -282,7 +282,7 @@ export function ScaffoldingEntity({
         />
       ) : null}
       {updateValues.kind === "unavailable" ? (
-        <Alert color="orange" title="Update unavailable" variant="outline">
+        <Alert color="red.9" title="Update unavailable" variant="outline">
           {updateValues.message} Rendering and revision-pinned inspection remain
           available, but the update form is withheld to protect template
           content.
