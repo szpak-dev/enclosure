@@ -5,13 +5,13 @@
 AI can produce code faster than a team can inspect it. That is not the same as
 progress.
 
-Enclosure keeps architectural intent, project guidance, implementation evidence,
-and human acceptance in one governed loop. It gives coding agents the context to
-act, checks whether implementation still honors the accepted promise, and leaves
-the final decision with a person.
+Enclosure keeps architectural intent, project guidance, and implementation
+evidence connected through one governed loop. It gives coding agents the context
+to act, checks whether implementation still honors the accepted promise, and
+returns evidence for a human decision.
 
 Mermaiden models intent. Modwire measures implementation. Sirenity exposes
-permitted action. Enclosure governs the agreement between them.
+what can happen next. Enclosure governs the agreement between them.
 
 ## The first evidence is the system itself
 
@@ -38,18 +38,24 @@ the applicable authority, constraints, and evidence visible at the point of work
 | --- | --- |
 | [Mermaiden](https://github.com/szpak-dev/mermaiden) | Models diagram intent as typed, versioned state. |
 | [Modwire](https://github.com/szpak-dev/modwire) | Measures implementation against executable architecture rules. |
-| [Sirenity](https://github.com/szpak-dev/sirenity) | Exposes the actions currently permitted by an application response. |
-| **Enclosure** | Governs context, agreement, evidence, and acceptance across them. |
+| [Sirenity](https://github.com/szpak-dev/sirenity) | Exposes response-scoped actions and typed navigation. |
+| **Enclosure** | Connects context, agreement, and evidence to a human decision. |
 
 ## Start Enclosure
 
-Enclosure requires Python 3.14, `uv`, Node.js for the browser build, and a
-PostgreSQL database with `pgvector`.
+Enclosure requires Python 3.14 and `uv`. Without `DATABASE_URL`, the local quick
+start uses SQLite. SQLite supports basic local operation but not the `pgvector`
+queries used by semantic record search and guidance ranking, so embeddings must
+be disabled in that mode. The complete Compose and production path uses
+PostgreSQL with `pgvector`. Node.js is required for browser build and
+verification and when project health analyzes TypeScript or JavaScript. Project
+health also requires a PHP executable when it analyzes PHP.
 
 ```console
 uv sync --locked
 uv run python manage.py migrate
-make mcp
+uv run python manage.py collectstatic --noinput
+RECORDS_EMBEDDINGS_ENABLED=0 make mcp
 ```
 
 The local development stack listens on `127.0.0.1:8000`:
@@ -79,9 +85,15 @@ Compose runtime on `127.0.0.1:8666`.
 
 ## Development
 
-Run the complete verification suite before handoff:
+The complete verification suite requires PostgreSQL 18 with `pgvector` 0.8.2;
+SQLite cannot satisfy its semantic-search coverage. After `uv sync --locked`,
+start that database, set its URL, and install the browser dependencies and
+Playwright Chromium:
 
 ```console
+export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
+npm --prefix browser ci
+(cd browser && npx playwright install --with-deps chromium)
 make ci
 ```
 

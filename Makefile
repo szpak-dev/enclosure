@@ -1,4 +1,4 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev docs docs-check docs-generated docs-generated-check docs-linkcheck docs-links docs-lock format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev docs docs-check docs-generated docs-generated-check docs-linkcheck docs-links docs-lock docs-versioned format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
 
 dev:
 	uv run manage.py runserver
@@ -47,6 +47,9 @@ docs: docs-generated
 docs-linkcheck:
 	@rm -rf docs/_build/linkcheck
 	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b linkcheck docs docs/_build/linkcheck
+
+docs-versioned:
+	@uv run --locked python scripts/build_versioned_docs.py
 
 docs-lock:
 	@uv pip compile --python-version 3.14 --universal --output-file docs/requirements.lock docs/requirements.in

@@ -7,7 +7,9 @@ coverage to architecture units.
 
 ## Actor
 
-The authenticated human or agent identity responsible for a public operation.
+The human or agent identity bound to a public operation. It may be authenticated
+by session or bearer credentials, trusted through an internal envelope, or
+supplied as the configured unauthenticated local-development fallback.
 
 ## Architecture attestation
 
@@ -26,8 +28,9 @@ or eligible through a project guidance scope.
 
 ## MCP
 
-Model Context Protocol, the tool interface through which agents invoke permitted
-Enclosure operations.
+Model Context Protocol, the tool interface through which agents discover and
+invoke Enclosure operations. Actor permission is checked when an operation is
+invoked.
 
 ## Operating contract
 
@@ -45,8 +48,8 @@ for one project and workspace.
 
 ## Record
 
-Schema-validated engineering knowledge with tags, provenance, revisions, and
-optional source resources.
+Schema-validated engineering knowledge with tags, revisions, and optional source
+resources that can carry supporting material.
 
 ## Scaffolding
 
@@ -54,8 +57,8 @@ A revisioned collection of source templates and typed rendering variables.
 
 ## Siren
 
-The hypermedia format Enclosure uses to expose resources, links, and currently
-permitted actions.
+The hypermedia format Enclosure uses to expose resources, links, and
+response-scoped actions.
 
 ## Workspace binding
 

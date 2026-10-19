@@ -11,10 +11,10 @@ Enclosure for task-specific workspace context before work begins:
 
 | Repository | Public instruction contract | Responsibility in the system |
 | --- | --- | --- |
-| Enclosure | [AGENTS.md](https://github.com/szpak-dev/enclosure/blob/main/AGENTS.md) | Governs agreement, context, evidence, and acceptance. |
+| Enclosure | [AGENTS.md](https://github.com/szpak-dev/enclosure/blob/main/AGENTS.md) | Connects agreement, context, and evidence to a repository workflow that requires human acceptance. |
 | Mermaiden | [AGENTS.md](https://github.com/szpak-dev/mermaiden/blob/main/AGENTS.md) | Models accepted diagram intent. |
 | Modwire | [AGENTS.md](https://github.com/szpak-dev/modwire/blob/main/AGENTS.md) | Measures implementation against architecture rules. |
-| Sirenity | [AGENTS.md](https://github.com/szpak-dev/sirenity/blob/main/AGENTS.md) | Exposes permitted actions and typed navigation. |
+| Sirenity | [AGENTS.md](https://github.com/szpak-dev/sirenity/blob/main/AGENTS.md) | Exposes response-scoped actions and typed navigation. |
 
 On 17 October 2026, a live Enclosure instance resolved all four local checkouts
 to registered workspaces. For a repository-specific documentation task, each

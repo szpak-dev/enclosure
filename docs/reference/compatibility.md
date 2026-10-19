@@ -14,8 +14,11 @@ The checked-out release line requires:
 | Database CI | PostgreSQL 18 with pgvector 0.8.2 image |
 
 The exact Python and browser dependency graphs are pinned in `uv.lock` and
-`browser/package-lock.json`. Container deployments use an immutable Enclosure
-SemVer image tag.
+`browser/package-lock.json`. Container deployments select an Enclosure release
+with a version-specific SemVer image tag. Registry tags can be retargeted. A
+generic container deployment can pin a digest for immutable implementation
+identity, but the repository's current `runtime-up` and `runtime-rollback`
+targets require a tag-form image reference.
 
 Architecture publications, operating-contract revisions, record category schema
 versions, scaffolding template revisions, and Mermaiden snapshot envelopes carry

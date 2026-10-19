@@ -4,7 +4,9 @@ Enclosure treats accepted diagrams as architectural intent and Modwire output as
 implementation evidence. Do not infer intended architecture from whichever code
 happens to exist today.
 
-1. Build mutually consistent tree, UML, and entity diagrams in one diagram set.
+1. Build a tree diagram and at least one owning UML diagram in one diagram set.
+   Add mutually consistent entity diagrams when persistence relationships are
+   part of the accepted contract.
 2. Resolve every blocking diagram constraint and read back the exact snapshots.
 3. Publish an architecture contract that names the covered units, diagram roles,
    and any explicit exclusions.

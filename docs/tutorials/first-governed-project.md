@@ -6,14 +6,21 @@ or project scaffolding. An operator must install those authorities before a
 project can be governed.
 
 You will connect an MCP client, resolve one registered checkout, request the
-guidance for a concrete task, and read its current project-health report.
+guidance for a concrete task, run a current project-health evaluation, and
+inspect its report.
 
 ## 1. Start the development runtime
+
+This local path uses SQLite with record embeddings disabled. It supports the
+governed loop below, but semantic record search and semantic guidance ranking
+require PostgreSQL with `pgvector`. With embeddings disabled, applicable
+optional guidance retains project-scope order.
 
 ```console
 uv sync --locked
 uv run python manage.py migrate
-make mcp
+uv run python manage.py collectstatic --noinput
+RECORDS_EMBEDDINGS_ENABLED=0 make mcp
 ```
 
 Check the application before continuing:

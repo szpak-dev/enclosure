@@ -6,8 +6,9 @@ The REST API owns operation IDs, request schemas, response schemas, and HTTP
 status behavior. Sirenity compiles that OpenAPI contract and combines application
 responses with explicit capabilities to produce navigable Siren documents. The
 browser follows those links and actions instead of maintaining a parallel route
-map. The MCP server exposes permitted operations as typed tools and formats large
-results into bounded, followable representations.
+map. The MCP server exposes the available operation catalogue as typed tools and
+formats large results into bounded, followable representations. Enclosure checks
+the actor's permission when an advertised operation is invoked.
 
 This arrangement creates a useful direction of dependency:
 

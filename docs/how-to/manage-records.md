@@ -17,5 +17,5 @@ schema publishes its next version instead of changing the contract behind existi
 records. Read operations are bounded so large guidance bodies do not crowd task
 context.
 
-Deleting a record is destructive and may require one-time approval. Records
+Deleting a record requires destructive permission and one-time approval. Records
 published in an operating contract cannot be deleted.

@@ -19,5 +19,6 @@ the [architecture](architecture/index.md) records ownership and public seams.
 The [reference](reference/index.md) contains exact configuration, interface,
 contract, identifier, and compatibility details.
 
-Documentation built from `main` describes unreleased development state.
-Documentation built from a release tag describes that exact release.
+When the documentation workflow is deployed, its version entrance lists `dev`,
+built from `main`, and every release tag that contains this documentation system.
+Each tag is published at a stable, version-specific path derived from that tag.

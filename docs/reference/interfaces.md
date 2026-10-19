@@ -22,8 +22,9 @@ The default Compose mapping exposes the same application through
 
 REST operation IDs and JSON Schemas originate in the application controllers and
 schema types. Sirenity projects application results into Siren entities, links,
-and actions. MCP exposes the permitted action contract as typed tools and adds
-bounded presentation for large content.
+and response-scoped actions. MCP exposes the available operation catalogue as
+typed tools, checks actor permission on invocation, and adds bounded presentation
+for large content.
 
 The [generated operation reference](api.md) lists the current REST paths,
 operation IDs, tags, summaries, and named transport schemas.

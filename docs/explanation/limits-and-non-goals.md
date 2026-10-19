@@ -16,6 +16,16 @@ Current boundaries include:
   location;
 - public REST, Siren, and MCP contracts are supported interfaces; internal Python
   service modules are not a general-purpose SDK;
+- design, implementation, verification, and delivery acceptance belong to the
+  repository workflow; Enclosure neither persists them as typed acceptance
+  artifacts nor verifies that the repository captured them;
+- context receipts are returned, while successful architecture-evaluation stages,
+  findings, and attestations may be reused from a bounded, evictable filesystem
+  cache; the combined project-health report is rebuilt rather than persisted as
+  a durable evidence record;
+- the current release does not provision the audit registry permission for
+  ordinary Django session users because its name differs from Django's generated
+  codename;
 - a passed approval gate proves that an authorized actor accepted one exact
   operation, not that the operation was wise.
 

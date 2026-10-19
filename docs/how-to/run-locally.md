@@ -1,17 +1,25 @@
 # Run Enclosure locally
 
 Install the locked Python environment, migrate the configured database, and start
-the ASGI development server:
+the ASGI development server. Without `DATABASE_URL`, this path uses SQLite,
+which cannot execute the `pgvector` queries used by semantic record search and
+guidance ranking. Disable embeddings for that limited local mode:
 
 ```console
 uv sync --locked
 uv run python manage.py migrate
-make mcp
+uv run python manage.py collectstatic --noinput
+RECORDS_EMBEDDINGS_ENABLED=0 make mcp
 ```
 
+Use PostgreSQL with `pgvector` when semantic record search and guidance ranking
+are required. With embeddings disabled, applicable optional guidance retains
+project-scope order.
+
 `make mcp` runs Django's system check and starts Uvicorn with reload on
-`127.0.0.1:8000`. Use `make dev` when only the conventional Django development
-server is needed.
+`127.0.0.1:8000`. When only the conventional Django development server is
+needed in SQLite mode, use `RECORDS_EMBEDDINGS_ENABLED=0 make dev`. Plain
+`make dev` retains the configured database and embedding settings.
 
 Verify the two distinct health surfaces:
 
