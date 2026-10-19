@@ -1,5 +1,6 @@
 import {
   createTheme,
+  localStorageColorSchemeManager,
   MantineProvider,
   type CSSVariablesResolver,
 } from "@mantine/core";
@@ -11,6 +12,9 @@ type AppProvidersProps = {
 };
 
 const theme = createTheme({ primaryShade: 8 });
+const colorSchemeManager = localStorageColorSchemeManager({
+  key: "enclosure-color-scheme",
+});
 const colors: CSSVariablesResolver = () => ({
   dark: {
     "--mantine-color-dimmed": "var(--mantine-color-gray-4)",
@@ -26,7 +30,12 @@ export function AppProviders({ children }: AppProvidersProps): ReactNode {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <MantineProvider cssVariablesResolver={colors} theme={theme}>
+    <MantineProvider
+      colorSchemeManager={colorSchemeManager}
+      cssVariablesResolver={colors}
+      defaultColorScheme="auto"
+      theme={theme}
+    >
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   );

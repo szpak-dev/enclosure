@@ -20,6 +20,11 @@ const rootDocument = {
       rel: ["collection"],
       title: "Diagram sets",
     },
+    {
+      href: "/siren/scaffoldings",
+      rel: ["collection"],
+      title: "Scaffoldings",
+    },
   ],
   properties: { title: "Enclosure API" },
   title: "Enclosure API",
@@ -32,6 +37,129 @@ const projectsDocument = {
   links: [{ href: "/siren/projects", rel: ["self"], title: "Projects" }],
   properties: {},
   title: "Projects",
+};
+
+const scaffoldingsDocument = {
+  actions: [],
+  class: ["collection", "scaffolding"],
+  entities: [
+    {
+      class: ["scaffolding"],
+      entities: [],
+      links: [
+        {
+          href: "/siren/scaffoldings/scaffolding-1",
+          rel: ["item"],
+          title: "Scaffolding",
+        },
+      ],
+      properties: {
+        description: "Creates a typed Python package.",
+        id: "scaffolding-1",
+        language_id: "python",
+        name: "Python package",
+      },
+      rel: ["item"],
+      title: "Python package",
+    },
+  ],
+  links: [
+    { href: "/siren/scaffoldings", rel: ["self"], title: "Scaffoldings" },
+  ],
+  properties: { has_more: false, limit: 50, next_offset: 1 },
+  title: "Scaffoldings",
+};
+
+const scaffoldingDocument = {
+  actions: [],
+  class: ["scaffolding"],
+  entities: [],
+  links: [
+    {
+      href: "/siren/scaffoldings/scaffolding-1",
+      rel: ["self"],
+      title: "Python package",
+    },
+    {
+      href: "/siren/scaffoldings/scaffolding-1/template-manifests",
+      rel: ["collection"],
+      title: "TemplateManifest",
+    },
+  ],
+  properties: {
+    description: "Creates a typed Python package.",
+    id: "scaffolding-1",
+    language_id: "python",
+    name: "Python package",
+    spec: {
+      language: "python",
+      templates: [
+        {
+          path: "src/package/__init__.py",
+          revision: "template-revision-1",
+          size_bytes: 22,
+          write_mode: "overwrite",
+        },
+      ],
+      variables: [],
+    },
+    template_count: 1,
+    templates_revision: "templates-revision-1",
+  },
+  title: "Python package",
+};
+
+const templateManifestsDocument = {
+  actions: [],
+  class: ["collection", "template-manifest"],
+  entities: [
+    {
+      class: ["template-manifest"],
+      entities: [],
+      links: [
+        {
+          href: "/siren/scaffoldings/scaffolding-1/template-content?path=src%2Fpackage%2F__init__.py&expected_revision=template-revision-1&offset=0&limit=1000",
+          rel: ["item"],
+          title: "TemplateContent",
+        },
+      ],
+      properties: {
+        path: "src/package/__init__.py",
+        revision: "template-revision-1",
+        size_bytes: 22,
+        write_mode: "overwrite",
+      },
+      rel: ["item"],
+      title: "Template manifest",
+    },
+  ],
+  links: [],
+  properties: {
+    has_more: false,
+    limit: 50,
+    next_offset: 1,
+    revision: "templates-revision-1",
+    scaffolding_id: "scaffolding-1",
+  },
+  title: "Template manifests",
+};
+
+const templateContentDocument = {
+  actions: [],
+  class: ["template-content"],
+  entities: [],
+  links: [],
+  properties: {
+    content: "from typing import Any",
+    has_more: false,
+    limit: 1000,
+    next_offset: 22,
+    path: "src/package/__init__.py",
+    revision: "template-revision-1",
+    total_characters: 22,
+    write_mode: "overwrite",
+  },
+  title: "Template content",
 };
 
 const projectDocument = {
@@ -110,6 +238,62 @@ export const LoadedAndNavigable: Story = {
     );
     await expect(
       await canvas.findByRole("heading", { name: "Projects" }),
+    ).toBeVisible();
+  },
+};
+
+export const ScaffoldingWorkflow: Story = {
+  beforeEach: () => {
+    window.history.replaceState(null, "", "/#/siren/scaffoldings");
+  },
+  parameters: {
+    msw: {
+      handlers: [
+        rootHandler,
+        http.get("*/siren/scaffoldings", () =>
+          HttpResponse.json(scaffoldingsDocument, { headers: SIREN_HEADERS }),
+        ),
+        http.get("*/siren/scaffoldings/scaffolding-1", () =>
+          HttpResponse.json(scaffoldingDocument, { headers: SIREN_HEADERS }),
+        ),
+        http.get("*/siren/scaffoldings/scaffolding-1/template-manifests", () =>
+          HttpResponse.json(templateManifestsDocument, {
+            headers: SIREN_HEADERS,
+          }),
+        ),
+        http.get("*/siren/scaffoldings/scaffolding-1/template-content", () =>
+          HttpResponse.json(templateContentDocument, {
+            headers: SIREN_HEADERS,
+          }),
+        ),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("heading", { level: 1, name: "Scaffoldings" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("link", { name: "Open scaffolding" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", {
+        level: 1,
+        name: "Python package",
+      }),
+    ).toBeVisible();
+    await userEvent.click(
+      await canvas.findByRole("link", { name: "Browse templates" }),
+    );
+    await expect(
+      await canvas.findByRole("heading", { level: 1, name: "Templates" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "View template" }),
+    );
+    await expect(
+      await canvas.findByText("from typing import Any"),
     ).toBeVisible();
   },
 };

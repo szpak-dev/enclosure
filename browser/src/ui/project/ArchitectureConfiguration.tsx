@@ -11,14 +11,14 @@ import {
   Tabs,
   Text,
 } from "@mantine/core";
-import type { SirenEntityProps } from "../siren/SirenEntity";
-import { SirenContinuation } from "../siren/SirenContinuation";
 import {
   Identity,
-  ProjectPage,
   PropertyTable,
+  ResourcePage,
   Section,
-} from "./ProjectPrimitives";
+} from "../resource/ResourcePrimitives";
+import type { SirenEntityProps } from "../siren/SirenEntity";
+import { SirenContinuation } from "../siren/SirenContinuation";
 import { projectPresentation } from "./ProjectPresentation";
 
 export function ArchitectureConfigurationCollection({
@@ -26,7 +26,7 @@ export function ArchitectureConfigurationCollection({
   onFollow,
 }: SirenEntityProps) {
   return (
-    <ProjectPage
+    <ResourcePage
       description="Revision-pinned Modwire boundary and architecture-shape configuration."
       title="Architecture configurations"
     >
@@ -98,7 +98,7 @@ export function ArchitectureConfigurationCollection({
         )}
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
-    </ProjectPage>
+    </ResourcePage>
   );
 }
 
@@ -140,7 +140,7 @@ export function ArchitectureConfigurationEntity({ entity }: SirenEntityProps) {
   );
   const shape = projectPresentation.text(entity.properties, "shape_yaml");
   return (
-    <ProjectPage
+    <ResourcePage
       description="Configuration metadata is separated from its complete YAML documents."
       title="Architecture configuration"
     >
@@ -148,7 +148,11 @@ export function ArchitectureConfigurationEntity({ entity }: SirenEntityProps) {
       <Paper p="md" radius="md" withBorder>
         <PropertyTable
           caption="Architecture configuration metadata"
+          label={(name) => projectPresentation.label(name)}
           properties={entity.properties}
+          text={(properties, name) =>
+            projectPresentation.text(properties, name)
+          }
           visible={[
             "project_id",
             "revision",
@@ -169,6 +173,6 @@ export function ArchitectureConfigurationEntity({ entity }: SirenEntityProps) {
           <DocumentPanel label="shape YAML" value={shape} />
         </Tabs.Panel>
       </Tabs>
-    </ProjectPage>
+    </ResourcePage>
   );
 }

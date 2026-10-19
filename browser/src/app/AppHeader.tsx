@@ -1,4 +1,5 @@
 import { AppShell, Burger, Group, Text } from "@mantine/core";
+import { ColorSchemeControl } from "./ColorSchemeControl";
 
 export type AppHeaderProps = {
   navigationOpened: boolean;
@@ -23,6 +24,7 @@ export function AppHeader({
           />
           <Text fw={700}>Enclosure</Text>
         </Group>
+        <ColorSchemeControl />
       </Group>
     </AppShell.Header>
   );
