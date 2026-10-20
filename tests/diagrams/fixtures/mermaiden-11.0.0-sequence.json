@@ -1,0 +1,63 @@
+{
+  "mermaid_version": "11.16.0",
+  "package_version": "11.0.0",
+  "snapshot": {
+    "annotations": [],
+    "configuration": {
+      "$type": "mermaiden/configuration/sequenceDiagram/sequence_diagram_configuration",
+      "fields": {
+        "wrap": true
+      }
+    },
+    "draft": false,
+    "elements": [
+      {
+        "$type": "mermaiden/element/sequenceDiagram/participant",
+        "fields": {
+          "created": false,
+          "id": "requester",
+          "label": "Requester",
+          "participant_kind": {
+            "$enum": "mermaiden/enum/sequenceDiagram/participant_kind",
+            "value": "participant"
+          }
+        }
+      },
+      {
+        "$type": "mermaiden/element/sequenceDiagram/participant",
+        "fields": {
+          "created": false,
+          "id": "planner",
+          "label": "Planner",
+          "participant_kind": {
+            "$enum": "mermaiden/enum/sequenceDiagram/participant_kind",
+            "value": "participant"
+          }
+        }
+      }
+    ],
+    "kind": "sequenceDiagram",
+    "properties": {},
+    "relations": [
+      {
+        "$type": "mermaiden/relation/sequenceDiagram/message",
+        "fields": {
+          "activate": false,
+          "deactivate": false,
+          "element_ids": [
+            "requester",
+            "planner"
+          ],
+          "id": "request",
+          "label": "Prepare plan",
+          "message_kind": {
+            "$enum": "mermaiden/enum/sequenceDiagram/message_kind",
+            "value": "solid"
+          }
+        }
+      }
+    ],
+    "version": 7
+  },
+  "source": "---\nconfig:\n  wrap: true\n---\nsequenceDiagram\nparticipant requester@{ \"type\": \"participant\" } as Requester\nparticipant planner@{ \"type\": \"participant\" } as Planner\nrequester->>planner: Prepare plan\n"
+}

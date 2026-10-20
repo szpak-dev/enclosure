@@ -36,7 +36,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         assetFileNames: "browser.[ext]",
-        codeSplitting: false,
+        chunkFileNames: "chunks/[name]-[hash].js",
+        codeSplitting: true,
         entryFileNames: "browser.js",
       },
     },
