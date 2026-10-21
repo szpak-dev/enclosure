@@ -1,0 +1,1 @@
+import{Y as e,a as t,at as n,dt as r,p as i}from"./isUndefined-T4snU1Mx.js";function a(n,r){var i=-1,a=e(n)?Array(n.length):[];return t(n,function(e,t,n){a[++i]=r(e,t,n)}),a}function o(e,t){return(r(e)?n:a)(e,i(t,3))}export{a as n,o as t};

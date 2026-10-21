@@ -276,18 +276,6 @@ it("follows caller-selected ordering from the first page", async () => {
 });
 
 it("loads a row preview into the full-screen Mermaid viewer", async () => {
-  if (!customElements.get("mermaid-embed")) {
-    customElements.define(
-      "mermaid-embed",
-      class extends HTMLElement {
-        connectedCallback() {
-          const frame = document.createElement("iframe");
-          frame.title = "Rendered Mermaid diagram";
-          this.append(frame);
-        }
-      },
-    );
-  }
   const onLoad = vi
     .fn()
     .mockResolvedValueOnce(collection())
@@ -307,7 +295,11 @@ it("loads a row preview into the full-screen Mermaid viewer", async () => {
     }),
   ).toBeInTheDocument();
   expect(
-    await screen.findByTitle("Rendered Mermaid diagram"),
+    await screen.findByRole(
+      "img",
+      { name: "Example request flow Mermaid preview" },
+      { timeout: 15_000 },
+    ),
   ).toBeInTheDocument();
   expect(onLoad).toHaveBeenNthCalledWith(
     2,
@@ -315,4 +307,4 @@ it("loads a row preview into the full-screen Mermaid viewer", async () => {
       href: "/siren/diagrams/example-diagram-one",
     }),
   );
-});
+}, 20_000);

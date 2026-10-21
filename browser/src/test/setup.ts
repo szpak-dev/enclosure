@@ -22,3 +22,10 @@ class ResizeObserverMock implements ResizeObserver {
 }
 
 globalThis.ResizeObserver = ResizeObserverMock;
+
+if (!("getBBox" in SVGElement.prototype)) {
+  Object.defineProperty(SVGElement.prototype, "getBBox", {
+    configurable: true,
+    value: () => new DOMRect(0, 0, 100, 20),
+  });
+}

@@ -1,6 +1,13 @@
-import { Alert, Box, LoadingOverlay, VisuallyHidden } from "@mantine/core";
-import { useEffect, useRef, useState } from "react";
-import { MermaidEmbedLoader } from "./MermaidEmbedLoader";
+import {
+  Alert,
+  Box,
+  LoadingOverlay,
+  useComputedColorScheme,
+  VisuallyHidden,
+} from "@mantine/core";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { MermaidRenderer, type MermaidTheme } from "./MermaidRenderer";
+import { MermaidViewport } from "./MermaidViewport";
 
 export type MermaidEmbedProps = {
   diagramId: string;
@@ -21,7 +28,10 @@ export function MermaidEmbed({
   title,
 }: MermaidEmbedProps) {
   const host = useRef<HTMLDivElement>(null);
-  const [loader] = useState(() => new MermaidEmbedLoader());
+  const renderingId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const colorScheme = useComputedColorScheme();
+  const theme: MermaidTheme = colorScheme === "dark" ? "dark" : "default";
+  const renderer = useMemo(() => new MermaidRenderer(theme), [theme]);
   const [state, setState] = useState<EmbedState>({ status: "loading" });
   const empty = !source.trim();
 
@@ -30,40 +40,43 @@ export function MermaidEmbed({
     if (empty || !container) return;
 
     let current = true;
-    let observer: MutationObserver | undefined;
     setState({ status: "loading" });
+    container.replaceChildren();
 
-    void loader.load().then(
-      () => {
+    void renderer.render(source, `mermaid-${renderingId}`).then(
+      (rendering) => {
         if (!current) return;
 
-        const embed = document.createElement("mermaid-embed");
-        embed.setAttribute("controls", "1");
-        embed.setAttribute("grid", "1");
-        embed.setAttribute("height", "calc(100dvh - 5rem)");
-        embed.setAttribute("src", "https://mermaid.live/embed");
-        embed.setAttribute("title", `${title} Mermaid preview`);
-        embed.textContent = source;
-
-        observer = new MutationObserver(() => {
-          if (!embed.querySelector("iframe")) return;
-          observer?.disconnect();
-          if (current) setState({ status: "ready" });
-        });
-        observer.observe(embed, { childList: true });
-        container.replaceChildren(embed);
+        try {
+          renderer.mount(container, rendering);
+          setState({ status: "ready" });
+        } catch (error: unknown) {
+          setState({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Mermaid could not render the diagram.",
+            status: "error",
+          });
+        }
       },
-      (error: Error) => {
-        if (current) setState({ message: error.message, status: "error" });
+      (error: unknown) => {
+        if (!current) return;
+        setState({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Mermaid could not render the diagram.",
+          status: "error",
+        });
       },
     );
 
     return () => {
       current = false;
-      observer?.disconnect();
       container.replaceChildren();
     };
-  }, [diagramId, empty, loader, revision, source, title]);
+  }, [diagramId, empty, renderer, renderingId, revision, source]);
 
   if (empty)
     return (
@@ -82,12 +95,22 @@ export function MermaidEmbed({
         <VisuallyHidden role="status">Loading Mermaid preview</VisuallyHidden>
       ) : null}
       {state.status === "error" ? (
-        <Alert color="red" role="alert" title="Unable to load Mermaid preview">
+        <Alert
+          color="red"
+          role="alert"
+          title="Unable to render Mermaid preview"
+          pos="absolute"
+          style={{ zIndex: 3 }}
+        >
           {state.message}
         </Alert>
-      ) : (
-        <Box aria-hidden={state.status !== "ready"} h="100%" ref={host} />
-      )}
+      ) : null}
+      <MermaidViewport
+        host={host}
+        key={`${diagramId}:${revision}:${theme}`}
+        ready={state.status === "ready"}
+        title={title}
+      />
     </Box>
   );
 }
