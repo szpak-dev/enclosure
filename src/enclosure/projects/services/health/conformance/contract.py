@@ -48,7 +48,7 @@ class ArchitectureHealthContractService:
                 HealthCacheComponent(name="publication", digest=reference.id),
                 HealthCacheComponent(name="publication-revision", digest=reference.revision),
                 HealthCacheComponent(name="manifest-schema", digest="3"),
-                HealthCacheComponent(name="compiler-engine", digest="architecture-contract-compiler-v1"),
+                HealthCacheComponent(name="compiler-engine", digest="architecture-contract-compiler-v2"),
             ),
         )
         cached = self.health_cache.load(identity)

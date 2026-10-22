@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from django.core.exceptions import ObjectDoesNotExist
 from wireup import injectable
 
-from enclosure.diagrams.errors import DiagramsError
+from enclosure.diagrams.errors import DiagramRenderValidationError, DiagramsError
 from enclosure.diagrams.services.contracts.semantics.model import DiagramContractSemantics
 from enclosure.diagrams.services.facade import DiagramsService
 
@@ -56,5 +56,7 @@ class DiagramContractsAdapter:
                 diagram.snapshot_version,
                 diagram.registry_fingerprint,
             )
+        except DiagramRenderValidationError as error:
+            raise ProjectsError(str(error)) from error
         except DiagramsError as error:
             raise ProjectsError("Architecture diagram contract semantics could not be interpreted.") from error
