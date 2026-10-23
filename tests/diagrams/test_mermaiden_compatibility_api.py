@@ -104,6 +104,115 @@ def apply_command(
     return response.json()
 
 
+def sequence_commands(label: str) -> list[dict[str, object]]:
+    return [
+        {
+            "operation": "add_participant",
+            "arguments": {"id": "example-requester", "label": "Example requester"},
+        },
+        {
+            "operation": "add_participant",
+            "arguments": {"id": "example-worker", "label": "Example worker"},
+        },
+        {
+            "operation": "add_message",
+            "arguments": {
+                "id": "example-request",
+                "source_id": "example-requester",
+                "target_id": "example-worker",
+                "label": label,
+            },
+        },
+    ]
+
+
+def test_render_rejection_during_creation_leaves_the_diagram_set_empty() -> None:
+    client = Client()
+    diagram_set = client.post(
+        "/api/diagram-sets",
+        data={"title": "Example rejected creation", "description": "Example render validation attack."},
+        content_type="application/json",
+    ).json()
+
+    rejected = client.post(
+        f"/api/diagram-sets/{diagram_set['id']}/diagram-batches",
+        data={
+            "title": "Example oversized sequence",
+            "kind": "sequenceDiagram",
+            "commands": sequence_commands("Example oversized message " + "x" * 50_000),
+        },
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json() == {
+        "detail": (
+            "Mermaiden render validation failed [svg_error]: Mermaid produced an error SVG. "
+            "Details: Maximum text size in diagram exceeded"
+        )
+    }
+    diagrams = client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams")
+    assert diagrams.status_code == 200
+    assert diagrams.json()["items"] == []
+
+
+def test_render_rejection_during_update_preserves_content_and_allows_recovery() -> None:
+    client = Client()
+    diagram = create_diagram(client, "sequenceDiagram", "Example rejected update")
+    apply_batch(client, diagram, sequence_commands("Example accepted message")[:2])
+    before = client.get(f"/api/diagrams/{diagram['id']}").json()
+
+    rejected = client.post(
+        f"/api/diagrams/{diagram['id']}/commands",
+        data={
+            "expected_revision": before["revision"],
+            **sequence_commands("Example oversized message " + "x" * 50_000)[2],
+        },
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [svg_error]:")
+    assert client.get(f"/api/diagrams/{diagram['id']}").json() == before
+
+    recovered = apply_command(
+        client,
+        before,
+        "add_message",
+        {
+            "id": "example-request",
+            "source_id": "example-requester",
+            "target_id": "example-worker",
+            "label": "Example accepted message",
+        },
+    )
+    assert recovered["revision"] == before["revision"] + 1
+    assert "Example accepted message" in recovered["source"]
+
+
+def test_render_rejection_during_update_batch_preserves_snapshot_source_and_revision() -> None:
+    client = Client()
+    diagram = create_diagram(client, "sequenceDiagram", "Example rejected update batch")
+    apply_batch(client, diagram, sequence_commands("Example accepted message")[:2])
+    before = client.get(f"/api/diagrams/{diagram['id']}").json()
+
+    rejected = client.post(
+        f"/api/diagrams/{diagram['id']}/command-batches",
+        data={
+            "expected_revision": before["revision"],
+            "commands": [sequence_commands("Example oversized message " + "x" * 50_000)[2]],
+        },
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 422
+    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [svg_error]:")
+    stored = client.get(f"/api/diagrams/{diagram['id']}").json()
+    assert stored["snapshot"] == before["snapshot"]
+    assert stored["source"] == before["source"]
+    assert stored["revision"] == before["revision"]
+
+
 def test_sequence_text_with_semicolon_survives_restore_and_render() -> None:
     client = Client()
     diagram = create_diagram(client, "sequenceDiagram", "Sequence compatibility")

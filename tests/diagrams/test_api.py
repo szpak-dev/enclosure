@@ -205,7 +205,7 @@ def test_accepts_hundreds_of_commands_in_one_bounded_request() -> None:
     commands = [
         {
             "operation": "add_block",
-            "arguments": {"id": f"example-block-{index}", "label": f"Example block {index}"},
+            "arguments": {"id": f"example_block_{index}", "label": f"Example block {index}"},
         }
         for index in range(250)
     ]
