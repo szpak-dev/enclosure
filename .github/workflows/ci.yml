@@ -63,6 +63,9 @@ jobs:
       - name: Install Mermaiden renderer
         run: make renderer-install
 
+      - name: Enable Chromium sandbox user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Check Python, prepare static files, and run general tests
         run: make ci-python-checks ci-static-prepare ci-python-tests-general
 
@@ -121,6 +124,9 @@ jobs:
 
       - name: Install Mermaiden renderer
         run: make renderer-install
+
+      - name: Enable Chromium sandbox user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Run health tests
         run: make ci-python-tests-health
