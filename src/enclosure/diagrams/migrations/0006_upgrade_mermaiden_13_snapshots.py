@@ -26,10 +26,10 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
             snapshot = stored.snapshot
             if not isinstance(snapshot, Mapping):
                 raise RuntimeError(f"Diagram {stored.pk!s} snapshot must be an object.")
-            if snapshot.get("version") != 8:
+            if snapshot.get("version") not in {7, 8}:
                 raise RuntimeError(
                     f"Diagram {stored.pk!s} has unsupported Mermaiden snapshot version "
-                    f"{snapshot.get('version')!r}; expected version 8."
+                    f"{snapshot.get('version')!r}; expected version 7 or 8."
                 )
             if snapshot.get("kind") != stored.kind:
                 raise RuntimeError(
@@ -61,20 +61,23 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
             }
             if stored.kind in LEGACY_RENDERERS:
                 renderer = fields.get("default_renderer")
-                if not isinstance(renderer, Mapping) or set(renderer) != {"$enum", "value"}:
+                if renderer is None:
+                    renderer = None
+                elif not isinstance(renderer, Mapping) or set(renderer) != {"$enum", "value"}:
                     raise RuntimeError(f"Diagram {stored.pk!s} legacy renderer must be a typed enum value.")
-                if renderer.get("$enum") != LEGACY_RENDERERS[stored.kind]:
+                if renderer is not None and renderer.get("$enum") != LEGACY_RENDERERS[stored.kind]:
                     raise RuntimeError(f"Diagram {stored.pk!s} legacy renderer type is not supported.")
-                renderer_value = renderer.get("value")
-                if not isinstance(renderer_value, str) or renderer_value not in LAYOUTS:
-                    raise RuntimeError(f"Diagram {stored.pk!s} legacy renderer value is not supported.")
-                layout = current_fields["layout"]
-                if not isinstance(layout, Mapping):
-                    raise RuntimeError(f"Diagram {stored.pk!s} current layout must be a typed value.")
-                migrated_fields["layout"] = {
-                    **layout,
-                    "fields": {"root": LAYOUTS[renderer_value]},
-                }
+                if renderer is not None:
+                    renderer_value = renderer.get("value")
+                    if not isinstance(renderer_value, str) or renderer_value not in LAYOUTS:
+                        raise RuntimeError(f"Diagram {stored.pk!s} legacy renderer value is not supported.")
+                    layout = current_fields["layout"]
+                    if not isinstance(layout, Mapping):
+                        raise RuntimeError(f"Diagram {stored.pk!s} current layout must be a typed value.")
+                    migrated_fields["layout"] = {
+                        **layout,
+                        "fields": {"root": LAYOUTS[renderer_value]},
+                    }
 
             candidate = {
                 **snapshot,
