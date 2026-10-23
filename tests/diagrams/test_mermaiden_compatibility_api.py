@@ -14,11 +14,17 @@ pytestmark = pytest.mark.django_db
 
 def test_browser_mermaid_runtime_matches_mermaiden_compatibility_version() -> None:
     package = json.loads((Path(__file__).parents[2] / "browser" / "package.json").read_text())
+    renderer_package = json.loads((Path(__file__).parents[2] / "package.json").read_text())
 
     with Application.create() as application:
         mermaiden_version = application.mermaid_version
+        mermaiden_cli_version = application.mermaid_cli_version
 
     assert package["dependencies"]["mermaid"] == mermaiden_version
+    assert renderer_package["devDependencies"] == {
+        "@mermaid-js/mermaid-cli": mermaiden_cli_version,
+        "mermaid": mermaiden_version,
+    }
 
 
 def test_mermaiden_11_0_1_snapshot_migrates_to_v9_through_the_public_api() -> None:

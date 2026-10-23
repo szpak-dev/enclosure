@@ -37,6 +37,8 @@ x-runtime: &runtime
 services:
   mcp:
     <<: *runtime
+    cap_add:
+      - SYS_ADMIN
     container_name: enclosure-mcp
     ports:
       - "127.0.0.1:${ENCLOSURE_MCP_PORT:-8666}:8000"

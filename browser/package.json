@@ -10,9 +10,9 @@
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
     "storybook:contract": "node scripts/verify-storybook-contract.mjs",
-    "storybook:test": "vitest --project=storybook",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "storybook:test": "NODE_OPTIONS=--max-old-space-size=2048 vitest run --project=storybook --maxWorkers=1 --no-file-parallelism",
+    "test": "NODE_OPTIONS=--max-old-space-size=2048 vitest run --project=unit --maxWorkers=1 --no-file-parallelism",
+    "test:watch": "NODE_OPTIONS=--max-old-space-size=2048 vitest --project=unit --maxWorkers=1 --no-file-parallelism",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,7 +30,7 @@
     "@uiw/react-json-view": "^2.0.0-alpha.43",
     "dayjs": "^1.11.21",
     "json-edit-react": "^1.30.2",
-    "mermaid": "11.16.0",
+    "mermaid": "12.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

@@ -46,13 +46,13 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
             current = application.snapshot(application.create_diagram(stored.kind)).to_dict()
             current_configuration = current["configuration"]
             if configuration.get("$type") != current_configuration["$type"]:
-                raise RuntimeError(f"Diagram {stored.pk!s} configuration type is not supported by Mermaiden 13.0.0.")
+                raise RuntimeError(f"Diagram {stored.pk!s} configuration type is not supported by Mermaiden 13.1.0.")
             current_fields = current_configuration["fields"]
             removable = {"default_renderer"} if stored.kind in LEGACY_RENDERERS else set()
             unexpected = set(fields).difference(current_fields, removable)
             if unexpected:
                 raise RuntimeError(
-                    f"Diagram {stored.pk!s} has unsupported Mermaiden 13.0.0 configuration fields: "
+                    f"Diagram {stored.pk!s} has unsupported Mermaiden 13.1.0 configuration fields: "
                     f"{', '.join(sorted(unexpected))}."
                 )
             migrated_fields = {
