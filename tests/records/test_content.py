@@ -4,8 +4,6 @@ import json
 import pytest
 from django.test import Client
 
-from enclosure.records.models import CategorySchemaRevision
-
 
 @pytest.mark.django_db
 def test_record_detail_exposes_a_manifest_and_reads_one_exact_resource_in_pages() -> None:
@@ -117,8 +115,16 @@ def test_category_detail_exposes_a_manifest_and_reads_the_canonical_schema() -> 
 
     assert response.status_code == 201
     category = response.json()
-    revision = CategorySchemaRevision.objects.get(category_id=category["id"], version=1)
-    canonical = json.dumps(revision.content_schema, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    canonical = json.dumps(
+        {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {f"field_{index}": {"type": "string"} for index in range(40)},
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     assert category["content_schema_revision"] == hashlib.sha256(canonical.encode()).hexdigest()
     assert category["content_schema_size_bytes"] == len(canonical.encode())
     assert "content_schema" not in category

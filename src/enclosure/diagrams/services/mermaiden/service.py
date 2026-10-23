@@ -7,7 +7,7 @@ from mermaiden.diagrams import domain
 from pydantic import JsonValue
 from wireup import injectable
 
-from ...errors import DiagramsError
+from ...errors import DiagramRenderValidationError, DiagramsError
 from .model import DiagramCommand, DiagramState
 
 
@@ -66,8 +66,24 @@ class MermaidenService:
 
     def capture(self, diagram: domain.DiagramModel) -> DiagramState:
         snapshot = self._application.snapshot(diagram).to_dict()
-        source = "" if snapshot["draft"] is True else self._application.render(diagram)
+        if snapshot["draft"] is True:
+            return DiagramState(snapshot=snapshot, source="")
+        self.validate_render(diagram)
+        source = self._application.render(diagram)
         return DiagramState(snapshot=snapshot, source=source)
+
+    def validate_render(self, diagram: domain.DiagramModel) -> None:
+        report = self._application.validate_render(diagram)
+        if report.success:
+            return
+        if len(report.diagnostics) != 1:
+            raise DiagramsError("Mermaiden returned an unsuccessful render report without one diagnostic.")
+        diagnostic = report.diagnostics[0]
+        raise DiagramRenderValidationError(
+            diagnostic.code.value,
+            diagnostic.message,
+            diagnostic.details,
+        )
 
     def snapshot_contract_identity(self, kind: str) -> DiagramSnapshotContractIdentity:
         return self._application.snapshot_contract_identity(kind)

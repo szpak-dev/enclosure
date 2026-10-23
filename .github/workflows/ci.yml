@@ -47,11 +47,24 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: npm
+          cache-dependency-path: enclosure/package-lock.json
+          node-version-file: enclosure/.node-version
+
       - name: Install Python
         run: uv python install 3.14
 
       - name: Install Python dependencies
         run: uv sync --locked
+
+      - name: Install Mermaiden renderer
+        run: make renderer-install
+
+      - name: Enable Chromium sandbox user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Check Python, prepare static files, and run general tests
         run: make ci-python-checks ci-static-prepare ci-python-tests-general
@@ -96,11 +109,24 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          cache: npm
+          cache-dependency-path: enclosure/package-lock.json
+          node-version-file: enclosure/.node-version
+
       - name: Install Python
         run: uv python install 3.14
 
       - name: Install Python dependencies
         run: uv sync --locked
+
+      - name: Install Mermaiden renderer
+        run: make renderer-install
+
+      - name: Enable Chromium sandbox user namespaces
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Run health tests
         run: make ci-python-tests-health
@@ -134,7 +160,7 @@ jobs:
         with:
           cache: npm
           cache-dependency-path: enclosure/browser/package-lock.json
-          node-version: 24
+          node-version-file: enclosure/.node-version
 
       - name: Install Python
         run: uv python install 3.14

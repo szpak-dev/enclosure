@@ -1,0 +1,75 @@
+{
+  "package_version": "11.0.1",
+  "snapshot": {
+    "annotations": [],
+    "configuration": {
+      "$type": "mermaiden/configuration/flowchart/flowchart_diagram_configuration",
+      "fields": {
+        "arrow_marker_absolute": {
+          "$type": "mermaiden/value/flowchart/omittable_boolean",
+          "fields": {
+            "root": {
+              "$type": "mermaiden/value/flowchart/unconfigured",
+              "fields": {}
+            }
+          }
+        },
+        "curve": {
+          "$enum": "mermaiden/enum/flowchart/flowchart_curve",
+          "value": "basis"
+        },
+        "default_renderer": {
+          "$enum": "mermaiden/enum/flowchart/flowchart_renderer",
+          "value": "dagre-wrapper"
+        },
+        "diagram_padding": 8,
+        "inherit_dir": false,
+        "node_spacing": 50,
+        "padding": 15.0,
+        "rank_spacing": 50,
+        "sub_graph_title_margin": {
+          "$type": "mermaiden/value/flowchart/flowchart_subgraph_title_margin",
+          "fields": {
+            "bottom": {
+              "$type": "mermaiden/value/flowchart/omittable_non_negative_integer",
+              "fields": {
+                "root": 0
+              }
+            },
+            "top": {
+              "$type": "mermaiden/value/flowchart/omittable_non_negative_integer",
+              "fields": {
+                "root": 0
+              }
+            }
+          }
+        },
+        "title_top_margin": 25,
+        "use_max_width": true,
+        "use_width": {
+          "$type": "mermaiden/value/flowchart/omittable_number",
+          "fields": {
+            "root": {
+              "$type": "mermaiden/value/flowchart/unconfigured",
+              "fields": {}
+            }
+          }
+        },
+        "wrap": true,
+        "wrapping_width": 200.0
+      }
+    },
+    "draft": true,
+    "elements": [],
+    "kind": "flowchart",
+    "properties": {
+      "direction": {
+        "$enum": "mermaiden/enum/flowchart/direction",
+        "value": "TD"
+      }
+    },
+    "relations": [],
+    "version": 8
+  },
+  "source": ""
+}

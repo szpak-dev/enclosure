@@ -29,6 +29,7 @@ class DiagramContractSemanticsService:
         diagram = self.mermaiden.restore(snapshot)
         if diagram.kind != kind:
             raise DiagramsError("Archived diagram snapshot kind does not match its accepted contract evidence.")
+        self.mermaiden.validate_render(diagram)
         candidates = tuple(extractor for extractor in self.extractors if extractor.kind == kind)
         if len(candidates) != 1:
             raise DiagramsError(f"Diagram contract semantics require exactly one extractor for {kind!r}.")

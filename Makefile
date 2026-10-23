@@ -1,21 +1,36 @@
-.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev docs docs-check docs-generated docs-generated-check docs-linkcheck docs-links docs-lock docs-versioned format mcp runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+.PHONY: browser-build ci ci-browser-build ci-browser-build-check ci-browser-checks ci-browser-tests ci-python-checks ci-python-tests ci-python-tests-general ci-python-tests-health ci-python-tests-health-parallel ci-python-tests-health-process ci-python-tests-health-serial ci-python-tests-parallel ci-static-check ci-static-prepare ci-storybook-contract dev docs docs-check docs-generated docs-generated-check docs-linkcheck docs-links docs-lock docs-versioned format mcp renderer-install renderer-sync runtime-config runtime-down runtime-logs runtime-rollback runtime-up superuser
+
+RENDERER_CACHE := $(CURDIR)/.dev/puppeteer
+RUN := PATH="$(CURDIR)/node_modules/.bin:$(PATH)" PUPPETEER_CACHE_DIR="$(RENDERER_CACHE)" uv run
+NPM := NPM_CONFIG_CACHE="$(CURDIR)/.dev/npm-cache" npm
+NPX := NPM_CONFIG_CACHE="$(CURDIR)/.dev/npm-cache" PUPPETEER_CACHE_DIR="$(RENDERER_CACHE)" npx
 
 dev:
-	uv run manage.py runserver
+	$(RUN) manage.py runserver
 
 mcp:
-	uv run manage.py check
-	uv run uvicorn enclosure.core.asgi:application --app-dir src --host 127.0.0.1 --port 8000 --reload
+	$(RUN) manage.py check
+	$(RUN) uvicorn enclosure.core.asgi:application --app-dir src --host 127.0.0.1 --port 8000 --reload
+
+renderer-sync:
+	@mermaid_version="$$(uv run python -c 'from mermaiden import Application; application = Application.create(); print(application.mermaid_version); application.close()')"; \
+	mermaid_cli_version="$$(uv run python -c 'from mermaiden import Application; application = Application.create(); print(application.mermaid_cli_version); application.close()')"; \
+	PUPPETEER_SKIP_DOWNLOAD=true $(NPM) install --save-dev --save-exact \
+		"mermaid@$$mermaid_version" "@mermaid-js/mermaid-cli@$$mermaid_cli_version"
+
+renderer-install:
+	@$(NPM) ci
+	@$(NPX) puppeteer browsers install
 
 browser-build:
-	npm --prefix browser ci
-	npm --prefix browser run typecheck
-	npm --prefix browser run build
+	$(NPM) --prefix browser ci
+	$(NPM) --prefix browser run typecheck
+	$(NPM) --prefix browser run build
 
 format:
 	@uv run ruff format .
 	@uv run ruff check --fix .
-	@npm --prefix browser run format
+	@$(NPM) --prefix browser run format
 
 ci:
 	@$(MAKE) --jobs=2 ci-python-checks ci-browser-checks
@@ -28,40 +43,40 @@ ci:
 	@$(MAKE) docs-check
 
 docs-generated:
-	@PYTHONPATH=src uv run --locked python scripts/generate_docs.py
+	@PYTHONPATH=src $(RUN) --locked python scripts/generate_docs.py
 
 docs-generated-check:
-	@PYTHONPATH=src uv run --locked python scripts/generate_docs.py --check
+	@PYTHONPATH=src $(RUN) --locked python scripts/generate_docs.py --check
 
 docs-links:
-	@uv run --isolated --no-project --python 3.14 python scripts/check_docs_links.py
+	@$(RUN) --isolated --no-project --python 3.14 python scripts/check_docs_links.py
 
 docs-check: docs-generated-check docs-links
 	@rm -rf docs/_build/html
-	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b html docs docs/_build/html
+	@PYTHONPATH=src $(RUN) --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b html docs docs/_build/html
 
 docs: docs-generated
 	@rm -rf docs/_build/html
-	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -b html docs docs/_build/html
+	@PYTHONPATH=src $(RUN) --isolated --locked --with-requirements docs/requirements.lock sphinx-build -b html docs docs/_build/html
 
 docs-linkcheck:
 	@rm -rf docs/_build/linkcheck
-	@PYTHONPATH=src uv run --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b linkcheck docs docs/_build/linkcheck
+	@PYTHONPATH=src $(RUN) --isolated --locked --with-requirements docs/requirements.lock sphinx-build -W --keep-going -E -a -b linkcheck docs docs/_build/linkcheck
 
 docs-versioned:
-	@uv run --locked python scripts/build_versioned_docs.py
+	@$(RUN) --locked python scripts/build_versioned_docs.py
 
 docs-lock:
 	@uv pip compile --python-version 3.14 --universal --output-file docs/requirements.lock docs/requirements.in
 
 ci-python-checks:
-	@uv run ruff format --check .
-	@uv run ruff check .
-	@uv run python manage.py check
+	@$(RUN) ruff format --check .
+	@$(RUN) ruff check .
+	@$(RUN) python manage.py check
 
 ci-browser-checks:
-	@npm --prefix browser run typecheck
-	@npm --prefix browser run format:check
+	@$(NPM) --prefix browser run typecheck
+	@$(NPM) --prefix browser run format:check
 
 ci-python-tests:
 	@$(MAKE) ci-python-tests-parallel
@@ -69,10 +84,10 @@ ci-python-tests:
 	@$(MAKE) ci-python-tests-health-process
 
 ci-python-tests-parallel:
-	@uv run pytest -n 4 --dist worksteal -m "not health_serial"
+	@$(RUN) pytest -n 4 --dist worksteal -m "not health_serial"
 
 ci-python-tests-general:
-	@uv run pytest -n 4 --dist worksteal -k "not health"
+	@$(RUN) pytest -n 4 --dist worksteal -k "not health"
 
 ci-python-tests-health:
 	@$(MAKE) ci-python-tests-health-parallel
@@ -80,23 +95,24 @@ ci-python-tests-health:
 	@$(MAKE) ci-python-tests-health-process
 
 ci-python-tests-health-parallel:
-	@uv run pytest -n 4 --dist worksteal -k health -m "not health_serial"
+	@$(RUN) pytest -n 4 --dist worksteal -k health -m "not health_serial"
 
 ci-python-tests-health-serial:
-	@uv run pytest -k health -m "health_serial and not health_process"
+	@$(RUN) pytest -k health -m "health_serial and not health_process"
 
 ci-python-tests-health-process:
-	@uv run pytest -k health -m health_process
+	@$(RUN) pytest -k health -m health_process
 
 ci-browser-tests:
-	@npm --prefix browser test
+	@$(NPM) --prefix browser test
+	@$(NPM) --prefix browser run storybook:test
 
 ci-storybook-contract:
-	@npm --prefix browser run storybook:build
-	@npm --prefix browser run storybook:contract
+	@$(NPM) --prefix browser run storybook:build
+	@$(NPM) --prefix browser run storybook:contract
 
 ci-browser-build:
-	@npm --prefix browser run build
+	@$(NPM) --prefix browser run build
 
 ci-browser-build-check:
 	@temporary="$$(mktemp -d)"; \
@@ -107,13 +123,13 @@ ci-browser-build-check:
 	cmp "$$temporary/before.patch" "$$temporary/after.patch"
 
 ci-static-prepare:
-	@uv run python manage.py collectstatic --noinput
+	@$(RUN) python manage.py collectstatic --noinput
 
 ci-static-check:
 	@git diff --exit-code -- src/enclosure/browser/adapters/http/static/browser
 
 superuser:
-	@uv run manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); user, _ = User.objects.get_or_create(username='enclosure', defaults={'email': 'enclosure@localhost'}); user.email = 'enclosure@localhost'; user.is_staff = True; user.is_superuser = True; user.set_password('enclosure'); user.save(); print('Superuser enclosure is ready.')"
+	@$(RUN) manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); user, _ = User.objects.get_or_create(username='enclosure', defaults={'email': 'enclosure@localhost'}); user.email = 'enclosure@localhost'; user.is_staff = True; user.is_superuser = True; user.set_password('enclosure'); user.save(); print('Superuser enclosure is ready.')"
 
 runtime-config:
 	docker compose config --quiet
@@ -130,6 +146,7 @@ runtime-up:
 	docker compose pull mcp; \
 	pulled="$$(docker image inspect --format '{{.Id}}' "$$image")"; \
 	if [ -n "$$current" ] && [ "$$current" != "$$pulled" ]; then docker image tag "$$current" "$$previous"; fi; \
+	docker compose run --rm --no-deps --user root --entrypoint chown migrate -R 10001:10001 /var/cache/enclosure; \
 	docker compose run --rm --no-deps migrate; \
 	docker compose up --detach mcp; \
 	stale="$$(docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}}' | awk -v current="$$local_current" -v previous="$$local_previous" -v repository="$$local_repository" '$$1 != current && $$1 != previous && (index($$1, repository ":") == 1 || $$1 == "enclosure:mcp") { print $$2 }' | sort -u)"; \
