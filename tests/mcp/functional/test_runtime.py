@@ -115,6 +115,7 @@ class ConfiguredApplication:
         await self.application(scope, receive, send)
 
 
+@pytest.mark.health
 @pytest.mark.health_serial
 @pytest.mark.health_process
 @override_settings(PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS=0)
@@ -160,6 +161,7 @@ def test_lifespan_rejects_an_unready_health_worker_and_recovers(
     )
 
 
+@pytest.mark.health
 @pytest.mark.health_serial
 @pytest.mark.health_process
 @override_settings(PROJECT_HEALTH_MAX_CONCURRENCY=2)
@@ -1424,6 +1426,7 @@ def test_public_mcp_rejects_unknown_operating_contract_input_without_reserving_a
     assert recovered.structured_content["data"]["authority"] == "example:mcp:strict-operating-contract"
 
 
+@pytest.mark.health
 @pytest.mark.django_db(transaction=True)
 def test_presents_gating_health_failures_with_exact_follow_ups(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
@@ -1470,6 +1473,7 @@ def test_presents_gating_health_failures_with_exact_follow_ups(tmp_path: Path) -
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
 
+@pytest.mark.health
 @pytest.mark.django_db(transaction=True)
 def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
@@ -1575,6 +1579,7 @@ def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> No
     assert "Readiness: **incomplete**" in result.content[0].text
 
 
+@pytest.mark.health
 @pytest.mark.django_db(transaction=True)
 def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
@@ -1608,6 +1613,7 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
 
+@pytest.mark.health
 @pytest.mark.health_serial
 @pytest.mark.health_process
 @pytest.mark.django_db(transaction=True)

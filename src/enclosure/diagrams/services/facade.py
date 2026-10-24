@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from django.db.models import QuerySet
+from pydantic import JsonValue
 from wireup import injectable
 
 from ..api.schemas import (
@@ -104,7 +105,7 @@ class DiagramsService:
     def interpret_contract_snapshot(
         self,
         kind: str,
-        snapshot: Mapping[str, object],
+        snapshot: Mapping[str, JsonValue],
         snapshot_version: int,
         registry_fingerprint: str,
     ) -> DiagramContractSemantics:

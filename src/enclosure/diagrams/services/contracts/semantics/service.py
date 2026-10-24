@@ -2,33 +2,31 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from operator import attrgetter
 
+from pydantic import JsonValue
 from wireup import injectable
 
 from ....errors import DiagramsError
 from ...mermaiden.service import MermaidenService
 from .extractors.base import DiagramSemanticExtractor
 from .model import DiagramContractSemantics
+from .snapshots import DiagramSnapshotRestorationService
 
 
 @injectable
 @dataclass(frozen=True)
 class DiagramContractSemanticsService:
     mermaiden: MermaidenService
+    snapshots: DiagramSnapshotRestorationService
     extractors: Sequence[DiagramSemanticExtractor]
 
     def interpret(
         self,
         kind: str,
-        snapshot: Mapping[str, object],
+        snapshot: Mapping[str, JsonValue],
         snapshot_version: int,
         registry_fingerprint: str,
     ) -> DiagramContractSemantics:
-        identity = self.mermaiden.snapshot_contract_identity(kind)
-        if identity.snapshot_version != snapshot_version or identity.registry_fingerprint != registry_fingerprint:
-            raise DiagramsError("Archived diagram snapshot contract identity is not supported by this runtime.")
-        diagram = self.mermaiden.restore(snapshot)
-        if diagram.kind != kind:
-            raise DiagramsError("Archived diagram snapshot kind does not match its accepted contract evidence.")
+        diagram = self.snapshots.restore(kind, snapshot, snapshot_version, registry_fingerprint)
         self.mermaiden.validate_render(diagram)
         candidates = tuple(extractor for extractor in self.extractors if extractor.kind == kind)
         if len(candidates) != 1:
