@@ -759,6 +759,62 @@ class PublicMcpClient:
             )
             return rest_response, result, findings, attestation
 
+    async def advisory_project_health(self, root: Path) -> tuple[httpx2.Response, CallToolResult]:
+        async with self.session() as (session, http_client):
+            await session.initialize()
+            project_id, workspace_id = await self._register_example_project(
+                http_client,
+                root,
+                {"summary": "Example project guidance."},
+                EXAMPLE_HEALTHY_SHAPE_YAML,
+            )
+            await self._accept_example_architecture(http_client, root, project_id)
+            category = await http_client.post(
+                "/api/records/categories",
+                json={"title": "Example optional guidance category", "content_schema": {"type": "object"}},
+            )
+            category.raise_for_status()
+            tag = await http_client.post(
+                "/api/records/tags",
+                json={"name": "example-optional-guidance"},
+            )
+            tag.raise_for_status()
+            record = await http_client.post(
+                "/api/records",
+                json={
+                    "title": "Example unreachable guidance",
+                    "content": {
+                        "summary": "Example optional guidance.",
+                        "applies_when": ["Unrelated example task"],
+                        "guidance": ["Apply the unrelated example rule."],
+                    },
+                    "category_id": category.json()["id"],
+                    "tag_ids": [tag.json()["id"]],
+                    "resources": [],
+                },
+            )
+            record.raise_for_status()
+            scopes = await http_client.put(
+                f"/api/projects/{project_id}/guidance-scopes",
+                json={"record_ids": [record.json()["id"]]},
+            )
+            scopes.raise_for_status()
+            rest_response = await http_client.get(
+                f"/api/projects/{project_id}/workspaces/{workspace_id}/health-violations"
+            )
+            result = await session.call_tool(
+                "read_project_health_findings",
+                {
+                    "project_id": project_id,
+                    "workspace_id": workspace_id,
+                    "kind": "advisory",
+                    "expected_revision": rest_response.json()["revision"],
+                    "offset": 0,
+                    "limit": 25,
+                },
+            )
+            return rest_response, result
+
     async def mcp_project_health(self, root: Path, shape_yaml: str) -> CallToolResult:
         async with self.session() as (session, http_client):
             await session.initialize()
@@ -1604,13 +1660,47 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     assert "attestation" not in result.structured_content["data"]
     assert "targets" not in result.structured_content["data"]
     assert "next_actions" not in result.structured_content["data"]
-    assert findings["failure"].structured_content["data"]["items"] == []
+    failure_page = findings["failure"]
+    assert failure_page.is_error is False
+    assert failure_page.structured_content["status"] == "ok"
+    assert failure_page.structured_content["data"]["revision"] == result.structured_content["data"]["revision"]
+    assert failure_page.structured_content["data"]["kind"] == "failure"
+    assert failure_page.structured_content["data"]["offset"] == 0
+    assert failure_page.structured_content["data"]["next_offset"] == 0
+    assert failure_page.structured_content["data"]["total"] == 0
+    assert failure_page.structured_content["data"]["items"] == []
     assert findings["advisory"].structured_content["data"]["items"] == []
     rest_attestation = rest_response.json()["attestation"]
     assert {key: attestation.structured_content["data"][key] for key in rest_attestation} == rest_attestation
     assert "Status: **healthy**" in result.content[0].text
     assert len(result.content[0].text.encode("utf-8")) <= 16_384
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
+
+
+@pytest.mark.health
+@pytest.mark.django_db(transaction=True)
+def test_presents_project_health_advisories_through_public_mcp(tmp_path: Path) -> None:
+    (tmp_path / "uv.lock").write_text("", encoding="utf-8")
+    (tmp_path / "example_app.py").write_text(
+        "class ExampleApplication:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    rest_response, advisory_page = asyncio.run(
+        PublicMcpClient(ConfiguredApplication()).advisory_project_health(tmp_path)
+    )
+
+    advisory = rest_response.json()["advisories"][0]
+    assert advisory_page.is_error is False
+    assert advisory_page.structured_content["status"] == "ok"
+    assert advisory_page.structured_content["data"]["revision"] == rest_response.json()["revision"]
+    assert advisory_page.structured_content["data"]["kind"] == "advisory"
+    assert advisory_page.structured_content["data"]["offset"] == 0
+    assert advisory_page.structured_content["data"]["next_offset"] == 1
+    assert advisory_page.structured_content["data"]["total"] == 1
+    assert advisory_page.structured_content["data"]["items"] == [advisory]
+    assert advisory["rule"] in advisory_page.content[0].text
+    assert advisory["target"] in advisory_page.content[0].text
 
 
 @pytest.mark.health

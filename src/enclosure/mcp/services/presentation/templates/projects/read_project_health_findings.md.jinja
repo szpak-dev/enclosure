@@ -2,6 +2,6 @@
 
 {{ data.kind | title }} findings {{ data.offset }}–{{ data.next_offset }} of {{ data.total }}, revision `{{ data.revision }}`.
 
-{% for finding in data.items %}
+{% for finding in data["items"] %}
 - **{{ finding.rule }}** — {{ finding.target }}: {{ finding.message }} Next: {{ finding.next_action }}
 {% endfor %}
