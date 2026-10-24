@@ -87,7 +87,7 @@ ci-python-tests-parallel:
 	@$(RUN) pytest -n 4 --dist worksteal -m "not health_serial"
 
 ci-python-tests-general:
-	@$(RUN) pytest -n 4 --dist worksteal -k "not health"
+	@$(RUN) pytest -n 4 --dist worksteal -m "not health"
 
 ci-python-tests-health:
 	@$(MAKE) ci-python-tests-health-parallel
@@ -95,13 +95,13 @@ ci-python-tests-health:
 	@$(MAKE) ci-python-tests-health-process
 
 ci-python-tests-health-parallel:
-	@$(RUN) pytest -n 4 --dist worksteal -k health -m "not health_serial"
+	@$(RUN) pytest -n 4 --dist worksteal -m "health and not health_serial"
 
 ci-python-tests-health-serial:
-	@$(RUN) pytest -k health -m "health_serial and not health_process"
+	@$(RUN) pytest -m "health and health_serial and not health_process"
 
 ci-python-tests-health-process:
-	@$(RUN) pytest -k health -m health_process
+	@$(RUN) pytest -m "health and health_process"
 
 ci-browser-tests:
 	@$(NPM) --prefix browser test
