@@ -29,7 +29,7 @@ export function ResourcePage({
   title,
 }: ResourcePageProps) {
   return (
-    <Container size="xl">
+    <Container fluid p={0} w="100%">
       <Stack gap="xl">
         <Stack gap={4}>
           <Title order={1}>{title}</Title>

@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 
 const EXPECTED_COMPONENTS = [
+  "browser-records",
   "browser-application",
   "browser-projects-actions",
   "browser-projects-architecture-configuration",

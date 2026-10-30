@@ -201,7 +201,8 @@ export function ResourceActions({
                 color="red"
                 role="alert"
                 title="Action unavailable"
-                variant="outline"
+                variant="filled"
+                autoContrast
               >
                 This surface does not have an action executor.
               </Alert>
@@ -242,7 +243,8 @@ export function ResourceActions({
                 color="teal.9"
                 role="status"
                 title="Action completed"
-                variant="outline"
+                variant="filled"
+                autoContrast
               >
                 The server completed the action without returning a document.
               </Alert>
@@ -253,7 +255,8 @@ export function ResourceActions({
                   color="teal.9"
                   role="status"
                   title="Action completed"
-                  variant="outline"
+                  variant="filled"
+                  autoContrast
                 >
                   The server returned the result below.
                 </Alert>
@@ -267,10 +270,11 @@ export function ResourceActions({
             {result.kind === "conflict" ? (
               <Stack>
                 <Alert
-                  color="orange.9"
+                  color="red.9"
                   role="alert"
                   title={result.conflict.title}
-                  variant="outline"
+                  variant="filled"
+                  autoContrast
                 >
                   {result.conflict.description}
                 </Alert>

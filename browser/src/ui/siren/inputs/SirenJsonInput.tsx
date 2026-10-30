@@ -29,6 +29,19 @@ export function SirenJsonInput({ field, schema }: SirenJsonInputProps) {
       setData={updateValue}
       showCollectionCount="when-closed"
       showIconTooltips
+      theme={{
+        container: {
+          backgroundColor: "var(--mantine-color-body)",
+          color: "var(--mantine-color-text)",
+        },
+        property: "var(--mantine-color-text)",
+        string: "var(--mantine-color-text)",
+        number: "var(--mantine-color-text)",
+        boolean: "var(--mantine-color-text)",
+        null: "var(--mantine-color-dimmed)",
+        bracket: "var(--mantine-color-dimmed)",
+        itemCount: "var(--mantine-color-dimmed)",
+      }}
     />
   );
 }
