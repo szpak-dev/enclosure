@@ -4,12 +4,15 @@ import { App } from "./app/App";
 import { registerDiagramRenderer } from "./ui/diagram/registerDiagramRenderer";
 import { registerProjectRenderers } from "./ui/project/registerProjectRenderers";
 import { registerScaffoldingRenderers } from "./ui/scaffolding/registerScaffoldingRenderers";
+import { registerRecordRenderers } from "./ui/records/registerRecordRenderers";
 import "@mantine/core/styles.css";
+import "@mantine/notifications/styles.css";
 import "./styles.css";
 
 registerDiagramRenderer();
 registerProjectRenderers();
 registerScaffoldingRenderers();
+registerRecordRenderers();
 
 const root = document.querySelector<HTMLDivElement>("#app");
 

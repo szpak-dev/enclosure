@@ -21,6 +21,9 @@ function trimOutputWhitespace(): Plugin {
 
 export default defineConfig({
   plugins: [react(), trimOutputWhitespace()],
+  optimizeDeps: {
+    include: ["@mantine/notifications"],
+  },
   base: "/static/browser/",
   resolve: {
     alias: {
