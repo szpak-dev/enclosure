@@ -1,6 +1,7 @@
-import type { Entity } from "@siren-js/client";
+import type { Entity, Target } from "@siren-js/client";
+import { Box } from "@mantine/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { sirenFixtures } from "../../stories/SirenFixtures";
 import { DiagramCollection } from "./DiagramCollection";
 import {
@@ -164,5 +165,84 @@ export const TitleAscending: Story = {
     await expect(args.onFollow).toHaveBeenCalledWith(
       "/siren/diagram-sets/set-1/diagrams?limit=50&order_by=title&direction=desc&offset=0",
     );
+  },
+};
+
+export const DownloadFailure: Story = {
+  args: {
+    onLoad: fn(async (_target: Target): Promise<Entity> => {
+      throw new Error("Example diagram unavailable");
+    }),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+    );
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(await page.findByRole("alert")).toHaveTextContent(
+      "Example diagram unavailable",
+    );
+    await waitFor(() =>
+      expect(
+        page.getByRole("button", { name: "Retry download" }),
+      ).toBeVisible(),
+    );
+    await expect(args.onFollow).not.toHaveBeenCalled();
+    await expect(
+      page.queryByRole("dialog", { name: "Request flow preview" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const DownloadInProgress: Story = {
+  args: { onLoad: fn((_target: Target) => new Promise<Entity>(() => {})) },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+    );
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Preparing Request flow SVG",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+    ).toBeDisabled();
+    await expect(args.onLoad).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const NarrowListActions: Story = {
+  decorators: [
+    (Story) => (
+      <Box w={360} maw="100%">
+        <Story />
+      </Box>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const list = canvas.getByRole("list", { name: "Diagrams" });
+    const download = canvas.getByRole("button", {
+      name: "Download Request flow as SVG",
+    });
+    const preview = canvas.getByRole("button", {
+      name: "Preview Request flow",
+    });
+    const downloadBounds = download.getBoundingClientRect();
+    const previewBounds = preview.getBoundingClientRect();
+    await expect(
+      Math.abs(downloadBounds.right - list.getBoundingClientRect().right),
+    ).toBeLessThanOrEqual(1);
+    await expect(previewBounds.right).toBeLessThanOrEqual(downloadBounds.left);
+    await expect(
+      canvas
+        .getByRole("button", { name: "Download Command sequence as SVG" })
+        .getBoundingClientRect().right,
+    ).toBe(downloadBounds.right);
+    await expect(download.closest("a")).toBeNull();
+    await expect(
+      canvas.getAllByRole("link", { name: /Request flow/ }),
+    ).toHaveLength(1);
   },
 };

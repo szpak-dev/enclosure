@@ -1,4 +1,10 @@
-import { Alert, Box, Group, NavLink } from "@mantine/core";
+import {
+  Alert,
+  Box,
+  Group,
+  NavLink,
+  useComputedColorScheme,
+} from "@mantine/core";
 import type {
   EmbeddedEntity,
   Entity,
@@ -7,6 +13,7 @@ import type {
 } from "@siren-js/client";
 import { RelativeTime } from "../time/RelativeTime";
 import { DiagramPreview } from "./DiagramPreview";
+import { DiagramDownload } from "./DiagramDownload";
 
 export type DiagramSummaryProperties = Entity["properties"] & {
   id: string;
@@ -33,6 +40,7 @@ export function DiagramListItem({
   onFollow,
   onLoad,
 }: DiagramListItemProps) {
+  const colorScheme = useComputedColorScheme();
   const target = diagram.links.find((link) => link.rel.includes("self"));
 
   if (!target)
@@ -44,8 +52,8 @@ export function DiagramListItem({
     );
 
   return (
-    <Group gap="xs" wrap="nowrap">
-      <Box flex={1}>
+    <Group gap="xs" wrap="nowrap" justify="space-between" w="100%">
+      <Box flex={1} miw={0}>
         <NavLink
           component="a"
           description={
@@ -65,11 +73,22 @@ export function DiagramListItem({
           }}
         />
       </Box>
-      <DiagramPreview
-        onLoad={onLoad}
-        target={target}
-        title={diagram.properties.title}
-      />
+      <Group gap={4} wrap="nowrap">
+        <DiagramPreview
+          onLoad={onLoad}
+          target={target}
+          title={diagram.properties.title}
+        />
+        <DiagramDownload
+          diagramId={diagram.properties.id}
+          onLoad={onLoad}
+          presentation="icon"
+          revision={diagram.properties.revision}
+          target={target}
+          theme={colorScheme === "dark" ? "dark" : "default"}
+          title={diagram.properties.title}
+        />
+      </Group>
     </Group>
   );
 }

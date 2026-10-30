@@ -29,7 +29,15 @@ export function DiagramCollection({
         {diagrams.length} {diagrams.length === 1 ? "diagram" : "diagrams"}
       </Text>
       {diagrams.length ? (
-        <List aria-label="Diagrams" listStyleType="none" spacing="xs">
+        <List
+          aria-label="Diagrams"
+          listStyleType="none"
+          spacing="xs"
+          styles={{
+            itemWrapper: { width: "100%" },
+            itemLabel: { width: "100%" },
+          }}
+        >
           {diagrams.map((diagram) => {
             return (
               <List.Item key={diagram.properties.id}>

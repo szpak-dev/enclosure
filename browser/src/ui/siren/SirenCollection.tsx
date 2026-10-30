@@ -41,7 +41,14 @@ export function SirenCollection({
           </Group>
         ) : null}
         {entity.entities.length ? (
-          <List listStyleType="none" spacing="xs">
+          <List
+            listStyleType="none"
+            spacing="xs"
+            styles={{
+              itemWrapper: { width: "100%" },
+              itemLabel: { width: "100%" },
+            }}
+          >
             {entity.entities.map((item, index) => (
               <List.Item key={`${item.rel.join("-")}-${index}`}>
                 {isDiagramSummary(item) ? (

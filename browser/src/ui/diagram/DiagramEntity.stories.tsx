@@ -283,6 +283,9 @@ export const EmptySource: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const document = within(canvasElement.ownerDocument.body);
+    await expect(
+      canvas.getByRole("button", { name: "Download SVG" }),
+    ).toBeDisabled();
     await userEvent.click(
       canvas.getByRole("button", { name: "Preview diagram" }),
     );
