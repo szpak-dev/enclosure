@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { sirenFixtures } from "../../stories/SirenFixtures";
+import type { DiagramProperties } from "../diagram/DiagramEntity";
 import { OBJECT_CONTROL, STRUCTURED_FORM_EXTENSION } from "./SirenActionForm";
 import { SirenEntity } from "./SirenEntity";
 
@@ -124,7 +125,14 @@ export const StructuredValidationFailure: Story = {
     entity: sirenFixtures.entity(
       ["diagram"],
       "Command validation",
-      { title: "Command validation" },
+      {
+        id: "example-diagram",
+        kind: "flowchart-v2",
+        revision: 1,
+        source: "flowchart LR\nExampleA-->ExampleB",
+        snapshot: { version: 1 },
+        title: "Command validation",
+      } satisfies DiagramProperties,
       [],
       [],
       [structuredAction],
