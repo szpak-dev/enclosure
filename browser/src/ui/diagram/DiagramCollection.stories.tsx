@@ -2,6 +2,7 @@ import type { Entity, Target } from "@siren-js/client";
 import { Box } from "@mantine/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { diagramSvgFixtures } from "../../stories/DiagramSvgFixtures";
 import { sirenFixtures } from "../../stories/SirenFixtures";
 import { DiagramCollection } from "./DiagramCollection";
 import {
@@ -53,7 +54,7 @@ const detail: Entity = sirenFixtures.entity(
     title: "Request flow",
     updated_at: "2026-10-15T08:30:00Z",
   },
-  [],
+  [diagramSvgFixtures.link("diagram-1", 3)],
   [],
   [],
 );
@@ -244,5 +245,47 @@ export const NarrowListActions: Story = {
     await expect(
       canvas.getAllByRole("link", { name: /Request flow/ }),
     ).toHaveLength(1);
+  },
+};
+
+const recoveryLoad = fn(async (target: Target) =>
+  (typeof target === "string" ? target : target.href.toString()).includes(
+    "/example-exports/",
+  )
+    ? diagramSvgFixtures.document("diagram-1", 3)
+    : detail,
+);
+export const DownloadRecovery: Story = {
+  beforeEach: () => {
+    recoveryLoad.mockRejectedValueOnce(
+      new Error("Example download interrupted"),
+    );
+  },
+  args: { onLoad: recoveryLoad },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+    );
+    await expect(await page.findByRole("alert")).toHaveTextContent(
+      "Example download interrupted",
+    );
+    await userEvent.click(page.getByRole("button", { name: "Retry download" }));
+    await waitFor(() =>
+      expect(page.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(canvas.queryByRole("status")).not.toBeInTheDocument(),
+    );
+    await expect(args.onLoad).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        href: "/example-exports/diagram-1?expected_revision=3",
+      }),
+    );
+    await expect(args.onFollow).not.toHaveBeenCalled();
+    await expect(
+      page.queryByRole("dialog", { name: "Request flow preview" }),
+    ).not.toBeInTheDocument();
   },
 };

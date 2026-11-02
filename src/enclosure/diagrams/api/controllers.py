@@ -1,5 +1,6 @@
 from typing import Annotated
 
+from django.http import HttpRequest
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
@@ -14,7 +15,7 @@ from sirenity import (
 )
 
 from ...security.adapters.http import SecurityPermission
-from ..services.facade import DiagramsService
+from ..services.facade import DiagramsService, DiagramSvgPage
 from . import schemas
 
 
@@ -287,6 +288,13 @@ class DiagramSetsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram_set_diagram",
         follow_ups={
+            "svg": SirenFollowUp(
+                operation_id="download_diagram_svg",
+                parameters={"query.expected_revision": "revision"},
+                source_inputs={"path.diagram_id": SirenSourceInput(location="path", name="diagram_id")},
+                rel="enclosure:download-svg",
+                scope=SirenScope.ENTITY,
+            ),
             "source": SirenFollowUp(
                 operation_id="read_diagram_content",
                 parameters={
@@ -326,6 +334,32 @@ class DiagramSetsController(ControllerBase):
 
 @api_controller("/diagrams", tags=["Diagrams"], permissions=[SecurityPermission])
 class DiagramsController(ControllerBase):
+    @SirenContinuation(
+        http_get,
+        "/{diagram_id}/svg",
+        response=schemas.DiagramSvg,
+        operation_id="download_diagram_svg",
+        continuation={"offset": "next_offset", "limit": "limit"},
+        source_inputs={
+            "diagram_id": SirenSourceInput(location="path", name="diagram_id"),
+            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
+        },
+        summary="Download diagram SVG",
+        description=(
+            "Render a revision-pinned SVG on the server. Save the returned content under filename; "
+            "follow continuation for large artifacts."
+        ),
+    )
+    def download_svg(
+        self,
+        request: HttpRequest,
+        diagram_id: Annotated[str, Path(description="Diagram identifier.")],
+        query: Query[schemas.DownloadDiagramSvg],
+    ) -> DiagramSvgPage:
+        return DjangoRequest.resolve(request, DiagramsService).download_svg(
+            diagram_id, query.expected_revision, query.offset, query.limit
+        )
+
     @siren_pagination(
         http_get,
         "",
@@ -388,6 +422,13 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram",
         follow_ups={
+            "svg": SirenFollowUp(
+                operation_id="download_diagram_svg",
+                parameters={"query.expected_revision": "revision"},
+                source_inputs={"path.diagram_id": SirenSourceInput(location="path", name="diagram_id")},
+                rel="enclosure:download-svg",
+                scope=SirenScope.ENTITY,
+            ),
             "source": SirenFollowUp(
                 operation_id="read_diagram_content",
                 parameters={

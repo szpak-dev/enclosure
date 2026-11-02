@@ -1,4 +1,4 @@
-import { Code, Paper, Stack, Tabs, Title } from "@mantine/core";
+import { Code, Group, Paper, Stack, Tabs, Title } from "@mantine/core";
 import type { Entity } from "@siren-js/client";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { SirenActions } from "../siren/SirenActions";
@@ -9,6 +9,7 @@ import {
   isDiagramCommandAction,
 } from "./DiagramCommandForm";
 import { DiagramRenderer } from "./DiagramRenderer";
+import { DiagramDownload } from "./DiagramDownload";
 
 export type DiagramProperties = Entity["properties"] & {
   id: string;
@@ -29,7 +30,8 @@ export function DiagramEntity({
   const properties = entity.properties as DiagramProperties;
   const commandAction = entity.actions.find(isDiagramCommandAction);
   const remainingActions = entity.actions.filter(
-    (action) => action !== commandAction,
+    (action) =>
+      action !== commandAction && action.name !== "download_diagram_svg",
   );
 
   return (
@@ -45,12 +47,23 @@ export function DiagramEntity({
           </Tabs.List>
 
           <Tabs.Panel pt="md" value="diagram">
-            <DiagramRenderer
-              diagramId={properties.id}
-              revision={properties.revision}
-              source={properties.source}
-              title={properties.title}
-            />
+            <Group align="start" gap="xs">
+              <DiagramRenderer
+                diagramId={properties.id}
+                revision={properties.revision}
+                source={properties.source}
+                title={properties.title}
+              />
+              <DiagramDownload
+                diagramId={properties.id}
+                presentation="button"
+                revision={properties.revision}
+                source={properties.source}
+                entity={entity}
+                onLoad={onLoad}
+                title={properties.title}
+              />
+            </Group>
           </Tabs.Panel>
           <Tabs.Panel pt="md" value="source">
             <Code

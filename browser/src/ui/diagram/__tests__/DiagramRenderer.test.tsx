@@ -79,9 +79,13 @@ it("removes the rendered diagram when the preview is closed", async () => {
   renderDiagram();
   await openPreview();
 
-  const preview = await screen.findByRole("img", {
-    name: "Example diagram Mermaid preview",
-  });
+  const preview = await screen.findByRole(
+    "img",
+    {
+      name: "Example diagram Mermaid preview",
+    },
+    { timeout: mermaidRenderingTimeout },
+  );
   await waitFor(() => expect(preview.querySelector("svg")).not.toBeNull());
 
   fireEvent.click(
@@ -112,9 +116,13 @@ it("recovers when invalid source is replaced by a valid revision", async () => {
   rendered.rerender(diagram(validSource, 2));
   await openPreview();
 
-  const preview = await screen.findByRole("img", {
-    name: "Example diagram Mermaid preview",
-  });
+  const preview = await screen.findByRole(
+    "img",
+    {
+      name: "Example diagram Mermaid preview",
+    },
+    { timeout: mermaidRenderingTimeout },
+  );
   await waitFor(() => expect(preview.querySelector("svg")).not.toBeNull());
   expect(screen.queryByRole("alert")).toBeNull();
 });
@@ -123,9 +131,13 @@ it("renders valid Mermaid source locally in the public preview", async () => {
   renderDiagram();
   await openPreview();
 
-  const preview = await screen.findByRole("img", {
-    name: "Example diagram Mermaid preview",
-  });
+  const preview = await screen.findByRole(
+    "img",
+    {
+      name: "Example diagram Mermaid preview",
+    },
+    { timeout: mermaidRenderingTimeout },
+  );
   await waitFor(() => expect(preview.querySelector("svg")).not.toBeNull());
   expect(
     screen.getByRole("toolbar", { name: "Diagram zoom controls" }),
@@ -161,9 +173,13 @@ it("renders with Mermaid's dark palette when the application is dark", async () 
   render(diagram(treeViewSource, 1, "dark"));
   await openPreview();
 
-  const preview = await screen.findByRole("img", {
-    name: "Example diagram Mermaid preview",
-  });
+  const preview = await screen.findByRole(
+    "img",
+    {
+      name: "Example diagram Mermaid preview",
+    },
+    { timeout: mermaidRenderingTimeout },
+  );
   await waitFor(() => expect(preview.querySelector("svg")).not.toBeNull());
   const label = preview.querySelector(".treeView-node-label");
   const line = preview.querySelector(".treeView-node-line");

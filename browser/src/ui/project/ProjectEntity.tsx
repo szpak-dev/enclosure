@@ -47,8 +47,8 @@ export function ProjectEntity({
       };
     }
     setUpdateValues({ kind: "loading" });
-    void onLoad(configurationLink).then(
-      async (collection) => {
+    void onLoad(configurationLink)
+      .then(async (collection) => {
         const item = collection.entities[0];
         if (!item) {
           if (active) setUpdateValues({ kind: "unavailable" });
@@ -88,11 +88,10 @@ export function ProjectEntity({
               },
             }),
           });
-      },
-      () => {
+      })
+      .catch(() => {
         if (active) setUpdateValues({ kind: "unavailable" });
-      },
-    );
+      });
     return () => {
       active = false;
     };
@@ -130,7 +129,7 @@ export function ProjectEntity({
         />
       ) : null}
       {updateValues.kind === "unavailable" ? (
-        <Alert color="dark" title="Update unavailable" variant="outline">
+        <Alert title="Update unavailable" variant="default">
           The advertised architecture configuration could not be loaded, so the
           update form is withheld to protect the existing configuration.
         </Alert>

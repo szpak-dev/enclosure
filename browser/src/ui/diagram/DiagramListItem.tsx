@@ -1,10 +1,4 @@
-import {
-  Alert,
-  Box,
-  Group,
-  NavLink,
-  useComputedColorScheme,
-} from "@mantine/core";
+import { Alert, Box, Group, NavLink } from "@mantine/core";
 import type {
   EmbeddedEntity,
   Entity,
@@ -40,7 +34,6 @@ export function DiagramListItem({
   onFollow,
   onLoad,
 }: DiagramListItemProps) {
-  const colorScheme = useComputedColorScheme();
   const target = diagram.links.find((link) => link.rel.includes("self"));
 
   if (!target)
@@ -85,7 +78,6 @@ export function DiagramListItem({
           presentation="icon"
           revision={diagram.properties.revision}
           target={target}
-          theme={colorScheme === "dark" ? "dark" : "default"}
           title={diagram.properties.title}
         />
       </Group>
