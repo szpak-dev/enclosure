@@ -16,7 +16,7 @@ import type { Action, Entity, Target } from "@siren-js/client";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { Identity, PropertyTable } from "../resource/ResourcePrimitives";
 import { useSirenActionExecution } from "../siren/SirenActionExecution";
-import { ScaffoldingCards } from "./ScaffoldingCards";
+import { ScaffoldingList } from "./ScaffoldingList";
 import { scaffoldingPresentation } from "./ScaffoldingPresentation";
 
 export type ScaffoldingRenderingActions =
@@ -380,7 +380,7 @@ export function ScaffoldingActionResult({
   values,
 }: ScaffoldingActionResultProps) {
   if (actionName === "search_scaffoldings")
-    return <ScaffoldingCards items={entity.entities} onFollow={onFollow} />;
+    return <ScaffoldingList items={entity.entities} onFollow={onFollow} />;
   if (actionName === "render_scaffolding")
     return (
       <RenderingResult

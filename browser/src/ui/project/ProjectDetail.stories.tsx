@@ -211,3 +211,45 @@ export const ConfigurationUnavailable: Story = {
     ).toBeVisible();
   },
 };
+
+export const DarkConfigurationUnavailable: Story = {
+  ...ConfigurationUnavailable,
+  beforeEach: () => {
+    const previous = window.localStorage.getItem("enclosure-color-scheme");
+    window.localStorage.setItem("enclosure-color-scheme", "dark");
+    return () => {
+      if (previous === null)
+        window.localStorage.removeItem("enclosure-color-scheme");
+      else window.localStorage.setItem("enclosure-color-scheme", previous);
+    };
+  },
+};
+
+export const ConfigurationDetailFailure: Story = {
+  ...ConfigurationUnavailable,
+  args: {
+    onLoad: fn(async (target: Target): Promise<Entity> => {
+      if (href(target).endsWith("architecture-configurations"))
+        return configurationCollection;
+      throw new Error("Example configuration detail unavailable");
+    }),
+  },
+};
+
+export const ConfigurationLoading: Story = {
+  args: {
+    onLoad: fn(() => new Promise<Entity>(() => {})),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByRole("status")).toHaveAccessibleName(
+      "Loading project configuration",
+    );
+    await expect(
+      canvas.queryByRole("button", { name: "Update a project" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: /Workspaces/ }),
+    ).toBeVisible();
+  },
+};

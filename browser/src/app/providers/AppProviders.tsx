@@ -18,6 +18,7 @@ const colorSchemeManager = localStorageColorSchemeManager({
 });
 const colors: CSSVariablesResolver = () => ({
   dark: {
+    "--mantine-color-error": "var(--mantine-color-red-4)",
     "--mantine-color-dimmed": "var(--mantine-color-gray-4)",
   },
   light: {

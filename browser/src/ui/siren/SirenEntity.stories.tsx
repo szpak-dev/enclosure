@@ -218,3 +218,16 @@ export const SubmissionFailure: Story = {
     );
   },
 };
+
+export const DarkStructuredValidationFailure: Story = {
+  ...StructuredValidationFailure,
+  beforeEach: () => {
+    const previous = window.localStorage.getItem("enclosure-color-scheme");
+    window.localStorage.setItem("enclosure-color-scheme", "dark");
+    return () => {
+      if (previous === null)
+        window.localStorage.removeItem("enclosure-color-scheme");
+      else window.localStorage.setItem("enclosure-color-scheme", previous);
+    };
+  },
+};

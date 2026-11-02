@@ -2136,7 +2136,7 @@ def test_presents_large_diagram_as_siren_summary_with_bounded_content_follow_up(
     assert data["snapshot_document"] == "snapshot"
     assert data["source_total_characters"] == len(source)
     assert data["snapshot_total_characters"] > 0
-    assert follow_up_names == {"read_diagram_content"}
+    assert follow_up_names == {"read_diagram_content", "download_diagram_svg"}
     assert len(json.dumps(result.structured_content).encode("utf-8")) <= 8_192
 
     content = asyncio.run(

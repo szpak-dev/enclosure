@@ -1,200 +1,20 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { delay, http, HttpResponse } from "msw";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { App } from "./App";
 
-const SIREN_HEADERS = { "Content-Type": "application/vnd.siren+json" };
-const rootDocument = {
-  actions: [],
-  class: ["api", "entry-point"],
-  entities: [],
-  links: [
-    { href: "/siren/", rel: ["self"], title: "Enclosure API" },
-    {
-      href: "/siren/projects",
-      rel: ["collection"],
-      title: "Projects",
-    },
-    {
-      href: "/siren/diagram-sets",
-      rel: ["collection"],
-      title: "Diagram sets",
-    },
-    {
-      href: "/siren/scaffoldings",
-      rel: ["collection"],
-      title: "Scaffoldings",
-    },
-  ],
-  properties: { title: "Enclosure API" },
-  title: "Enclosure API",
-};
-
-const projectsDocument = {
-  actions: [],
-  class: ["collection", "project"],
-  entities: [],
-  links: [{ href: "/siren/projects", rel: ["self"], title: "Projects" }],
-  properties: {},
-  title: "Projects",
-};
-
-const scaffoldingsDocument = {
-  actions: [],
-  class: ["collection", "scaffolding"],
-  entities: [
-    {
-      class: ["scaffolding"],
-      entities: [],
-      links: [
-        {
-          href: "/siren/scaffoldings/scaffolding-1",
-          rel: ["item"],
-          title: "Scaffolding",
-        },
-      ],
-      properties: {
-        description: "Creates a typed Python package.",
-        id: "scaffolding-1",
-        language_id: "python",
-        name: "Python package",
-      },
-      rel: ["item"],
-      title: "Python package",
-    },
-  ],
-  links: [
-    { href: "/siren/scaffoldings", rel: ["self"], title: "Scaffoldings" },
-  ],
-  properties: { has_more: false, limit: 50, next_offset: 1 },
-  title: "Scaffoldings",
-};
-
-const scaffoldingDocument = {
-  actions: [],
-  class: ["scaffolding"],
-  entities: [],
-  links: [
-    {
-      href: "/siren/scaffoldings/scaffolding-1",
-      rel: ["self"],
-      title: "Python package",
-    },
-    {
-      href: "/siren/scaffoldings/scaffolding-1/template-manifests",
-      rel: ["collection"],
-      title: "TemplateManifest",
-    },
-  ],
-  properties: {
-    description: "Creates a typed Python package.",
-    id: "scaffolding-1",
-    language_id: "python",
-    name: "Python package",
-    spec: {
-      language: "python",
-      templates: [
-        {
-          path: "src/package/__init__.py",
-          revision: "template-revision-1",
-          size_bytes: 22,
-          write_mode: "overwrite",
-        },
-      ],
-      variables: [],
-    },
-    template_count: 1,
-    templates_revision: "templates-revision-1",
-  },
-  title: "Python package",
-};
-
-const templateManifestsDocument = {
-  actions: [],
-  class: ["collection", "template-manifest"],
-  entities: [
-    {
-      class: ["template-manifest"],
-      entities: [],
-      links: [
-        {
-          href: "/siren/scaffoldings/scaffolding-1/template-content?path=src%2Fpackage%2F__init__.py&expected_revision=template-revision-1&offset=0&limit=1000",
-          rel: ["item"],
-          title: "TemplateContent",
-        },
-      ],
-      properties: {
-        path: "src/package/__init__.py",
-        revision: "template-revision-1",
-        size_bytes: 22,
-        write_mode: "overwrite",
-      },
-      rel: ["item"],
-      title: "Template manifest",
-    },
-  ],
-  links: [],
-  properties: {
-    has_more: false,
-    limit: 50,
-    next_offset: 1,
-    revision: "templates-revision-1",
-    scaffolding_id: "scaffolding-1",
-  },
-  title: "Template manifests",
-};
-
-const templateContentDocument = {
-  actions: [],
-  class: ["template-content"],
-  entities: [],
-  links: [],
-  properties: {
-    content: "from typing import Any",
-    has_more: false,
-    limit: 1000,
-    next_offset: 22,
-    path: "src/package/__init__.py",
-    revision: "template-revision-1",
-    total_characters: 22,
-    write_mode: "overwrite",
-  },
-  title: "Template content",
-};
-
-const projectDocument = {
-  actions: [
-    {
-      fields: [{ name: "title", title: "Project title", type: "text" }],
-      href: "/siren/projects/project-1",
-      method: "PATCH",
-      name: "rename-project",
-      title: "Rename project",
-      type: "application/json",
-    },
-  ],
-  class: ["example-resource"],
-  entities: [],
-  links: [
-    {
-      href: "/siren/projects/project-1",
-      rel: ["self"],
-      title: "Example project",
-    },
-  ],
-  properties: { id: "project-1", title: "Example project" },
-  title: "Example project",
-};
-
-const updatedProjectDocument = {
-  ...projectDocument,
-  properties: { id: "project-1", title: "Updated project" },
-  title: "Updated project",
-};
-
-const rootHandler = http.get("*/siren/", () =>
-  HttpResponse.json(rootDocument, { headers: SIREN_HEADERS }),
-);
+import {
+  projectDocument,
+  projectsDocument,
+  rootDocument,
+  rootHandler,
+  scaffoldingDocument,
+  scaffoldingsDocument,
+  SIREN_HEADERS,
+  templateContentDocument,
+  templateManifestsDocument,
+  updatedProjectDocument,
+} from "./AppStoryFixtures";
 
 const meta = {
   component: App,
@@ -597,6 +417,73 @@ export const ActionSuccess: Story = {
     await expect(submit).toBeDisabled();
     await expect(
       await canvas.findByRole("heading", { name: "Updated project" }),
+    ).toBeVisible();
+  },
+};
+
+const composedCollections = [
+  { path: "projects", kind: "project", title: "Projects" },
+  { path: "diagram-sets", kind: "diagram-set", title: "Diagram sets" },
+  { path: "scaffoldings", kind: "scaffolding", title: "Scaffoldings" },
+  { path: "records", kind: "record", title: "Records" },
+  { path: "languages", kind: "language", title: "Languages" },
+];
+
+export const FiveApplicationJourney: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        rootHandler,
+        ...composedCollections.map(({ path, kind, title }) =>
+          http.get(`*/siren/${path}`, () =>
+            HttpResponse.json(
+              {
+                actions: [],
+                class: ["collection", kind],
+                entities: [],
+                links: [{ href: `/siren/${path}`, rel: ["self"], title }],
+                properties: {
+                  has_more: false,
+                  limit: 50,
+                  next_offset: 0,
+                  order_by: "updated_at",
+                  direction: "desc",
+                },
+                title,
+              },
+              { headers: SIREN_HEADERS },
+            ),
+          ),
+        ),
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole("heading", { name: "Enclosure API" });
+    for (const { path, title } of composedCollections) {
+      const group = title;
+      await userEvent.click(canvas.getByRole("button", { name: group }));
+      const link = await canvas.findByRole("link", {
+        name: title,
+      });
+      await userEvent.click(link);
+      await waitFor(() => expect(window.location.hash).toBe(`#/siren/${path}`));
+      await expect(
+        await canvas.findByRole("heading", { name: title }),
+      ).toBeVisible();
+      await expect(link).toHaveAttribute("aria-current", "page");
+      await expect(canvas.getAllByRole("link", { name: title })).toHaveLength(
+        1,
+      );
+    }
+    window.history.back();
+    await expect(
+      await canvas.findByRole("heading", { name: "Records" }),
+    ).toBeVisible();
+    window.history.forward();
+    await expect(
+      await canvas.findByRole("heading", { name: "Languages" }),
     ).toBeVisible();
   },
 };

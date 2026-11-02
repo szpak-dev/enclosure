@@ -10,25 +10,22 @@ import {
 import type { Entity, Target } from "@siren-js/client";
 import { IconDownload } from "@tabler/icons-react";
 import { Component, type ReactNode } from "react";
-import { MermaidRenderer, type MermaidTheme } from "./MermaidRenderer";
 
-type DiagramDownloadSource = {
-  diagramId: string;
-  revision: number;
-  source: string;
+type DiagramSvgFile = {
+  filename: string;
+  content: string;
 };
 
 type DiagramDownloadProps = {
   diagramId: string;
   revision: number;
-  theme: MermaidTheme;
   title: string;
+  onLoad: (target: Target) => Promise<Entity>;
 } & (
-  | { presentation: "button"; source: string }
+  | { presentation: "button"; source: string; entity: Entity }
   | {
       presentation: "icon";
       target: Target;
-      onLoad: (target: Target) => Promise<Entity>;
     }
 );
 
@@ -37,7 +34,7 @@ type DownloadState =
   | { status: "rendering" }
   | { status: "error"; message: string };
 
-export class DiagramDownload extends Component<
+class DiagramDownloadControl extends Component<
   DiagramDownloadProps,
   DownloadState
 > {
@@ -49,7 +46,6 @@ export class DiagramDownload extends Component<
     if (
       previous.diagramId !== this.props.diagramId ||
       previous.revision !== this.props.revision ||
-      previous.theme !== this.props.theme ||
       previous.presentation !== this.props.presentation ||
       (previous.presentation === "button" &&
         this.props.presentation === "button" &&
@@ -68,34 +64,57 @@ export class DiagramDownload extends Component<
     this.generation += 1;
   }
 
-  async readSource(): Promise<DiagramDownloadSource> {
-    if (this.props.presentation === "button") {
-      return {
-        diagramId: this.props.diagramId,
-        revision: this.props.revision,
-        source: this.props.source,
-      };
+  async readFile(): Promise<DiagramSvgFile> {
+    const entity =
+      this.props.presentation === "button"
+        ? this.props.entity
+        : await this.props.onLoad(this.props.target);
+    const download = entity.links.find((link) =>
+      link.rel.includes("enclosure:download-svg"),
+    );
+    if (!download) {
+      throw new Error("SVG download is unavailable for this diagram.");
     }
-
-    const entity = await this.props.onLoad(this.props.target);
-    const properties = entity.properties;
+    const result = await this.props.onLoad(download);
+    const properties = result.properties;
     if (
-      !("id" in properties) ||
-      typeof properties.id !== "string" ||
+      !("diagram_id" in properties) ||
+      properties.diagram_id !== this.props.diagramId ||
       !("revision" in properties) ||
-      typeof properties.revision !== "number" ||
-      !("source" in properties) ||
-      typeof properties.source !== "string"
+      properties.revision !== this.props.revision ||
+      !("filename" in properties) ||
+      typeof properties.filename !== "string" ||
+      !("media_type" in properties) ||
+      properties.media_type !== "image/svg+xml" ||
+      !("content" in properties) ||
+      typeof properties.content !== "string" ||
+      !properties.content.trim() ||
+      !("content_revision" in properties) ||
+      typeof properties.content_revision !== "string" ||
+      !("offset" in properties) ||
+      properties.offset !== 0 ||
+      !("total_characters" in properties) ||
+      properties.total_characters !== Array.from(properties.content).length ||
+      !("has_more" in properties) ||
+      properties.has_more !== false
     ) {
       throw new Error(
-        "The diagram response does not contain SVG rendering data.",
+        "The SVG response does not contain a complete matching document.",
       );
     }
-    return {
-      diagramId: properties.id,
-      revision: properties.revision,
-      source: properties.source,
-    };
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(properties.content),
+    );
+    const revision = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+    if (revision !== properties.content_revision) {
+      throw new Error(
+        "The SVG document failed its integrity check. Try downloading again.",
+      );
+    }
+    return { filename: properties.filename, content: properties.content };
   }
 
   download = async (): Promise<void> => {
@@ -103,27 +122,19 @@ export class DiagramDownload extends Component<
 
     this.busy = true;
     const generation = ++this.generation;
-    const { theme } = this.props;
     this.setState({ status: "rendering" });
 
     try {
-      const { diagramId, revision, source } = await this.readSource();
-      if (generation !== this.generation) return;
-      if (!source.trim()) throw new Error("Diagram has no source.");
-      const renderer = new MermaidRenderer(theme);
-      const rendering = await renderer.render(
-        source,
-        `download-${crypto.randomUUID()}`,
-      );
+      const artifact = await this.readFile();
       if (generation !== this.generation) return;
 
-      const file = new Blob([rendering.svg], {
+      const file = new Blob([artifact.content], {
         type: "image/svg+xml;charset=utf-8",
       });
       const url = URL.createObjectURL(file);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `diagram-${diagramId}-r${revision}.svg`;
+      link.download = artifact.filename;
       try {
         document.body.append(link);
         link.click();
@@ -193,7 +204,12 @@ export class DiagramDownload extends Component<
     return (
       <Stack gap="xs" align="start">
         <Button
-          disabled={!this.props.source.trim()}
+          disabled={
+            !this.props.source.trim() ||
+            !this.props.entity.links.some((link) =>
+              link.rel.includes("enclosure:download-svg"),
+            )
+          }
           leftSection={<IconDownload aria-hidden size={18} />}
           loading={this.state.status === "rendering"}
           onClick={this.download}
@@ -203,7 +219,7 @@ export class DiagramDownload extends Component<
         </Button>
         {this.state.status === "rendering" ? (
           <Text role="status" size="sm">
-            Rendering SVG…
+            Preparing SVG…
           </Text>
         ) : null}
         {this.state.status === "error" ? (
@@ -214,4 +230,8 @@ export class DiagramDownload extends Component<
       </Stack>
     );
   }
+}
+
+export function DiagramDownload(props: DiagramDownloadProps): ReactNode {
+  return <DiagramDownloadControl {...props} />;
 }

@@ -4,6 +4,12 @@ import { once } from "node:events";
 import { setTimeout as pause } from "node:timers/promises";
 
 const EXPECTED_COMPONENTS = [
+  "browser-diagrams-gallery",
+  "browser-diagrams-collection",
+  "browser-diagrams-detail",
+  "browser-diagrams-full-screen-preview",
+  "browser-scaffoldings",
+  "browser-application-color-scheme",
   "browser-languages",
   "browser-records",
   "browser-application",
@@ -74,6 +80,15 @@ class StorybookContractVerifier {
   }
 
   verifyManifest(manifest, storyIds, source) {
+    const exposed = new Set(
+      Object.values(manifest.components ?? {}).flatMap((component) =>
+        component.stories.map((story) => story.id),
+      ),
+    );
+    for (const storyId of storyIds) {
+      if (!exposed.has(storyId))
+        throw new Error(`The ${source} component manifest omits ${storyId}.`);
+    }
     for (const componentId of EXPECTED_COMPONENTS) {
       const component = manifest.components?.[componentId];
       if (!component || component.stories.length === 0) {
@@ -184,17 +199,10 @@ class StorybookContractVerifier {
       .filter((item) => item.type === "text")
       .map((item) => item.text)
       .join("\n");
-    for (const componentId of EXPECTED_COMPONENTS) {
-      const componentStoryIds = [...storyIds].filter((storyId) =>
-        storyId.startsWith(`${componentId}--`),
-      );
-      if (
-        !componentStoryIds.some((storyId) =>
-          documentationText.includes(storyId),
-        )
-      ) {
+    for (const storyId of storyIds) {
+      if (!documentationText.includes(storyId)) {
         throw new Error(
-          `Storybook MCP documentation does not expose stories for ${componentId}.`,
+          `Storybook MCP documentation does not expose ${storyId}.`,
         );
       }
     }

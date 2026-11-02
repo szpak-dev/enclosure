@@ -40,6 +40,7 @@ that operation.
 | `POST` | `/api/diagrams/{diagram_id}/command-batches` | `apply_diagram_command_batch` | Apply a diagram command batch |
 | `POST` | `/api/diagrams/{diagram_id}/commands` | `apply_diagram_command` | Apply a diagram command |
 | `GET` | `/api/diagrams/{diagram_id}/content` | `read_diagram_content` | Read diagram content |
+| `GET` | `/api/diagrams/{diagram_id}/svg` | `download_diagram_svg` | Download diagram SVG |
 
 ## Languages
 
@@ -219,8 +220,10 @@ The OpenAPI components define these named transport schemas:
 - `DiagramSetPage`
 - `DiagramSetSummary`
 - `DiagramSummary`
+- `DiagramSvg`
 - `DiscoverProject`
 - `DiscoveredProject`
+- `DownloadDiagramSvg`
 - `FindAuditEvents`
 - `FindDiagramPage`
 - `FindPage`

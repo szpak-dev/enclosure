@@ -190,6 +190,28 @@ export const SortingAndContinuation: Story = {
 };
 
 export const GlobalDiagramsWithPreviewActions: Story = {
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await expect(
+      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Preview Request flow" }),
+    );
+    await expect(
+      await page.findByRole(
+        "img",
+        { name: "Request flow Mermaid preview" },
+        { timeout: 15000 },
+      ),
+    ).toBeVisible();
+    await expect(args.onFollow).not.toHaveBeenCalled();
+    await userEvent.click(
+      page.getByRole("button", { name: "Close Request flow preview" }),
+    );
+  },
+
   args: {
     entity: sirenFixtures.entity(
       ["collection", "diagram"],

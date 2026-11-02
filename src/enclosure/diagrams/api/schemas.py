@@ -160,6 +160,26 @@ class ReadDiagramContent(StrictSchema):
     limit: int = Field(default=0, description="Maximum characters returned; zero selects the remainder.", ge=0)
 
 
+class DownloadDiagramSvg(StrictSchema):
+    expected_revision: int = Field(description="Diagram revision to export; stale revisions are rejected.", ge=1)
+    offset: int = Field(default=0, description="Character offset in the rendered SVG artifact.", ge=0)
+    limit: int = Field(default=0, description="Maximum SVG characters returned; zero selects the remainder.", ge=0)
+
+
+class DiagramSvg(StrictSchema):
+    diagram_id: DiagramId
+    revision: int = Field(description="Exported diagram revision.", ge=1)
+    filename: str = Field(description="Suggested filename for the complete SVG artifact.")
+    media_type: Literal["image/svg+xml"] = Field(description="Media type of the rendered artifact.")
+    content_revision: str = Field(description="SHA-256 digest of the complete UTF-8 SVG artifact.")
+    offset: int = Field(description="Character offset at which this SVG page starts.", ge=0)
+    limit: int = Field(description="Maximum characters selected for this SVG page.", ge=1)
+    total_characters: int = Field(description="Total characters in the complete SVG artifact.", ge=1)
+    content: str = Field(description="SVG text; concatenate successive pages to save the complete file.")
+    has_more: bool = Field(description="Whether another SVG page remains.")
+    next_offset: int = Field(description="Character offset for the next SVG read.", ge=0)
+
+
 class DiagramContent(StrictSchema):
     diagram_id: DiagramId
     revision: int = Field(description="Diagram revision used for this read.", ge=1)

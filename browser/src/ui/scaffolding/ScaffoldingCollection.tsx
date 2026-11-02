@@ -4,7 +4,7 @@ import { ResourcePage, Section } from "../resource/ResourcePrimitives";
 import type { SirenEntityProps } from "../siren/SirenEntity";
 import { SirenContinuation } from "../siren/SirenContinuation";
 import { ScaffoldingActionResult } from "./ScaffoldingActionResult";
-import { ScaffoldingCards } from "./ScaffoldingCards";
+import { ScaffoldingList } from "./ScaffoldingList";
 
 export function ScaffoldingCollection({
   entity,
@@ -45,7 +45,7 @@ export function ScaffoldingCollection({
         values={entity.properties}
       />
       <Section title={searchResults ? "Matches" : "Available scaffoldings"}>
-        <ScaffoldingCards items={entity.entities} onFollow={onFollow} />
+        <ScaffoldingList items={entity.entities} onFollow={onFollow} />
         <SirenContinuation entity={entity} onFollow={onFollow} />
       </Section>
     </ResourcePage>
