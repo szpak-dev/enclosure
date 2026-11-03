@@ -17,6 +17,7 @@ x-runtime: &runtime
     PROJECT_HEALTH_CACHE_DIRECTORY: /var/cache/enclosure/health
     PROJECT_HEALTH_CACHE_MAX_BYTES: ${PROJECT_HEALTH_CACHE_MAX_BYTES:-1073741824}
     DIAGRAM_SVG_CACHE_DIRECTORY: /var/cache/enclosure/svg
+    DIAGRAM_SNAPSHOT_BACKUP_DIRECTORY: /var/backups/enclosure/diagrams
     RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
     RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
     SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
@@ -30,6 +31,9 @@ x-runtime: &runtime
     - type: volume
       source: svg-cache
       target: /var/cache/enclosure/svg
+    - type: volume
+      source: diagram-backups
+      target: /var/backups/enclosure/diagrams
     - type: bind
       source: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
       target: ${ENCLOSURE_PROJECTS_DIR:-/Users/gorky/Projects}
@@ -60,6 +64,7 @@ networks:
     name: resumed-api_default
 
 volumes:
+  diagram-backups:
   svg-cache:
   health-cache:
   modwire-cache:

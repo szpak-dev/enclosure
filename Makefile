@@ -146,7 +146,7 @@ runtime-up:
 	docker compose pull mcp; \
 	pulled="$$(docker image inspect --format '{{.Id}}' "$$image")"; \
 	if [ -n "$$current" ] && [ "$$current" != "$$pulled" ]; then docker image tag "$$current" "$$previous"; fi; \
-	docker compose run --rm --no-deps --user root --entrypoint chown migrate -R 10001:10001 /var/cache/enclosure; \
+	docker compose run --rm --no-deps --user root --entrypoint chown migrate -R 10001:10001 /var/cache/enclosure /var/backups/enclosure; \
 	docker compose run --rm --no-deps migrate; \
 	docker compose up --detach mcp; \
 	stale="$$(docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}}' | awk -v current="$$local_current" -v previous="$$local_previous" -v repository="$$local_repository" '$$1 != current && $$1 != previous && (index($$1, repository ":") == 1 || $$1 == "enclosure:mcp") { print $$2 }' | sort -u)"; \

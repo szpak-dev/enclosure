@@ -27,8 +27,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 enclosure \
     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin enclosure \
-    && mkdir -p /var/cache/enclosure/health /var/cache/enclosure/modwire /var/cache/enclosure/svg \
-    && chown -R 10001:10001 /var/cache/enclosure
+    && mkdir -p /var/cache/enclosure/health /var/cache/enclosure/modwire /var/cache/enclosure/svg /var/backups/enclosure/diagrams \
+    && chown -R 10001:10001 /var/cache/enclosure /var/backups/enclosure
 WORKDIR /app
 COPY --chown=10001:10001 --from=builder /app /app
 USER enclosure
