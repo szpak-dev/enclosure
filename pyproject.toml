@@ -21,7 +21,7 @@ dependencies = [
     "markdown-it-py",
     "modwire==12.0.0",
     "modwire-hex",
-    "mermaiden==14.0.0",
+    "mermaiden==15.0.0",
     "sirenity==8.0.2",
     "pgvector",
     "psycopg[binary]",
@@ -76,7 +76,7 @@ markers = [
 
 [tool.ruff]
 cache-dir = ".dev/ruff-cache"
-extend-exclude = ["src/enclosure/plans", "src/enclosure/records"]
+extend-exclude = ["src/enclosure/plans", "src/enclosure/records", "tests/fixtures/source"]
 line-length = 120
 target-version = "py312"
 

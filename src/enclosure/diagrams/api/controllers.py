@@ -1,6 +1,8 @@
+from base64 import b64decode
 from typing import Annotated
 
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
+from django.utils.http import content_disposition_header
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
 from ninja_extra import ControllerBase, api_controller, http_get, route
@@ -15,7 +17,7 @@ from sirenity import (
 )
 
 from ...security.adapters.http import SecurityPermission
-from ..services.facade import DiagramsService, DiagramSvgPage
+from ..services.facade import DiagramPng, DiagramsService
 from . import schemas
 
 
@@ -288,11 +290,11 @@ class DiagramSetsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram_set_diagram",
         follow_ups={
-            "svg": SirenFollowUp(
-                operation_id="download_diagram_svg",
+            "png": SirenFollowUp(
+                operation_id="download_diagram_png",
                 parameters={"query.expected_revision": "revision"},
                 source_inputs={"path.diagram_id": SirenSourceInput(location="path", name="diagram_id")},
-                rel="enclosure:download-svg",
+                rel="enclosure:download-png",
                 scope=SirenScope.ENTITY,
             ),
             "source": SirenFollowUp(
@@ -334,31 +336,37 @@ class DiagramSetsController(ControllerBase):
 
 @api_controller("/diagrams", tags=["Diagrams"], permissions=[SecurityPermission])
 class DiagramsController(ControllerBase):
-    @SirenContinuation(
-        http_get,
-        "/{diagram_id}/svg",
-        response=schemas.DiagramSvg,
-        operation_id="download_diagram_svg",
-        continuation={"offset": "next_offset", "limit": "limit"},
-        source_inputs={
-            "diagram_id": SirenSourceInput(location="path", name="diagram_id"),
-            "expected_revision": SirenSourceInput(location="query", name="expected_revision"),
-        },
-        summary="Download diagram SVG",
+    @http_get(
+        "/{diagram_id}/png",
+        response=schemas.DiagramPng,
+        operation_id="download_diagram_png",
+        summary="Download diagram PNG",
         description=(
-            "Render a revision-pinned SVG on the server. Save the returned content under filename; "
-            "follow continuation for large artifacts."
+            "Render the complete revision-pinned diagram at 2x scale on white. "
+            "Returns a PNG file by default; request application/json for base64 content and image metadata."
         ),
+        openapi_extra={
+            "responses": {"200": {"content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}}}
+        },
     )
-    def download_svg(
+    def download_png(
         self,
         request: HttpRequest,
         diagram_id: Annotated[str, Path(description="Diagram identifier.")],
-        query: Query[schemas.DownloadDiagramSvg],
-    ) -> DiagramSvgPage:
-        return DjangoRequest.resolve(request, DiagramsService).download_svg(
-            diagram_id, query.expected_revision, query.offset, query.limit
-        )
+        query: Query[schemas.DownloadDiagramPng],
+    ) -> DiagramPng | HttpResponse:
+        artifact = DjangoRequest.resolve(request, DiagramsService).download_png(diagram_id, query.expected_revision)
+        if request.get_preferred_type(["image/png", "application/json"]) == "image/png":
+            return HttpResponse(
+                b64decode(artifact.content),
+                content_type=artifact.media_type,
+                headers={
+                    "Content-Disposition": content_disposition_header(True, artifact.filename),
+                    "ETag": f'"{artifact.content_revision}"',
+                    "Vary": "Accept",
+                },
+            )
+        return artifact
 
     @siren_pagination(
         http_get,
@@ -422,11 +430,11 @@ class DiagramsController(ControllerBase):
         response=schemas.Diagram,
         operation_id="get_diagram",
         follow_ups={
-            "svg": SirenFollowUp(
-                operation_id="download_diagram_svg",
+            "png": SirenFollowUp(
+                operation_id="download_diagram_png",
                 parameters={"query.expected_revision": "revision"},
                 source_inputs={"path.diagram_id": SirenSourceInput(location="path", name="diagram_id")},
-                rel="enclosure:download-svg",
+                rel="enclosure:download-png",
                 scope=SirenScope.ENTITY,
             ),
             "source": SirenFollowUp(

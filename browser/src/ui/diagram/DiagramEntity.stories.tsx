@@ -42,7 +42,7 @@ async function expectRenderedPreview(
     { name: `${title} Mermaid preview` },
     { timeout: 10_000 },
   );
-  await expect(preview.querySelector("svg")).not.toBeNull();
+  await expect(preview.querySelector("png")).not.toBeNull();
   await expect(document.queryByRole("alert")).not.toBeInTheDocument();
   await waitFor(() =>
     expect(
@@ -248,10 +248,10 @@ export const DarkMode: Story = {
   ],
   play: async ({ canvasElement }) => {
     const preview = await expectRenderedPreview(canvasElement, "Dark tree");
-    const svg = preview.querySelector("svg");
+    const png = preview.querySelector("png");
     const label = preview.querySelector(".treeView-node-label");
     const line = preview.querySelector(".treeView-node-line");
-    await expect(svg).not.toBeNull();
+    await expect(png).not.toBeNull();
     await expect(label).not.toBeNull();
     await expect(line).not.toBeNull();
     if (!label || !line)
@@ -284,7 +284,7 @@ export const EmptySource: Story = {
     const canvas = within(canvasElement);
     const document = within(canvasElement.ownerDocument.body);
     await expect(
-      canvas.getByRole("button", { name: "Download SVG" }),
+      canvas.getByRole("button", { name: "Download PNG" }),
     ).toBeDisabled();
     await userEvent.click(
       canvas.getByRole("button", { name: "Preview diagram" }),

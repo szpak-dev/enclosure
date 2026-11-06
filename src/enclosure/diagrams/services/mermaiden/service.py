@@ -2,8 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from importlib.metadata import version
 
-from mermaiden import Application
-from mermaiden.core.domain import DiagramSnapshotContractIdentity
+from mermaiden import Application, DiagramSnapshotContractIdentity, MermaidRenderFailure
 from mermaiden.diagrams import domain
 from pydantic import JsonValue
 from wireup import injectable
@@ -74,7 +73,13 @@ class MermaidenService:
         return DiagramState(snapshot=snapshot, source=source)
 
     def validate_render(self, diagram: domain.DiagramModel) -> None:
-        self.render_svg(diagram)
+        report = self._application.validate_render(diagram)
+        if report.success:
+            return
+        if len(report.diagnostics) != 1:
+            raise DiagramsError("Mermaiden returned an unsuccessful render report without one diagnostic.")
+        diagnostic = report.diagnostics[0]
+        raise DiagramRenderValidationError(diagnostic.code.value, diagnostic.message, diagnostic.details)
 
     def renderer_identity(self) -> str:
         return (
@@ -82,18 +87,11 @@ class MermaidenService:
             f":cli:{self._application.mermaid_cli_version}"
         )
 
-    def render_svg(self, diagram: domain.DiagramModel) -> str:
-        report = self._application.validate_render(diagram)
-        if report.success:
-            return report.svg
-        if len(report.diagnostics) != 1:
-            raise DiagramsError("Mermaiden returned an unsuccessful render report without one diagnostic.")
-        diagnostic = report.diagnostics[0]
-        raise DiagramRenderValidationError(
-            diagnostic.code.value,
-            diagnostic.message,
-            diagnostic.details,
-        )
+    def render_png(self, diagram: domain.DiagramModel) -> bytes:
+        try:
+            return self._application.render_png(diagram, scale=2, background="white")
+        except MermaidRenderFailure as error:
+            raise DiagramRenderValidationError(error.code.value, error.message, error.details) from error
 
     def snapshot_contract_identity(self, kind: str) -> DiagramSnapshotContractIdentity:
         return self._application.snapshot_contract_identity(kind)

@@ -3,6 +3,8 @@ name: enclosure
 x-runtime: &runtime
   image: ${ENCLOSURE_IMAGE:?Set ENCLOSURE_IMAGE to the published Docker Hub image and tag.}
   pull_policy: always
+  cap_add:
+    - SYS_ADMIN
   environment:
     ALLOWED_HOSTS: localhost,127.0.0.1,enclosure-mcp
     DATABASE_HOST: resumed-db
@@ -16,7 +18,7 @@ x-runtime: &runtime
     PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS: ${PROJECT_HEALTH_WORKER_READY_TIMEOUT_SECONDS:-15}
     PROJECT_HEALTH_CACHE_DIRECTORY: /var/cache/enclosure/health
     PROJECT_HEALTH_CACHE_MAX_BYTES: ${PROJECT_HEALTH_CACHE_MAX_BYTES:-1073741824}
-    DIAGRAM_SVG_CACHE_DIRECTORY: /var/cache/enclosure/svg
+    DIAGRAM_PNG_CACHE_DIRECTORY: /var/cache/enclosure/png
     DIAGRAM_SNAPSHOT_BACKUP_DIRECTORY: /var/backups/enclosure/diagrams
     RECORDS_EMBEDDINGS_ENABLED: ${RECORDS_EMBEDDINGS_ENABLED:-1}
     RECORDS_EMBEDDING_PROVIDER: ${RECORDS_EMBEDDING_PROVIDER:-deterministic}
@@ -29,8 +31,8 @@ x-runtime: &runtime
       source: health-cache
       target: /var/cache/enclosure/health
     - type: volume
-      source: svg-cache
-      target: /var/cache/enclosure/svg
+      source: png-cache
+      target: /var/cache/enclosure/png
     - type: volume
       source: diagram-backups
       target: /var/backups/enclosure/diagrams
@@ -45,8 +47,6 @@ x-runtime: &runtime
 services:
   mcp:
     <<: *runtime
-    cap_add:
-      - SYS_ADMIN
     container_name: enclosure-mcp
     ports:
       - "127.0.0.1:${ENCLOSURE_MCP_PORT:-8666}:8000"
@@ -65,6 +65,6 @@ networks:
 
 volumes:
   diagram-backups:
-  svg-cache:
+  png-cache:
   health-cache:
   modwire-cache:

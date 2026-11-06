@@ -2,6 +2,7 @@ import fcntl
 import json
 import os
 import tempfile
+from base64 import b64encode
 from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
@@ -12,55 +13,51 @@ from enclosure.shared.errors import ServiceUnavailableError
 
 from ...errors import DiagramsError
 from ...models import Diagram
-from ..mermaiden.service import MermaidenService
+from ..mermaiden import MermaidenService
 from ..repository import DiagramsRepository
-from .model import DiagramSvgPage
+from .model import DiagramPng
 
 
 @injectable
 @dataclass(frozen=True)
-class DiagramSvgService:
+class DiagramPngService:
     repository: DiagramsRepository
     mermaiden: MermaidenService
     directory: Path = field(
         default=Path(
             os.environ.get(
-                "DIAGRAM_SVG_CACHE_DIRECTORY",
-                str(Path(tempfile.gettempdir()) / f"enclosure-svg-{os.getuid()}"),
+                "DIAGRAM_PNG_CACHE_DIRECTORY",
+                str(Path(tempfile.gettempdir()) / f"enclosure-png-{os.getuid()}"),
             )
         ),
         init=False,
     )
 
-    def read(self, diagram_id: str, expected_revision: int, offset: int, limit: int) -> DiagramSvgPage:
+    def read(self, diagram_id: str, expected_revision: int) -> DiagramPng:
         diagram = self.repository.get_diagram(diagram_id)
         if diagram.revision != expected_revision:
-            raise DiagramsError("Diagram changed; reload it before downloading SVG.")
+            raise DiagramsError("Diagram changed; reload it before downloading PNG.")
         if not diagram.source.strip():
             raise DiagramsError("Diagram has no source to export.")
         try:
             content = self.content(diagram)
         except OSError as error:
-            raise ServiceUnavailableError("The SVG artifact store is unavailable; retry the download.") from error
-        if offset > len(content):
-            raise DiagramsError("SVG content offset is outside the document.")
-        effective_limit = max(1, len(content) - offset) if limit == 0 else limit
-        next_offset = min(offset + effective_limit, len(content))
-        return DiagramSvgPage(
+            raise ServiceUnavailableError("The PNG artifact store is unavailable; retry the download.") from error
+        if self.repository.get_diagram(diagram_id).revision != expected_revision:
+            raise DiagramsError("Diagram changed; reload it before downloading PNG.")
+        return DiagramPng(
             diagram_id=diagram.id,
             revision=diagram.revision,
-            filename=f"diagram-{diagram.id}-r{diagram.revision}.svg",
-            media_type="image/svg+xml",
-            content_revision=sha256(content.encode("utf-8")).hexdigest(),
-            offset=offset,
-            limit=effective_limit,
-            total_characters=len(content),
-            content=content[offset:next_offset],
-            has_more=next_offset < len(content),
-            next_offset=next_offset,
+            filename=f"diagram-{diagram.id}-r{diagram.revision}.png",
+            media_type="image/png",
+            content_revision=sha256(content).hexdigest(),
+            content=b64encode(content).decode("ascii"),
+            width=int.from_bytes(content[16:20], "big"),
+            height=int.from_bytes(content[20:24], "big"),
+            total_bytes=len(content),
         )
 
-    def content(self, diagram: Diagram) -> str:
+    def content(self, diagram: Diagram) -> bytes:
         identity = json.dumps(
             {
                 "diagram_id": diagram.id,
@@ -74,16 +71,16 @@ class DiagramSvgService:
         )
         key = sha256(identity.encode("utf-8")).hexdigest()
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        path = self.directory / f"{key}.svg"
+        path = self.directory / f"{key}.png"
         with (self.directory / f"{key}.lock").open("a+b") as lock:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
             if not path.is_file():
                 model = self.mermaiden.restore(diagram.snapshot)
-                self.publish(path, self.mermaiden.render_svg(model))
-            return path.read_text(encoding="utf-8")
+                self.publish(path, self.mermaiden.render_png(model))
+            return path.read_bytes()
 
-    def publish(self, path: Path, content: str) -> None:
-        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.directory) as temporary:
+    def publish(self, path: Path, content: bytes) -> None:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=self.directory) as temporary:
             temporary.write(content)
             temporary.flush()
             os.fsync(temporary.fileno())

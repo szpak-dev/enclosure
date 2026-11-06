@@ -1,0 +1,490 @@
+{
+  "package_version": "13.1.0",
+  "diagrams": [
+    {
+      "kind": "treeView-beta",
+      "snapshot": {
+        "version": 9,
+        "kind": "treeView-beta",
+        "draft": false,
+        "configuration": {
+          "$type": "mermaiden/configuration/treeView-beta/tree_view_diagram_configuration",
+          "fields": {
+            "wrap": true,
+            "use_width": {
+              "$type": "mermaiden/value/treeView-beta/omittable_number",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/treeView-beta/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "use_max_width": true,
+            "theme": {
+              "$type": "mermaiden/value/treeView-beta/omittable_theme",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/treeView-beta/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "look": {
+              "$type": "mermaiden/value/treeView-beta/omittable_look",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/treeView-beta/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "layout": {
+              "$type": "mermaiden/value/treeView-beta/omittable_layout",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/treeView-beta/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "row_indent": 10.0,
+            "padding_x": 5.0,
+            "padding_y": 5.0,
+            "line_thickness": 1.0,
+            "show_icons": false,
+            "default_icon_pack": "",
+            "filename_icons": {
+              "$type": "mermaiden/value/treeView-beta/tree_view_icon_map",
+              "fields": {
+                "root": {}
+              }
+            },
+            "extension_icons": {
+              "$type": "mermaiden/value/treeView-beta/tree_view_icon_map",
+              "fields": {
+                "root": {}
+              }
+            }
+          }
+        },
+        "elements": [
+          {
+            "$type": "mermaiden/element/treeView-beta/tree_item",
+            "fields": {
+              "id": "example-source",
+              "label": "src",
+              "item_type": {
+                "$enum": "mermaiden/enum/treeView-beta/tree_item_type",
+                "value": "directory"
+              }
+            }
+          },
+          {
+            "$type": "mermaiden/element/treeView-beta/tree_item",
+            "fields": {
+              "id": "example-package",
+              "label": "example",
+              "item_type": {
+                "$enum": "mermaiden/enum/treeView-beta/tree_item_type",
+                "value": "directory"
+              }
+            }
+          },
+          {
+            "$type": "mermaiden/element/treeView-beta/tree_item",
+            "fields": {
+              "id": "example-file",
+              "label": "service.py",
+              "item_type": {
+                "$enum": "mermaiden/enum/treeView-beta/tree_item_type",
+                "value": "file"
+              }
+            }
+          }
+        ],
+        "relations": [
+          {
+            "$type": "mermaiden/relation/treeView-beta/tree_branch",
+            "fields": {
+              "id": "example-root-branch",
+              "element_ids": [
+                "example-source",
+                "example-package"
+              ],
+              "label": ""
+            }
+          },
+          {
+            "$type": "mermaiden/relation/treeView-beta/tree_branch",
+            "fields": {
+              "id": "example-file-branch",
+              "element_ids": [
+                "example-package",
+                "example-file"
+              ],
+              "label": ""
+            }
+          }
+        ],
+        "annotations": [
+          {
+            "$type": "mermaiden/annotation/treeView-beta/tree_annotation",
+            "fields": {
+              "id": "example-file-note",
+              "targets": [
+                {
+                  "$type": "mermaiden/value/treeView-beta/target_ref",
+                  "fields": {
+                    "kind": {
+                      "$enum": "mermaiden/enum/treeView-beta/target_kind",
+                      "value": "element"
+                    },
+                    "id": "example-file"
+                  }
+                }
+              ],
+              "highlight": true,
+              "icon": "",
+              "description": "Example file note"
+            }
+          }
+        ],
+        "properties": {}
+      },
+      "source": "---\nconfig:\n  wrap: true\n  treeView: {\"useMaxWidth\": true, \"rowIndent\": 10.0, \"paddingX\": 5.0, \"paddingY\": 5.0, \"lineThickness\": 1.0, \"showIcons\": false, \"defaultIconPack\": \"\", \"filenameIcons\": {}, \"extensionIcons\": {}}\n---\ntreeView-beta\nsrc/\n  example/\n    service.py :::highlight ## Example file note\n",
+      "registry_fingerprint": "0553d6e63d06ded7322dc5db4bccb97d6ba7cb1ffa36b2d288a9b5c782dd5f1c"
+    },
+    {
+      "kind": "classDiagram",
+      "snapshot": {
+        "version": 9,
+        "kind": "classDiagram",
+        "draft": false,
+        "configuration": {
+          "$type": "mermaiden/configuration/classDiagram/class_diagram_configuration",
+          "fields": {
+            "wrap": true,
+            "use_width": {
+              "$type": "mermaiden/value/classDiagram/omittable_number",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/classDiagram/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "use_max_width": true,
+            "theme": {
+              "$type": "mermaiden/value/classDiagram/omittable_theme",
+              "fields": {
+                "root": {
+                  "$enum": "mermaiden/enum/classDiagram/mermaid_theme",
+                  "value": "redux-color"
+                }
+              }
+            },
+            "look": {
+              "$type": "mermaiden/value/classDiagram/omittable_look",
+              "fields": {
+                "root": {
+                  "$enum": "mermaiden/enum/classDiagram/mermaid_look",
+                  "value": "neo"
+                }
+              }
+            },
+            "layout": {
+              "$type": "mermaiden/value/classDiagram/omittable_layout",
+              "fields": {
+                "root": "dagre"
+              }
+            },
+            "title_top_margin": 25,
+            "arrow_marker_absolute": false,
+            "divider_margin": 10.0,
+            "padding": 5.0,
+            "text_height": 10.0,
+            "node_spacing": {
+              "$type": "mermaiden/value/classDiagram/omittable_non_negative_integer",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/classDiagram/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "rank_spacing": {
+              "$type": "mermaiden/value/classDiagram/omittable_non_negative_integer",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/classDiagram/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "diagram_padding": 20,
+            "html_labels": false,
+            "hide_empty_members_box": false,
+            "hierarchical_namespaces": true
+          }
+        },
+        "elements": [
+          {
+            "$type": "mermaiden/element/classDiagram/class",
+            "fields": {
+              "id": "src/example/service.py::class:src/example/service.ExampleService",
+              "label": "ExampleService",
+              "attributes": [],
+              "methods": [],
+              "annotations": [
+                "injectable"
+              ],
+              "comment": ""
+            }
+          }
+        ],
+        "relations": [],
+        "annotations": [
+          {
+            "$type": "mermaiden/annotation/classDiagram/class_note",
+            "fields": {
+              "id": "example-class-note",
+              "targets": [
+                {
+                  "$type": "mermaiden/value/classDiagram/target_ref",
+                  "fields": {
+                    "kind": {
+                      "$enum": "mermaiden/enum/classDiagram/target_kind",
+                      "value": "element"
+                    },
+                    "id": "src/example/service.py::class:src/example/service.ExampleService"
+                  }
+                }
+              ],
+              "text": "Example class note"
+            }
+          }
+        ],
+        "properties": {}
+      },
+      "source": "---\nconfig:\n  wrap: true\n  class: {\"useMaxWidth\": true, \"theme\": \"redux-color\", \"look\": \"neo\", \"layout\": \"dagre\", \"titleTopMargin\": 25, \"arrowMarkerAbsolute\": false, \"dividerMargin\": 10.0, \"padding\": 5.0, \"textHeight\": 10.0, \"diagramPadding\": 20, \"htmlLabels\": false, \"hideEmptyMembersBox\": false, \"hierarchicalNamespaces\": true}\n---\nclassDiagram\nclass c_h_a1826ebb40dfa8c03b1feb1988681a3e[\"ExampleService\"] {\n  <<injectable>>\n}\nnote for c_h_a1826ebb40dfa8c03b1feb1988681a3e \"Example class note\"\n",
+      "registry_fingerprint": "0553d6e63d06ded7322dc5db4bccb97d6ba7cb1ffa36b2d288a9b5c782dd5f1c"
+    },
+    {
+      "kind": "erDiagram",
+      "snapshot": {
+        "version": 9,
+        "kind": "erDiagram",
+        "draft": false,
+        "configuration": {
+          "$type": "mermaiden/configuration/erDiagram/entity_relationship_diagram_configuration",
+          "fields": {
+            "wrap": true,
+            "use_width": {
+              "$type": "mermaiden/value/erDiagram/omittable_number",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/erDiagram/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "use_max_width": true,
+            "theme": {
+              "$type": "mermaiden/value/erDiagram/omittable_theme",
+              "fields": {
+                "root": {
+                  "$enum": "mermaiden/enum/erDiagram/mermaid_theme",
+                  "value": "redux-color"
+                }
+              }
+            },
+            "look": {
+              "$type": "mermaiden/value/erDiagram/omittable_look",
+              "fields": {
+                "root": {
+                  "$enum": "mermaiden/enum/erDiagram/mermaid_look",
+                  "value": "neo"
+                }
+              }
+            },
+            "layout": {
+              "$type": "mermaiden/value/erDiagram/omittable_layout",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/erDiagram/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "title_top_margin": 25,
+            "diagram_padding": 20,
+            "layout_direction": "TB",
+            "min_entity_width": 100,
+            "min_entity_height": 75,
+            "entity_padding": 15,
+            "node_spacing": 140,
+            "rank_spacing": 80,
+            "stroke": "gray",
+            "fill": "honeydew",
+            "font_size": 12
+          }
+        },
+        "elements": [
+          {
+            "$type": "mermaiden/element/erDiagram/entity",
+            "fields": {
+              "id": "example-record",
+              "label": "EXAMPLE_RECORD",
+              "elements": []
+            }
+          }
+        ],
+        "relations": [],
+        "annotations": [],
+        "properties": {
+          "direction": "TB"
+        }
+      },
+      "source": "---\nconfig:\n  wrap: true\n  er: {\"useMaxWidth\": true, \"theme\": \"redux-color\", \"look\": \"neo\", \"titleTopMargin\": 25, \"diagramPadding\": 20, \"layoutDirection\": \"TB\", \"minEntityWidth\": 100, \"minEntityHeight\": 75, \"entityPadding\": 15, \"nodeSpacing\": 140, \"rankSpacing\": 80, \"stroke\": \"gray\", \"fill\": \"honeydew\", \"fontSize\": 12}\n---\nerDiagram\ndirection TB\ne_h_ca3cb59a5b050dc1109fa1523248e16b[\"EXAMPLE_RECORD\"] {\n}\n",
+      "registry_fingerprint": "0553d6e63d06ded7322dc5db4bccb97d6ba7cb1ffa36b2d288a9b5c782dd5f1c"
+    },
+    {
+      "kind": "stateDiagram-v2",
+      "snapshot": {
+        "version": 9,
+        "kind": "stateDiagram-v2",
+        "draft": false,
+        "configuration": {
+          "$type": "mermaiden/configuration/stateDiagram-v2/state_diagram_configuration",
+          "fields": {
+            "wrap": true,
+            "use_width": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_number",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/stateDiagram-v2/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "use_max_width": true,
+            "theme": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_theme",
+              "fields": {
+                "root": {
+                  "$enum": "mermaiden/enum/stateDiagram-v2/mermaid_theme",
+                  "value": "redux-color"
+                }
+              }
+            },
+            "look": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_look",
+              "fields": {
+                "root": {
+                  "$enum": "mermaiden/enum/stateDiagram-v2/mermaid_look",
+                  "value": "neo"
+                }
+              }
+            },
+            "layout": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_layout",
+              "fields": {
+                "root": "elk"
+              }
+            },
+            "wrapping_width": 120.0,
+            "min_node_width": 120.0,
+            "title_top_margin": 25,
+            "arrow_marker_absolute": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_boolean",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/stateDiagram-v2/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "divider_margin": 10.0,
+            "size_unit": 5.0,
+            "padding": 8.0,
+            "text_height": 10.0,
+            "title_shift": -15.0,
+            "note_margin": 10.0,
+            "node_spacing": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_non_negative_integer",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/stateDiagram-v2/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "rank_spacing": {
+              "$type": "mermaiden/value/stateDiagram-v2/omittable_non_negative_integer",
+              "fields": {
+                "root": {
+                  "$type": "mermaiden/value/stateDiagram-v2/unconfigured",
+                  "fields": {}
+                }
+              }
+            },
+            "fork_width": 70.0,
+            "fork_height": 7.0,
+            "mini_padding": 2.0,
+            "font_size_factor": 5.02,
+            "font_size": 24.0,
+            "label_height": 16.0,
+            "edge_length_factor": "20",
+            "composit_title_size": 35.0,
+            "radius": 5.0
+          }
+        },
+        "elements": [
+          {
+            "$type": "mermaiden/element/stateDiagram-v2/state",
+            "fields": {
+              "id": "example-state",
+              "label": "Example state"
+            }
+          }
+        ],
+        "relations": [],
+        "annotations": [
+          {
+            "$type": "mermaiden/annotation/stateDiagram-v2/state_note",
+            "fields": {
+              "id": "example-state-note",
+              "targets": [
+                {
+                  "$type": "mermaiden/value/stateDiagram-v2/target_ref",
+                  "fields": {
+                    "kind": {
+                      "$enum": "mermaiden/enum/stateDiagram-v2/target_kind",
+                      "value": "element"
+                    },
+                    "id": "example-state"
+                  }
+                }
+              ],
+              "text": "Example state note",
+              "position": {
+                "$enum": "mermaiden/enum/stateDiagram-v2/note_position",
+                "value": "right"
+              },
+              "scope_id": ""
+            }
+          }
+        ],
+        "properties": {
+          "direction": {
+            "$enum": "mermaiden/enum/stateDiagram-v2/direction",
+            "value": "TD"
+          }
+        }
+      },
+      "source": "---\nconfig:\n  wrap: true\n  state: {\"useMaxWidth\": true, \"theme\": \"redux-color\", \"look\": \"neo\", \"layout\": \"elk\", \"wrappingWidth\": 120.0, \"minNodeWidth\": 120.0, \"titleTopMargin\": 25, \"dividerMargin\": 10.0, \"sizeUnit\": 5.0, \"padding\": 8.0, \"textHeight\": 10.0, \"titleShift\": -15.0, \"noteMargin\": 10.0, \"forkWidth\": 70.0, \"forkHeight\": 7.0, \"miniPadding\": 2.0, \"fontSizeFactor\": 5.02, \"fontSize\": 24.0, \"labelHeight\": 16.0, \"edgeLengthFactor\": \"20\", \"compositTitleSize\": 35.0, \"radius\": 5.0}\n---\nstateDiagram-v2\ndirection TB\nstate \"Example state\" as s_h_9bc8490751f8e7cc8d291ae40a411512\nnote right of s_h_9bc8490751f8e7cc8d291ae40a411512 : \"Example state note\"\n",
+      "registry_fingerprint": "0553d6e63d06ded7322dc5db4bccb97d6ba7cb1ffa36b2d288a9b5c782dd5f1c"
+    }
+  ]
+}

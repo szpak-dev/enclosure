@@ -218,25 +218,15 @@ class TestArchitectureComparisonInvariants:
         source = tmp_path / "src" / "example"
         source.mkdir(parents=True)
         (source / "base.py").write_text(
-            "from abc import ABC, abstractmethod\n\n"
-            "class ExampleBase(ABC):\n"
-            "    @abstractmethod\n"
-            "    def execute(self) -> None:\n"
-            "        raise NotImplementedError\n",
+            (Path(__file__).parents[4] / "fixtures/source/example_base.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         (source / "service.py").write_text(
-            "from .base import ExampleBase\n\n"
-            "class ExampleService(ExampleBase):\n"
-            "    def execute(self) -> None:\n"
-            "        return None\n",
+            (Path(__file__).parents[4] / "fixtures/source/inherited_service.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         (source / "models.py").write_text(
-            "from django.db import models\n\n"
-            "class ExampleRecordModel(models.Model):\n"
-            "    id = models.UUIDField(primary_key=True)\n"
-            "    name = models.CharField(max_length=120)\n",
+            (Path(__file__).parents[4] / "fixtures/source/example_record_model.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         tree = fixture.create_diagram_batch(

@@ -87,6 +87,12 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
                     "fields": migrated_fields,
                 },
             }
+            if application.snapshot_contract_identity(stored.kind).snapshot_version > candidate["version"]:
+                diagram_model.objects.using(database).filter(pk=stored.pk).update(
+                    snapshot=candidate,
+                    source="" if candidate["draft"] else stored.source,
+                )
+                continue
             diagram = application.restore(candidate)
             canonical = application.snapshot(diagram).to_dict()
             if canonical["kind"] != stored.kind:

@@ -3,14 +3,16 @@ from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
+from django.apps.registry import Apps
 from django.conf import settings
 from django.core import serializers
 from django.db import migrations
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.utils import timezone
 from mermaiden import Application
 
 
-def upgrade_snapshots(apps, schema_editor) -> None:
+def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
     diagram_model = apps.get_model("diagrams", "Diagram")
     database = schema_editor.connection.alias
     diagrams = diagram_model.objects.using(database).select_for_update().order_by("id")
@@ -47,6 +49,12 @@ def upgrade_snapshots(apps, schema_editor) -> None:
             snapshot["version"] = 10
             if stored.kind in {"classDiagram", "treeView-beta"}:
                 snapshot["annotations"] = []
+            if application.snapshot_contract_identity(stored.kind).snapshot_version > snapshot["version"]:
+                diagram_model.objects.using(database).filter(pk=stored.pk).update(
+                    snapshot=snapshot,
+                    source="" if snapshot["draft"] else stored.source,
+                )
+                continue
             diagram = application.restore(snapshot)
             canonical = application.snapshot(diagram).to_dict()
             source = ""

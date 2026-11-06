@@ -17,9 +17,11 @@ renderer-sync:
 	mermaid_cli_version="$$(uv run python -c 'from mermaiden import Application; application = Application.create(); print(application.mermaid_cli_version); application.close()')"; \
 	PUPPETEER_SKIP_DOWNLOAD=true $(NPM) install --save-dev --save-exact \
 		"mermaid@$$mermaid_version" "@mermaid-js/mermaid-cli@$$mermaid_cli_version"
+	@uv run --locked python -m mermaiden.cli renderer-setup
 
 renderer-install:
 	@$(NPM) ci
+	@uv run --locked python -m mermaiden.cli renderer-setup
 	@$(NPX) puppeteer browsers install
 
 browser-build:

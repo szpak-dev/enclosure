@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { sirenFixtures } from "../../../stories/SirenFixtures";
-import { diagramSvgFixtures } from "../../../stories/DiagramSvgFixtures";
+import { diagramPngFixtures } from "../../../stories/DiagramPngFixtures";
 import { DiagramDownload } from "../DiagramDownload";
 import { DiagramListItem } from "../DiagramListItem";
 
@@ -25,7 +25,7 @@ const names: string[] = [];
 const revoked: string[] = [];
 const loadExport = vi.fn<(target: Target) => Promise<Entity>>();
 
-function detail(links = [diagramSvgFixtures.link()]): Entity {
+function detail(links = [diagramPngFixtures.link()]): Entity {
   return sirenFixtures.entity(
     ["diagram"],
     "Example diagram",
@@ -93,13 +93,13 @@ beforeEach(async () => {
   revoked.length = 0;
   onFollow.mockClear();
   loadExport.mockReset();
-  loadExport.mockResolvedValue(await diagramSvgFixtures.document());
+  loadExport.mockResolvedValue(await diagramPngFixtures.document());
   vi.stubGlobal(
     "URL",
     class extends URL {
       static createObjectURL(file: Blob): string {
         files.push(file);
-        return "blob:example-svg";
+        return "blob:example-png";
       }
       static revokeObjectURL(url: string): void {
         revoked.push(url);
@@ -122,19 +122,21 @@ afterEach(() => {
 it.each([
   ["wrong diagram", { diagram_id: "example-other" }],
   ["stale revision", { revision: 2 }],
-  ["partial document", { has_more: true }],
-  ["nonzero offset", { offset: 1 }],
-  ["wrong length", { total_characters: 1 }],
+  ["wrong width", { width: 1 }],
+  ["wrong height", { height: 0 }],
+  ["wrong length", { total_bytes: 1 }],
+  ["invalid base64", { content: "not base64!" }],
+  ["invalid PNG", { content: btoa("Example invalid image payload") }],
   ["wrong media type", { media_type: "text/html" }],
   ["empty content", { content: "" }],
   ["missing filename", { filename: undefined }],
   ["damaged digest", { content_revision: "example-corrupt" }],
 ])("rejects %s without saving a file", async (_name, changes) => {
-  const document = await diagramSvgFixtures.document();
+  const document = await diagramPngFixtures.document();
   loadExport.mockResolvedValue(
     sirenFixtures.entity(
-      ["diagram-svg"],
-      "Example SVG",
+      ["diagram-png"],
+      "Example PNG",
       { ...document.properties, ...changes },
       [],
       [],
@@ -143,10 +145,10 @@ it.each([
   );
   render(row(async () => detail()));
   fireEvent.click(
-    screen.getByRole("button", { name: "Download Example diagram as SVG" }),
+    screen.getByRole("button", { name: "Download Example diagram as PNG" }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Unable to download SVG",
+    "Unable to download PNG",
   );
   expect(names).toEqual([]);
   expect(files).toEqual([]);
@@ -155,10 +157,10 @@ it.each([
 it("reports a missing advertised capability without inventing an export URL", async () => {
   render(row(async () => detail([])));
   fireEvent.click(
-    screen.getByRole("button", { name: "Download Example diagram as SVG" }),
+    screen.getByRole("button", { name: "Download Example diagram as PNG" }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "SVG download is unavailable",
+    "PNG download is unavailable",
   );
   expect(loadExport).not.toHaveBeenCalled();
   expect(names).toEqual([]);
@@ -173,7 +175,7 @@ it.each(["empty source", "missing capability"])(
         reason === "missing capability" ? detail([]) : detail(),
       ),
     );
-    expect(screen.getByRole("button", { name: "Download SVG" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Download PNG" })).toBeDisabled();
   },
 );
 
@@ -183,18 +185,18 @@ it("prevents duplicate requests and discards results when the row revision chang
     await new Promise<void>((resolve) =>
       gate.signal.addEventListener("abort", () => resolve(), { once: true }),
     );
-    return await diagramSvgFixtures.document();
+    return await diagramPngFixtures.document();
   });
   const onLoad = vi.fn(async () => detail());
   const view = render(row(onLoad));
   const download = screen.getByRole("button", {
-    name: "Download Example diagram as SVG",
+    name: "Download Example diagram as PNG",
   });
   fireEvent.click(download);
   fireEvent.click(download);
   await waitFor(() => expect(loadExport).toHaveBeenCalledTimes(1));
   expect(screen.getByRole("status")).toHaveTextContent(
-    "Preparing Example diagram SVG",
+    "Preparing Example diagram PNG",
   );
   view.rerender(row(onLoad, 2));
   await act(async () => {
@@ -210,10 +212,10 @@ it("discards a completed response after leaving the view", async () => {
     await new Promise<void>((resolve) =>
       gate.signal.addEventListener("abort", () => resolve(), { once: true }),
     );
-    return await diagramSvgFixtures.document();
+    return await diagramPngFixtures.document();
   });
   const view = render(detailView());
-  fireEvent.click(screen.getByRole("button", { name: "Download SVG" }));
+  fireEvent.click(screen.getByRole("button", { name: "Download PNG" }));
   await waitFor(() => expect(loadExport).toHaveBeenCalledTimes(1));
   view.unmount();
   await act(async () => {
@@ -230,7 +232,7 @@ it("recovers from a server failure and saves exact advertised bytes without navi
   render(row(onLoad));
   expect(onLoad).not.toHaveBeenCalled();
   fireEvent.click(
-    screen.getByRole("button", { name: "Download Example diagram as SVG" }),
+    screen.getByRole("button", { name: "Download Example diagram as PNG" }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Example export temporarily unavailable",
@@ -238,7 +240,7 @@ it("recovers from a server failure and saves exact advertised bytes without navi
   fireEvent.click(
     await screen.findByRole("button", { name: "Retry download" }),
   );
-  await waitFor(() => expect(names).toEqual(["diagram-example-r1.svg"]));
+  await waitFor(() => expect(names).toEqual(["diagram-example-r1.png"]));
   expect(loadExport).toHaveBeenLastCalledWith(
     expect.objectContaining({
       href: "/example-exports/example?expected_revision=1",
@@ -248,26 +250,19 @@ it("recovers from a server failure and saves exact advertised bytes without navi
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   const file = files[0];
   if (!file) throw new Error("No downloaded file");
-  expect(file.type).toBe("image/svg+xml;charset=utf-8");
-  const source = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () =>
-      typeof reader.result === "string"
-        ? resolve(reader.result)
-        : reject(new Error("Expected SVG text"));
-    reader.onerror = () => reject(new Error("Cannot read SVG"));
-    reader.readAsText(file);
-  });
-  expect(source).toBe((await diagramSvgFixtures.document()).properties.content);
-  await waitFor(() => expect(revoked).toContain("blob:example-svg"), {
+  expect(file.type).toBe("image/png");
+  expect(await diagramPngFixtures.read(file)).toEqual(
+    diagramPngFixtures.bytes(),
+  );
+  await waitFor(() => expect(revoked).toContain("blob:example-png"), {
     timeout: 2000,
   });
 });
 
 it("downloads the server artifact from the detail button", async () => {
   render(detailView());
-  fireEvent.click(screen.getByRole("button", { name: "Download SVG" }));
-  await waitFor(() => expect(names).toEqual(["diagram-example-r1.svg"]));
+  fireEvent.click(screen.getByRole("button", { name: "Download PNG" }));
+  await waitFor(() => expect(names).toEqual(["diagram-example-r1.png"]));
   expect(loadExport).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

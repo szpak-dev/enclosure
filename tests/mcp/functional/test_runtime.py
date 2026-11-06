@@ -1001,17 +1001,11 @@ class PublicMcpClient:
         source = root / "src" / "example" / "service.py"
         source.parent.mkdir(parents=True)
         source.write_text(
-            "class ExampleService:\n"
-            "    value: str\n\n"
-            "    def execute(self, request: str) -> str:\n"
-            "        return request\n",
+            (Path(__file__).parents[2] / "fixtures/source/example_service.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         (source.parent / "models.py").write_text(
-            "from django.db import models\n\n"
-            "class ExampleRecordModel(models.Model):\n"
-            "    id = models.UUIDField(primary_key=True)\n"
-            "    name = models.CharField(max_length=120)\n",
+            (Path(__file__).parents[2] / "fixtures/source/example_record_model.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         diagram_set = await http_client.post(
@@ -1277,7 +1271,7 @@ def test_reports_projected_application_errors() -> None:
 def test_bounds_oversized_workspace_guidance_before_rendering(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     _, result = asyncio.run(
@@ -1408,7 +1402,10 @@ def test_rebinds_a_workspace_through_public_mcp(tmp_path: Path) -> None:
     root.mkdir()
     worktree.mkdir()
     (root / "uv.lock").write_text("", encoding="utf-8")
-    (root / "example_app.py").write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
+    (root / "example_app.py").write_text(
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
 
     bound, stale, replaced, resolved, rest_resolution = asyncio.run(
         PublicMcpClient(ConfiguredApplication()).workspace_rebinding(root, worktree, relocated)
@@ -1487,7 +1484,7 @@ def test_public_mcp_rejects_unknown_operating_contract_input_without_reserving_a
 def test_presents_gating_health_failures_with_exact_follow_ups(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     rest_response, result, findings, attestation = asyncio.run(
@@ -1534,7 +1531,7 @@ def test_presents_gating_health_failures_with_exact_follow_ups(tmp_path: Path) -
 def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -1557,7 +1554,7 @@ def test_presents_guidance_health_rules_through_public_mcp(tmp_path: Path) -> No
 def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     directives = [f"Preserve example behavior {index}." for index in range(26)]
@@ -1618,7 +1615,7 @@ def test_presents_workspace_bootstrap_before_compact_guidance(tmp_path: Path) ->
 def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -1640,7 +1637,7 @@ def test_presents_incomplete_workspace_context_as_an_error(tmp_path: Path) -> No
 def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     rest_response, result, findings, attestation = asyncio.run(
@@ -1682,7 +1679,7 @@ def test_presents_healthy_project_health_concisely(tmp_path: Path) -> None:
 def test_presents_project_health_advisories_through_public_mcp(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -1713,7 +1710,7 @@ def test_public_mcp_health_reuses_the_process_start_worker(
 ) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -1744,7 +1741,7 @@ def test_public_mcp_health_reuses_the_process_start_worker(
 def test_presents_complete_project_insights_with_bounded_pages_available(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 
@@ -1772,7 +1769,7 @@ def test_presents_complete_project_insights_with_bounded_pages_available(tmp_pat
 def test_presents_exact_bounded_configuration_content_from_a_siren_action(tmp_path: Path) -> None:
     (tmp_path / "uv.lock").write_text("", encoding="utf-8")
     (tmp_path / "example_app.py").write_text(
-        "class ExampleApplication:\n    pass\n",
+        (Path(__file__).parents[2] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
 

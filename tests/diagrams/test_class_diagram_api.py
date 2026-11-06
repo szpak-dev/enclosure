@@ -53,15 +53,12 @@ def test_all_class_diagram_commands_use_semantic_values_through_the_public_api()
     assert set(commands) == {
         "add_class",
         "add_namespace",
-        "add_note",
         "add_relation",
         "configure",
         "move_element",
-        "remove_annotation",
         "remove_element",
         "remove_relation",
         "reorder_elements",
-        "update_annotation",
         "update_element",
         "update_relation",
     }
@@ -138,12 +135,6 @@ def test_all_class_diagram_commands_use_semantic_values_through_the_public_api()
     diagram = apply_command(
         client,
         diagram,
-        "add_note",
-        {"id": "catalog_note", "class_id": "catalog", "text": "Public query boundary"},
-    )
-    diagram = apply_command(
-        client,
-        diagram,
         "update_element",
         {"id": "catalog", "kind": "class", "changes": {"comment": "Queries catalog items"}},
     )
@@ -160,19 +151,6 @@ def test_all_class_diagram_commands_use_semantic_values_through_the_public_api()
     diagram = apply_command(
         client,
         diagram,
-        "update_annotation",
-        {
-            "id": "catalog_note",
-            "kind": "class_note",
-            "changes": {
-                "text": "Repository query boundary",
-                "targets": [{"kind": "element", "id": "repository"}],
-            },
-        },
-    )
-    diagram = apply_command(
-        client,
-        diagram,
         "move_element",
         {"id": "catalog", "kind": "class", "parent_id": "", "position": 1},
     )
@@ -182,7 +160,6 @@ def test_all_class_diagram_commands_use_semantic_values_through_the_public_api()
         "reorder_elements",
         {"parent_id": "", "element_ids": ["services", "catalog"]},
     )
-    diagram = apply_command(client, diagram, "remove_annotation", {"id": "catalog_note"})
     diagram = apply_command(client, diagram, "remove_relation", {"id": "catalog_uses_repository"})
     diagram = apply_command(client, diagram, "remove_element", {"id": "services", "cascade": True})
 

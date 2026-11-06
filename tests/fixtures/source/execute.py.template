@@ -1,0 +1,2 @@
+    def execute(self, request: {request_annotation}) -> str:
+        return request

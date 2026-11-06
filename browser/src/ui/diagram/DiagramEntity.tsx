@@ -31,7 +31,7 @@ export function DiagramEntity({
   const commandAction = entity.actions.find(isDiagramCommandAction);
   const remainingActions = entity.actions.filter(
     (action) =>
-      action !== commandAction && action.name !== "download_diagram_svg",
+      action !== commandAction && action.name !== "download_diagram_png",
   );
 
   return (
