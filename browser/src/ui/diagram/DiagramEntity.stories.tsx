@@ -42,7 +42,7 @@ async function expectRenderedPreview(
     { name: `${title} Mermaid preview` },
     { timeout: 10_000 },
   );
-  await expect(preview.querySelector("png")).not.toBeNull();
+  await expect(preview.querySelector("svg")).not.toBeNull();
   await expect(document.queryByRole("alert")).not.toBeInTheDocument();
   await waitFor(() =>
     expect(
@@ -248,10 +248,10 @@ export const DarkMode: Story = {
   ],
   play: async ({ canvasElement }) => {
     const preview = await expectRenderedPreview(canvasElement, "Dark tree");
-    const png = preview.querySelector("png");
+    const svg = preview.querySelector("svg");
     const label = preview.querySelector(".treeView-node-label");
     const line = preview.querySelector(".treeView-node-line");
-    await expect(png).not.toBeNull();
+    await expect(svg).not.toBeNull();
     await expect(label).not.toBeNull();
     await expect(line).not.toBeNull();
     if (!label || !line)

@@ -1,5 +1,4 @@
 import os
-from copy import deepcopy
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -37,48 +36,11 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
 
     with Application.create() as application:
         for stored in diagrams.iterator():
-            snapshot = deepcopy(stored.snapshot)
-            if snapshot["version"] not in {10, 11}:
-                raise RuntimeError(
-                    f"Diagram {stored.pk!s} has unsupported Mermaiden snapshot version "
-                    f"{snapshot['version']!r}; expected version 10 or 11."
-                )
-            if snapshot["kind"] != stored.kind:
+            if stored.snapshot["kind"] != stored.kind:
                 raise RuntimeError(f"Diagram {stored.pk!s} snapshot kind does not match its record.")
-
-            if stored.kind == "classDiagram":
-                snapshot["configuration"]["fields"].pop("html_labels", None)
-            if stored.kind == "packet":
-                packet = application.create_diagram("packet")
-                for element in snapshot["elements"]:
-                    fields = element["fields"]
-                    if fields["bits"] is not None:
-                        if fields["start"] is not None or fields["end"] is not None:
-                            raise RuntimeError(f"Diagram {stored.pk!s} has an ambiguous Packet field position.")
-                        application.execute(
-                            packet,
-                            "add_bits",
-                            {"id": fields["id"], "label": fields["label"], "bits": fields["bits"]},
-                        )
-                    else:
-                        application.execute(
-                            packet,
-                            "add_field",
-                            {
-                                "id": fields["id"],
-                                "label": fields["label"],
-                                "start": fields["start"],
-                                "end": fields["start"] if fields["end"] is None else fields["end"],
-                            },
-                        )
-                converted = application.snapshot(packet).to_dict()["elements"]
-                for original, current in zip(snapshot["elements"], converted, strict=True):
-                    fields = original["fields"]
-                    del fields["start"], fields["end"], fields["bits"]
-                    fields["position"] = current["fields"]["position"]
-            snapshot["version"] = 12
-            diagram = application.restore(snapshot)
-            canonical = application.snapshot(diagram).to_dict()
+            upgraded = application.upgrade_snapshot(stored.snapshot, allow_loss=True)
+            canonical = upgraded.snapshot.to_dict()
+            diagram = application.restore(canonical)
             source = ""
             if not canonical["draft"]:
                 report = application.validate_render(diagram)

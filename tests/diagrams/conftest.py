@@ -3,6 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from mermaiden import Application
 from pydantic import TypeAdapter
 
 
@@ -19,5 +20,18 @@ def measure_svg(tmp_path: Path) -> Callable[[str], dict[str, list[str]]]:
             timeout=60,
         )
         return TypeAdapter(dict[str, list[str]]).validate_json(measured.stdout)
+
+    return measure
+
+
+@pytest.fixture
+def measure_snapshot_labels(
+    measure_svg: Callable[[str], dict[str, list[str]]],
+) -> Callable[[dict[str, object]], dict[str, list[str]]]:
+    def measure(snapshot: dict[str, object]) -> dict[str, list[str]]:
+        with Application.create() as application:
+            report = application.validate_render(application.restore(snapshot))
+        assert report.success
+        return measure_svg(report.svg)
 
     return measure

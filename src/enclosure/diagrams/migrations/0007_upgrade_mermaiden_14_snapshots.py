@@ -37,6 +37,8 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
 
     with Application.create() as application:
         for stored in diagrams.iterator():
+            if application.snapshot_contract_identity(stored.kind).snapshot_version > 10:
+                continue
             snapshot = deepcopy(stored.snapshot)
             if snapshot["version"] != 9:
                 raise RuntimeError(
@@ -49,12 +51,6 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
             snapshot["version"] = 10
             if stored.kind in {"classDiagram", "treeView-beta"}:
                 snapshot["annotations"] = []
-            if application.snapshot_contract_identity(stored.kind).snapshot_version > snapshot["version"]:
-                diagram_model.objects.using(database).filter(pk=stored.pk).update(
-                    snapshot=snapshot,
-                    source="" if snapshot["draft"] else stored.source,
-                )
-                continue
             diagram = application.restore(snapshot)
             canonical = application.snapshot(diagram).to_dict()
             source = ""

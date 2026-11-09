@@ -2,7 +2,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from importlib.metadata import version
 
-from mermaiden import Application, DiagramSnapshotContractIdentity, MermaidRenderFailure
+from mermaiden import (
+    Application,
+    DiagramSnapshotContractIdentity,
+    MermaidRenderFailure,
+    SnapshotUpgradeError,
+    SnapshotUpgradeResult,
+)
 from mermaiden.diagrams import domain
 from pydantic import JsonValue
 from wireup import injectable
@@ -41,6 +47,12 @@ class MermaidenService:
         try:
             return self._application.restore(snapshot)
         except RuntimeError as error:
+            raise DiagramsError(str(error)) from error
+
+    def upgrade_snapshot(self, snapshot: Mapping[str, JsonValue], *, allow_loss: bool) -> SnapshotUpgradeResult:
+        try:
+            return self._application.upgrade_snapshot(snapshot, allow_loss=allow_loss)
+        except SnapshotUpgradeError as error:
             raise DiagramsError(str(error)) from error
 
     def apply(

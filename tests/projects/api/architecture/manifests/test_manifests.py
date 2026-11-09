@@ -13,6 +13,20 @@ pytestmark = pytest.mark.django_db
 
 
 class TestArchitectureManifestInvariants:
+    def test_legacy_archive_rejects_unknown_fields_and_recovers_without_rewriting_evidence(
+        self, client: Client, legacy_architecture: Callable[[bool], str]
+    ) -> None:
+        url = legacy_architecture(True)
+        rejected = client.get(f"{url}/manifest")
+        assert rejected.status_code == 422
+
+        url = legacy_architecture(False)
+        before = client.get(url).json()
+        compiled = client.get(f"{url}/manifest")
+        assert compiled.status_code == 200, compiled.json()
+        assert compiled.json()["units"][0]["assertions"]
+        assert client.get(url).json() == before
+
     def test_manifest_compilation_preserves_published_snapshot_evidence(
         self, client: Client, dependencies: dict[str, str], tmp_path: Path
     ) -> None:

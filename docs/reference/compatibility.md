@@ -7,7 +7,7 @@ The checked-out release line requires:
 | Python | 3.14 or later within the supported release line |
 | Package manager | `uv` with the committed lock file |
 | Modwire | 12.0.0 |
-| Mermaiden | 15.0.0 |
+| Mermaiden | 15.1.1 |
 | Mermaid | 12.3.0 |
 | Mermaid CLI | 12.2.0 |
 | Sirenity | 8.0.2 |

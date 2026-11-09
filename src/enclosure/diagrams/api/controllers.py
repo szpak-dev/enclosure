@@ -2,6 +2,7 @@ from base64 import b64decode
 from typing import Annotated
 
 from django.http import HttpRequest, HttpResponse
+from django.utils.cache import patch_vary_headers
 from django.utils.http import content_disposition_header
 from modwire_hex.django import DjangoRequest
 from ninja import Path, Query, Status
@@ -345,13 +346,11 @@ class DiagramsController(ControllerBase):
             "Render the complete revision-pinned diagram at 2x scale on white. "
             "Returns a PNG file by default; request application/json for base64 content and image metadata."
         ),
-        openapi_extra={
-            "responses": {"200": {"content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}}}
-        },
     )
     def download_png(
         self,
         request: HttpRequest,
+        response: HttpResponse,
         diagram_id: Annotated[str, Path(description="Diagram identifier.")],
         query: Query[schemas.DownloadDiagramPng],
     ) -> DiagramPng | HttpResponse:
@@ -366,6 +365,7 @@ class DiagramsController(ControllerBase):
                     "Vary": "Accept",
                 },
             )
+        patch_vary_headers(response, ("Accept",))
         return artifact
 
     @siren_pagination(

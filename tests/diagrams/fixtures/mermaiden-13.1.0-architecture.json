@@ -1,5 +1,6 @@
 {
   "package_version": "13.1.0",
+  "registry_fingerprint": "0553d6e63d06ded7322dc5db4bccb97d6ba7cb1ffa36b2d288a9b5c782dd5f1c",
   "diagrams": [
     {
       "kind": "treeView-beta",

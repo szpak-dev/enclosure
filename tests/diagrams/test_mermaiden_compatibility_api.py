@@ -6,7 +6,7 @@ import pytest
 from django.core.management import call_command
 from django.test import Client
 from django.utils import timezone
-from mermaiden import Application
+from mermaiden import Application, SnapshotUpgradeError
 
 pytestmark = pytest.mark.django_db
 
@@ -28,7 +28,7 @@ def test_browser_mermaid_runtime_matches_mermaiden_compatibility_version() -> No
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
-    ("fixture_name", "implicit_layout", "diagram_index"),
+    ("fixture_name", "invalid_renderer", "diagram_index"),
     (
         ("mermaiden-11.0.1-flowchart-v8.json", False, None),
         ("mermaiden-11.0.0-sequence.json", False, None),
@@ -37,6 +37,7 @@ def test_browser_mermaid_runtime_matches_mermaiden_compatibility_version() -> No
         ("mermaiden-13.1.0-architecture.json", False, 1),
         ("mermaiden-13.1.0-architecture.json", False, 2),
         ("mermaiden-13.1.0-architecture.json", False, 3),
+        ("mermaiden-13.1.0-er-attribute.json", False, None),
     ),
 )
 def test_saved_diagrams_upgrade_through_public_migration_commands(
@@ -44,15 +45,14 @@ def test_saved_diagrams_upgrade_through_public_migration_commands(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     fixture_name: str,
-    implicit_layout: bool,
+    invalid_renderer: bool,
     diagram_index: int | None,
 ) -> None:
     fixture = json.loads((Path(__file__).parent / "fixtures" / fixture_name).read_text())
     if diagram_index is not None:
         fixture = fixture["diagrams"][diagram_index]
     snapshot = fixture["snapshot"]
-    if implicit_layout:
-        snapshot["version"] = 7
+    if invalid_renderer:
         snapshot["configuration"]["fields"]["default_renderer"] = None
     timestamp = timezone.now().isoformat()
     saved = tmp_path / "example-saved-diagram.json"
@@ -92,6 +92,15 @@ def test_saved_diagrams_upgrade_through_public_migration_commands(
         call_command("migrate", "diagrams", previous, fake=True, verbosity=0)
         call_command("loaddata", str(saved), verbosity=0)
 
+        if invalid_renderer:
+            before = client.get("/api/diagrams/example-diagram").json()
+            with pytest.raises(SnapshotUpgradeError):
+                call_command("migrate", "diagrams", verbosity=0)
+            assert client.get("/api/diagrams/example-diagram").json() == before
+            backup = next(tmp_path.glob("0008-mermaiden-15-*.json"))
+            assert json.loads(backup.read_text())[0]["fields"]["snapshot"] == snapshot
+            return
+
         call_command("migrate", "diagrams", verbosity=0)
 
         response = client.get("/api/diagrams/example-diagram")
@@ -101,17 +110,23 @@ def test_saved_diagrams_upgrade_through_public_migration_commands(
             identity = application.snapshot_contract_identity(snapshot["kind"])
         assert stored["snapshot"]["version"] == identity.snapshot_version
         assert stored["revision"] == 2
-        backups = tuple(tmp_path.glob("0007-mermaiden-14-*.json"))
+        backups = tuple(tmp_path.glob("0008-mermaiden-15-*.json"))
         assert len(backups) == 1
         backed_up = json.loads(backups[0].read_text())[0]["fields"]
-        assert backed_up["snapshot"]["version"] == 9
+        assert backed_up["snapshot"] == snapshot
         assert backed_up["revision"] == 1
         assert backed_up["snapshot"]["annotations"] == snapshot["annotations"]
         assert stored["snapshot"]["elements"] == snapshot["elements"]
         assert stored["snapshot"]["annotations"] == (
             [] if snapshot["kind"] in {"classDiagram", "treeView-beta"} else snapshot["annotations"]
         )
-        if diagram_index is not None:
+        if snapshot["kind"] == "classDiagram":
+            assert "html_labels" not in stored["snapshot"]["configuration"]["fields"]
+            assert {
+                **stored["snapshot"]["configuration"]["fields"],
+                "html_labels": snapshot["configuration"]["fields"]["html_labels"],
+            } == snapshot["configuration"]["fields"]
+        elif diagram_index is not None:
             assert stored["snapshot"]["configuration"] == snapshot["configuration"]
         if snapshot["kind"] == "flowchart":
             fields = stored["snapshot"]["configuration"]["fields"]
@@ -119,12 +134,9 @@ def test_saved_diagrams_upgrade_through_public_migration_commands(
             assert stored["source"] == ""
             assert "default_renderer" not in fields
             layout = fields["layout"]["fields"]["root"]
-            if implicit_layout:
-                assert layout["$type"].endswith("/unconfigured")
-            else:
-                assert layout == "dagre"
-                assert fields["wrapping_width"] == 200.0
-                assert fields["min_node_width"] == 120.0
+            assert layout == "dagre"
+            assert fields["wrapping_width"] == 200.0
+            assert fields["min_node_width"] == 120.0
         elif snapshot["kind"] == "sequenceDiagram":
             assert stored["snapshot"]["kind"] == "sequenceDiagram"
             assert "sequenceDiagram" in stored["source"]
@@ -216,12 +228,8 @@ def test_render_rejection_during_creation_leaves_the_diagram_set_empty() -> None
     )
 
     assert rejected.status_code == 422
-    assert rejected.json() == {
-        "detail": (
-            "Mermaiden render validation failed [svg_error]: Mermaid produced an error SVG. "
-            "Details: Maximum text size in diagram exceeded"
-        )
-    }
+    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [render_failed]:")
+    assert "Maximum text size in diagram exceeded" in rejected.json()["detail"]
     diagrams = client.get(f"/api/diagram-sets/{diagram_set['id']}/diagrams")
     assert diagrams.status_code == 200
     assert diagrams.json()["items"] == []
@@ -243,7 +251,7 @@ def test_render_rejection_during_update_preserves_content_and_allows_recovery() 
     )
 
     assert rejected.status_code == 422
-    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [svg_error]:")
+    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [render_failed]:")
     assert client.get(f"/api/diagrams/{diagram['id']}").json() == before
 
     recovered = apply_command(
@@ -277,7 +285,7 @@ def test_render_rejection_during_update_batch_preserves_snapshot_source_and_revi
     )
 
     assert rejected.status_code == 422
-    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [svg_error]:")
+    assert rejected.json()["detail"].startswith("Mermaiden render validation failed [render_failed]:")
     stored = client.get(f"/api/diagrams/{diagram['id']}").json()
     assert stored["snapshot"] == before["snapshot"]
     assert stored["source"] == before["source"]
