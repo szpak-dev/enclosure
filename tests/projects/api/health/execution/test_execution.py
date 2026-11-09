@@ -52,12 +52,15 @@ class TestHealthExecutionAttacks:
 
         attack_started = Event()
         attack_stopped = Event()
+        template = (Path(__file__).parents[4] / "fixtures/source/changed_application.py.template").read_text(
+            encoding="utf-8"
+        )
 
         def mutate_source() -> None:
             revision = 0
             while not attack_stopped.is_set():
                 replacement = tmp_path / ".app.py.replacement"
-                replacement.write_text(f"class ChangedApplication{revision}:\n    pass\n", encoding="utf-8")
+                replacement.write_text(template.format(revision=revision), encoding="utf-8")
                 os.replace(replacement, tmp_path / "app.py")
                 attack_started.set()
                 revision += 1

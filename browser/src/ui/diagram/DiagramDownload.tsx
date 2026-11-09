@@ -11,9 +11,9 @@ import type { Entity, Target } from "@siren-js/client";
 import { IconDownload } from "@tabler/icons-react";
 import { Component, type ReactNode } from "react";
 
-type DiagramSvgFile = {
+type DiagramPngFile = {
   filename: string;
-  content: string;
+  content: Uint8Array<ArrayBuffer>;
 };
 
 type DiagramDownloadProps = {
@@ -64,16 +64,16 @@ class DiagramDownloadControl extends Component<
     this.generation += 1;
   }
 
-  async readFile(): Promise<DiagramSvgFile> {
+  async readFile(): Promise<DiagramPngFile> {
     const entity =
       this.props.presentation === "button"
         ? this.props.entity
         : await this.props.onLoad(this.props.target);
     const download = entity.links.find((link) =>
-      link.rel.includes("enclosure:download-svg"),
+      link.rel.includes("enclosure:download-png"),
     );
     if (!download) {
-      throw new Error("SVG download is unavailable for this diagram.");
+      throw new Error("PNG download is unavailable for this diagram.");
     }
     const result = await this.props.onLoad(download);
     const properties = result.properties;
@@ -85,36 +85,51 @@ class DiagramDownloadControl extends Component<
       !("filename" in properties) ||
       typeof properties.filename !== "string" ||
       !("media_type" in properties) ||
-      properties.media_type !== "image/svg+xml" ||
+      properties.media_type !== "image/png" ||
       !("content" in properties) ||
       typeof properties.content !== "string" ||
       !properties.content.trim() ||
       !("content_revision" in properties) ||
       typeof properties.content_revision !== "string" ||
-      !("offset" in properties) ||
-      properties.offset !== 0 ||
-      !("total_characters" in properties) ||
-      properties.total_characters !== Array.from(properties.content).length ||
-      !("has_more" in properties) ||
-      properties.has_more !== false
+      !("total_bytes" in properties) ||
+      typeof properties.total_bytes !== "number" ||
+      !("width" in properties) ||
+      typeof properties.width !== "number" ||
+      !("height" in properties) ||
+      typeof properties.height !== "number"
     ) {
       throw new Error(
-        "The SVG response does not contain a complete matching document.",
+        "The PNG response does not contain a complete matching image.",
       );
     }
-    const digest = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(properties.content),
+    const content = Uint8Array.from(atob(properties.content), (character) =>
+      character.charCodeAt(0),
     );
+    const header = new DataView(content.buffer);
+    if (
+      content.length !== properties.total_bytes ||
+      content.length < 24 ||
+      header.getUint32(0) !== 0x89504e47 ||
+      header.getUint32(4) !== 0x0d0a1a0a ||
+      header.getUint32(16) !== properties.width ||
+      header.getUint32(20) !== properties.height ||
+      properties.width <= 0 ||
+      properties.height <= 0
+    ) {
+      throw new Error(
+        "The PNG response does not contain a complete matching image.",
+      );
+    }
+    const digest = await crypto.subtle.digest("SHA-256", content);
     const revision = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),
     ).join("");
     if (revision !== properties.content_revision) {
       throw new Error(
-        "The SVG document failed its integrity check. Try downloading again.",
+        "The PNG document failed its integrity check. Try downloading again.",
       );
     }
-    return { filename: properties.filename, content: properties.content };
+    return { filename: properties.filename, content };
   }
 
   download = async (): Promise<void> => {
@@ -129,7 +144,7 @@ class DiagramDownloadControl extends Component<
       if (generation !== this.generation) return;
 
       const file = new Blob([artifact.content], {
-        type: "image/svg+xml;charset=utf-8",
+        type: "image/png",
       });
       const url = URL.createObjectURL(file);
       const link = document.createElement("a");
@@ -170,8 +185,8 @@ class DiagramDownloadControl extends Component<
         >
           <Popover.Target>
             <ActionIcon
-              aria-label={`Download ${this.props.title} as SVG`}
-              title={`Download ${this.props.title} as SVG`}
+              aria-label={`Download ${this.props.title} as PNG`}
+              title={`Download ${this.props.title} as PNG`}
               loading={this.state.status === "rendering"}
               onClick={this.download}
               size="lg"
@@ -182,12 +197,12 @@ class DiagramDownloadControl extends Component<
           </Popover.Target>
           {this.state.status === "rendering" ? (
             <VisuallyHidden role="status">
-              Preparing {this.props.title} SVG…
+              Preparing {this.props.title} PNG…
             </VisuallyHidden>
           ) : null}
           <Popover.Dropdown>
             {this.state.status === "error" ? (
-              <Alert color="red" role="alert" title="Unable to download SVG">
+              <Alert color="red" role="alert" title="Unable to download PNG">
                 <Stack gap="xs">
                   <Text size="sm">{this.state.message}</Text>
                   <Button onClick={this.download} size="xs" variant="light">
@@ -207,7 +222,7 @@ class DiagramDownloadControl extends Component<
           disabled={
             !this.props.source.trim() ||
             !this.props.entity.links.some((link) =>
-              link.rel.includes("enclosure:download-svg"),
+              link.rel.includes("enclosure:download-png"),
             )
           }
           leftSection={<IconDownload aria-hidden size={18} />}
@@ -215,16 +230,16 @@ class DiagramDownloadControl extends Component<
           onClick={this.download}
           variant="default"
         >
-          Download SVG
+          Download PNG
         </Button>
         {this.state.status === "rendering" ? (
           <Text role="status" size="sm">
-            Preparing SVG…
+            Preparing PNG…
           </Text>
         ) : null}
         {this.state.status === "error" ? (
-          <Alert color="red" role="alert" title="Unable to download SVG">
-            {this.state.message} Try Download SVG again to retry.
+          <Alert color="red" role="alert" title="Unable to download PNG">
+            {this.state.message} Try Download PNG again to retry.
           </Alert>
         ) : null}
       </Stack>

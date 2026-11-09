@@ -17,9 +17,11 @@ renderer-sync:
 	mermaid_cli_version="$$(uv run python -c 'from mermaiden import Application; application = Application.create(); print(application.mermaid_cli_version); application.close()')"; \
 	PUPPETEER_SKIP_DOWNLOAD=true $(NPM) install --save-dev --save-exact \
 		"mermaid@$$mermaid_version" "@mermaid-js/mermaid-cli@$$mermaid_cli_version"
+	@uv run --locked python -m mermaiden.cli renderer-setup
 
 renderer-install:
 	@$(NPM) ci
+	@uv run --locked python -m mermaiden.cli renderer-setup
 	@$(NPX) puppeteer browsers install
 
 browser-build:
@@ -146,7 +148,7 @@ runtime-up:
 	docker compose pull mcp; \
 	pulled="$$(docker image inspect --format '{{.Id}}' "$$image")"; \
 	if [ -n "$$current" ] && [ "$$current" != "$$pulled" ]; then docker image tag "$$current" "$$previous"; fi; \
-	docker compose run --rm --no-deps --user root --entrypoint chown migrate -R 10001:10001 /var/cache/enclosure; \
+	docker compose run --rm --no-deps --user root --entrypoint chown migrate -R 10001:10001 /var/cache/enclosure /var/backups/enclosure; \
 	docker compose run --rm --no-deps migrate; \
 	docker compose up --detach mcp; \
 	stale="$$(docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}}' | awk -v current="$$local_current" -v previous="$$local_previous" -v repository="$$local_repository" '$$1 != current && $$1 != previous && (index($$1, repository ":") == 1 || $$1 == "enclosure:mcp") { print $$2 }' | sort -u)"; \

@@ -13,6 +13,7 @@ from mcp.server.lowlevel import Server
 from mcp.types import (
     CallToolRequestParams,
     CallToolResult,
+    ImageContent,
     ListToolsResult,
     PaginatedRequestParams,
     TextContent,
@@ -219,7 +220,13 @@ class McpProtocolServer:
                 request,
             )
             response = CallToolResult(
-                content=[TextContent(type="text", text=result.presentation.markdown)],
+                content=[
+                    TextContent(type="text", text=result.presentation.markdown),
+                    *(
+                        ImageContent(type="image", data=image.data, mime_type=image.media_type)
+                        for image in result.presentation.structured_content.images
+                    ),
+                ],
                 structured_content=result.presentation.structured_content.model_dump(mode="json"),
                 is_error=result.presentation.is_error(),
                 _meta={

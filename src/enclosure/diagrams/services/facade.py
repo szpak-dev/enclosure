@@ -26,7 +26,7 @@ from .diagram_sets.service import DiagramSetService
 from .editing.model import DiagramBatchReceipt, DiagramPage
 from .editing.service import DiagramEditingService
 from .mermaiden.model import DiagramCommand
-from .svg import DiagramSvgPage, DiagramSvgService
+from .png import DiagramPng, DiagramPngService
 
 
 @injectable
@@ -38,10 +38,10 @@ class DiagramsService:
     semantics: DiagramContractSemanticsService
     diagram_sets: DiagramSetService
     editing: DiagramEditingService
-    svg: DiagramSvgService
+    png: DiagramPngService
 
-    def download_svg(self, diagram_id: str, expected_revision: int, offset: int, limit: int) -> DiagramSvgPage:
-        return self.svg.read(diagram_id, expected_revision, offset, limit)
+    def download_png(self, diagram_id: str, expected_revision: int) -> DiagramPng:
+        return self.png.read(diagram_id, expected_revision)
 
     def find_kinds(self) -> tuple[dict[str, str], ...]:
         return self.catalog.find_kinds()

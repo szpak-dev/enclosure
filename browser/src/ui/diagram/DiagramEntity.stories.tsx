@@ -284,7 +284,7 @@ export const EmptySource: Story = {
     const canvas = within(canvasElement);
     const document = within(canvasElement.ownerDocument.body);
     await expect(
-      canvas.getByRole("button", { name: "Download SVG" }),
+      canvas.getByRole("button", { name: "Download PNG" }),
     ).toBeDisabled();
     await userEvent.click(
       canvas.getByRole("button", { name: "Preview diagram" }),

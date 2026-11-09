@@ -23,6 +23,8 @@ def upgrade_snapshots(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> No
     application = Application.create()
     try:
         for stored in diagram_model.objects.using(database).order_by("id").iterator():
+            if application.snapshot_contract_identity(stored.kind).snapshot_version > 9:
+                continue
             snapshot = stored.snapshot
             if not isinstance(snapshot, Mapping):
                 raise RuntimeError(f"Diagram {stored.pk!s} snapshot must be an object.")

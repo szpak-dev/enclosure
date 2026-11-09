@@ -194,7 +194,7 @@ export const GlobalDiagramsWithPreviewActions: Story = {
     const canvas = within(canvasElement);
     const page = within(canvasElement.ownerDocument.body);
     await expect(
-      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+      canvas.getByRole("button", { name: "Download Request flow as PNG" }),
     ).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Preview Request flow" }),

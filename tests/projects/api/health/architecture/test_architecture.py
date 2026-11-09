@@ -159,7 +159,10 @@ class TestHealthArchitectureAttacks:
         ).json()
         accept_health_architecture(client, tmp_path, resolution, coverage="closed")
         outside = tmp_path.parent / f"{tmp_path.name}-outside.py"
-        outside.write_text("class OutsideWorkspace:\n    pass\n", encoding="utf-8")
+        outside.write_text(
+            (Path(__file__).parents[4] / "fixtures/source/outside_workspace.py").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         (tmp_path / "src" / "example" / "escape.py").symlink_to(outside)
 
         response = client.get(
@@ -277,7 +280,7 @@ class TestHealthArchitectureInvariants:
     ) -> None:
         (tmp_path / "uv.lock").write_text("", encoding="utf-8")
         (tmp_path / "example_tool.py").write_text(
-            "from src.example_module import example_value\n",
+            (Path(__file__).parents[4] / "fixtures/source/example_tool.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         source = tmp_path / "src"
@@ -286,7 +289,10 @@ class TestHealthArchitectureInvariants:
         module = source / "example_module"
         module.mkdir(parents=True)
         (module / "__init__.py").write_text("", encoding="utf-8")
-        (module / "example_value.py").write_text("EXAMPLE_VALUE = 1\n", encoding="utf-8")
+        (module / "example_value.py").write_text(
+            (Path(__file__).parents[4] / "fixtures/source/example_value.py").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         payload = registration(discover(client, tmp_path), dependencies)
         payload["boundaries_yaml"] = FLOW_BOUNDARIES_YAML
         resolution = client.post("/api/projects", data=payload, content_type="application/json").json()
@@ -334,10 +340,7 @@ class TestHealthArchitectureHappyPaths:
         ).json()
         accept_health_architecture(client, tmp_path, resolution)
         (tmp_path / "src" / "example" / "service.py").write_text(
-            "class ExampleService:\n"
-            "    value: str\n\n"
-            "    def execute(self, request: int) -> str:\n"
-            "        return str(request)\n",
+            (Path(__file__).parents[4] / "fixtures/source/service_integer_request.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
 

@@ -33,9 +33,12 @@ def registration(
 
 def python_project(root: Path) -> None:
     (root / "uv.lock").write_text("", encoding="utf-8")
-    (root / "app.py").write_text("class Application:\n    pass\n", encoding="utf-8")
+    (root / "app.py").write_text(
+        (Path(__file__).parents[3] / "fixtures/source/application.py").read_text(encoding="utf-8"), encoding="utf-8"
+    )
 
 
 def distinguish_project_source(root: Path, name: str) -> None:
     identity = sha256(root.as_posix().encode("utf-8")).hexdigest()[:16]
-    (root / "identity.py").write_text(f"class {name}{identity}:\n    pass\n", encoding="utf-8")
+    template = (Path(__file__).parents[3] / "fixtures/source/named_application.py.template").read_text(encoding="utf-8")
+    (root / "identity.py").write_text(template.format(name=name, identity=identity), encoding="utf-8")

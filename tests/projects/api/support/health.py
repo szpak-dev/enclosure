@@ -30,7 +30,10 @@ class BlockingArchitectureSource:
 
     def replace(self) -> None:
         replacement = self.path.with_name(f".{self.path.name}.replacement")
-        replacement.write_text("class ExampleApplication:\n    pass\n", encoding="utf-8")
+        replacement.write_text(
+            (Path(__file__).parents[3] / "fixtures/source/example_application.py").read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
         os.replace(replacement, self.path)
 
     def block(self) -> None:

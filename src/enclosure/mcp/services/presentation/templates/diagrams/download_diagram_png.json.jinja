@@ -1,0 +1,10 @@
+{% set metadata = properties.copy() %}
+{% set content = metadata.pop("content") %}
+{
+  "operation_id": {{ operation_id | tojson }},
+  "status": "ok",
+  "summary": "Complete revision-pinned PNG diagram.",
+  "data": {{ metadata | tojson }},
+  "follow_ups": {{ follow_ups | tojson }},
+  "images": [{"data": {{ content | tojson }}, "media_type": {{ properties.media_type | tojson }}}]
+}

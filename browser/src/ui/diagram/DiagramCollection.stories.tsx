@@ -2,7 +2,7 @@ import type { Entity, Target } from "@siren-js/client";
 import { Box } from "@mantine/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-import { diagramSvgFixtures } from "../../stories/DiagramSvgFixtures";
+import { diagramPngFixtures } from "../../stories/DiagramPngFixtures";
 import { sirenFixtures } from "../../stories/SirenFixtures";
 import { DiagramCollection } from "./DiagramCollection";
 import {
@@ -54,7 +54,7 @@ const detail: Entity = sirenFixtures.entity(
     title: "Request flow",
     updated_at: "2026-10-15T08:30:00Z",
   },
-  [diagramSvgFixtures.link("diagram-1", 3)],
+  [diagramPngFixtures.link("diagram-1", 3)],
   [],
   [],
 );
@@ -178,7 +178,7 @@ export const DownloadFailure: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+      canvas.getByRole("button", { name: "Download Request flow as PNG" }),
     );
     const page = within(canvasElement.ownerDocument.body);
     await expect(await page.findByRole("alert")).toHaveTextContent(
@@ -201,13 +201,13 @@ export const DownloadInProgress: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+      canvas.getByRole("button", { name: "Download Request flow as PNG" }),
     );
     await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Preparing Request flow SVG",
+      "Preparing Request flow PNG",
     );
     await expect(
-      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+      canvas.getByRole("button", { name: "Download Request flow as PNG" }),
     ).toBeDisabled();
     await expect(args.onLoad).toHaveBeenCalledTimes(1);
   },
@@ -225,7 +225,7 @@ export const NarrowListActions: Story = {
     const canvas = within(canvasElement);
     const list = canvas.getByRole("list", { name: "Diagrams" });
     const download = canvas.getByRole("button", {
-      name: "Download Request flow as SVG",
+      name: "Download Request flow as PNG",
     });
     const preview = canvas.getByRole("button", {
       name: "Preview Request flow",
@@ -238,7 +238,7 @@ export const NarrowListActions: Story = {
     await expect(previewBounds.right).toBeLessThanOrEqual(downloadBounds.left);
     await expect(
       canvas
-        .getByRole("button", { name: "Download Command sequence as SVG" })
+        .getByRole("button", { name: "Download Command sequence as PNG" })
         .getBoundingClientRect().right,
     ).toBe(downloadBounds.right);
     await expect(download.closest("a")).toBeNull();
@@ -252,7 +252,7 @@ const recoveryLoad = fn(async (target: Target) =>
   (typeof target === "string" ? target : target.href.toString()).includes(
     "/example-exports/",
   )
-    ? diagramSvgFixtures.document("diagram-1", 3)
+    ? diagramPngFixtures.document("diagram-1", 3)
     : detail,
 );
 export const DownloadRecovery: Story = {
@@ -266,7 +266,7 @@ export const DownloadRecovery: Story = {
     const canvas = within(canvasElement);
     const page = within(canvasElement.ownerDocument.body);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Download Request flow as SVG" }),
+      canvas.getByRole("button", { name: "Download Request flow as PNG" }),
     );
     await expect(await page.findByRole("alert")).toHaveTextContent(
       "Example download interrupted",

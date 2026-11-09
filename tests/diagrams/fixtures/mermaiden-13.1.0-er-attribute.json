@@ -1,0 +1,91 @@
+{
+  "package_version": "13.1.0",
+  "snapshot": {
+    "version": 9,
+    "kind": "erDiagram",
+    "draft": false,
+    "configuration": {
+      "$type": "mermaiden/configuration/erDiagram/entity_relationship_diagram_configuration",
+      "fields": {
+        "wrap": true,
+        "use_width": {
+          "$type": "mermaiden/value/erDiagram/omittable_number",
+          "fields": {
+            "root": {
+              "$type": "mermaiden/value/erDiagram/unconfigured",
+              "fields": {}
+            }
+          }
+        },
+        "use_max_width": true,
+        "theme": {
+          "$type": "mermaiden/value/erDiagram/omittable_theme",
+          "fields": {
+            "root": {
+              "$enum": "mermaiden/enum/erDiagram/mermaid_theme",
+              "value": "redux-color"
+            }
+          }
+        },
+        "look": {
+          "$type": "mermaiden/value/erDiagram/omittable_look",
+          "fields": {
+            "root": {
+              "$enum": "mermaiden/enum/erDiagram/mermaid_look",
+              "value": "neo"
+            }
+          }
+        },
+        "layout": {
+          "$type": "mermaiden/value/erDiagram/omittable_layout",
+          "fields": {
+            "root": {
+              "$type": "mermaiden/value/erDiagram/unconfigured",
+              "fields": {}
+            }
+          }
+        },
+        "title_top_margin": 25,
+        "diagram_padding": 20,
+        "layout_direction": "TB",
+        "min_entity_width": 100,
+        "min_entity_height": 75,
+        "entity_padding": 15,
+        "node_spacing": 140,
+        "rank_spacing": 80,
+        "stroke": "gray",
+        "fill": "honeydew",
+        "font_size": 12
+      }
+    },
+    "elements": [
+      {
+        "$type": "mermaiden/element/erDiagram/entity",
+        "fields": {
+          "id": "example",
+          "label": "EXAMPLE",
+          "elements": [
+            {
+              "$type": "mermaiden/element/erDiagram/entity_attribute",
+              "fields": {
+                "id": "example-id",
+                "label": "id",
+                "data_type": "string",
+                "keys": [
+                  "PK"
+                ],
+                "comment": ""
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "relations": [],
+    "annotations": [],
+    "properties": {
+      "direction": "TB"
+    }
+  },
+  "source": "---\nconfig:\n  wrap: true\n  er: {\"useMaxWidth\": true, \"theme\": \"redux-color\", \"look\": \"neo\", \"titleTopMargin\": 25, \"diagramPadding\": 20, \"layoutDirection\": \"TB\", \"minEntityWidth\": 100, \"minEntityHeight\": 75, \"entityPadding\": 15, \"nodeSpacing\": 140, \"rankSpacing\": 80, \"stroke\": \"gray\", \"fill\": \"honeydew\", \"fontSize\": 12}\n---\nerDiagram\ndirection TB\ne_v_example[\"EXAMPLE\"] {\n  string id PK\n}\n"
+}

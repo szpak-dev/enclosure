@@ -1,6 +1,0 @@
-{% from "shared/partials/envelope.json.jinja" import envelope with context %}
-{% set exact_data = properties.copy() %}
-{% if data.links | default([]) %}
-{% do exact_data.update({"links": data.links}) %}
-{% endif %}
-{{ envelope(operation_id, "ok", "Revision-pinned SVG download content.", exact_data, follow_ups) }}

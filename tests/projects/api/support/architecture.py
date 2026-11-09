@@ -241,28 +241,29 @@ def architecture_project_source(
     source = root / "src" / "example" / "service.py"
     source.parent.mkdir(parents=True)
     execute = (
-        f"    def execute(self, request: {request_annotation}) -> str:\n        return request\n"
+        (Path(__file__).parents[3] / "fixtures/source/execute.py.template")
+        .read_text(encoding="utf-8")
+        .format(request_annotation=request_annotation)
         if include_execute
         else ""
     )
     source.write_text(
-        f"import typing\n\nclass ExampleService:\n    value: {value_annotation}\n\n{execute}",
+        (Path(__file__).parents[3] / "fixtures/source/service.py.template")
+        .read_text(encoding="utf-8")
+        .removesuffix("\n")
+        .format(value_annotation=value_annotation, execute=execute),
         encoding="utf-8",
     )
     model = root / "src" / "example" / "models.py"
     model.write_text(
-        "from django.db import models\n\n"
-        "class ExampleRecordModel(models.Model):\n"
-        "    id = models.UUIDField(primary_key=True)\n"
-        f"    name = {name_field}\n",
+        (Path(__file__).parents[3] / "fixtures/source/record_model.py.template")
+        .read_text(encoding="utf-8")
+        .format(name_field=name_field),
         encoding="utf-8",
     )
     if duplicate_service_name:
         (root / "src" / "example" / "other.py").write_text(
-            "class ExampleService:\n"
-            "    value: int\n\n"
-            "    def execute(self, request: int) -> int:\n"
-            "        return request\n",
+            (Path(__file__).parents[3] / "fixtures/source/service_integer_value.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
 

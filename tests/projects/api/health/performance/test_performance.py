@@ -103,7 +103,7 @@ class TestHealthPerformanceInvariants:
         caplog.clear()
         healthy = client.get(path)
         (tmp_path / "app.py").write_text(
-            "class ExampleApplication:\n    pass\n\nclass ExampleHandler:\n    pass\n",
+            (Path(__file__).parents[4] / "fixtures/source/application_and_handler.py").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         changed = client.get(path)
